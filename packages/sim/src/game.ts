@@ -46,9 +46,10 @@ import {
   offerCheck,
 } from './products';
 
-export function createGame(content: Content, seed: number): GameState {
+export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 9,
+    version: 10,
+    companyName: companyName.trim() || 'Your lab',
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
     offers: [],
     contracts: [],
@@ -99,7 +100,7 @@ export function createGame(content: Content, seed: number): GameState {
       nextReleaseWeek: randInt(state, 3, r.releaseEveryWeeks),
     });
   }
-  log(state, 'info', 'Three people, a garage and $8M of seed money. Rent some chips and train a first model.');
+  log(state, 'info', `${state.companyName}: three people, a garage and $8M of seed money. Rent some chips and train a first model.`);
   state.history.push({ week: 0, cash: state.cash, users: 0, bestScore: 0 });
   return state;
 }

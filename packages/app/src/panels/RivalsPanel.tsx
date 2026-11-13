@@ -21,7 +21,7 @@ export function RivalsPanel({ game }: { game: GameState }) {
         note: def.personality,
       };
     }),
-    { id: 'you', name: 'Your lab', model: game.models.at(-1)?.name ?? '—', score: mine, price: game.apiPrice, users: game.users, you: true, note: '' },
+    { id: 'you', name: game.companyName, model: game.models.at(-1)?.name ?? '—', score: mine, price: game.apiPrice, users: game.users, you: true, note: '' },
   ].sort((a, b) => b.score - a.score);
   const top = Math.max(...rows.map((r) => r.score));
   const yourRank = rows.findIndex((r) => r.you);

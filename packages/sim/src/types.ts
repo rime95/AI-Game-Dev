@@ -204,7 +204,8 @@ export interface Contract {
 }
 
 export interface GameState {
-  version: 9;
+  version: 10;
+  companyName: string;
   consumer: ConsumerApp;
   offers: EnterpriseOffer[];
   contracts: Contract[];

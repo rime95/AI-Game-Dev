@@ -4,7 +4,7 @@ import { big, money, pct } from '../format';
 
 /** End screens: victory (can keep playing), bankruptcy and AGI catastrophe. */
 export function GameOver({ game }: { game: GameState }) {
-  const newGame = useStore((s) => s.newGame);
+  const quitToMenu = useStore((s) => s.quitToMenu);
   const send = useStore((s) => s.send);
   const won = game.status === 'won' && game.victory;
   const text = won
@@ -53,7 +53,7 @@ export function GameOver({ game }: { game: GameState }) {
               Keep playing
             </button>
           )}
-          <button className={`btn big${won ? '' : ' primary'}`} onClick={() => newGame()}>
+          <button className={`btn big${won ? '' : ' primary'}`} onClick={() => void quitToMenu()}>
             Start a new company
           </button>
         </div>

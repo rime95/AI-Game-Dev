@@ -11,7 +11,7 @@ export function OverviewPanel({ game }: { game: GameState }) {
   const costs = lw ? lw.salaries + lw.rent + lw.power + lw.licenseUpkeep : 0;
   const income = lw ? lw.revenue + lw.licenseRevenue : 0;
   const live = liveModel(game);
-  const newGame = useStore((s) => s.newGame);
+  const setPauseOpen = useStore((s) => s.setPauseOpen);
 
   return (
     <>
@@ -58,11 +58,11 @@ export function OverviewPanel({ game }: { game: GameState }) {
       <div className="card">
         <h3>Game</h3>
         <div className="small muted">
-          Seed {game.seed}. Progress autosaves in this browser. {content.rivals.length} rival labs are racing you.
+          Seed {game.seed}. {content.rivals.length} rival labs started the race. Save, load and settings are in the menu.
         </div>
         <div className="row">
-          <button className="btn" onClick={() => confirm('Abandon this company and start over?') && newGame()}>
-            New game
+          <button className="btn" onClick={() => setPauseOpen(true)}>
+            Open menu (Esc)
           </button>
         </div>
       </div>

@@ -17,6 +17,11 @@ npm install
 | `npm test` | Simulation tests |
 | `npm run typecheck` | TypeScript check across all packages |
 
+## Saves
+- **Desktop (Electron):** one JSON file per save in `%APPDATA%\Sand to Mind\saves` (plus a `.meta.json` for the load screen). Writes are atomic.
+- **Browser (dev):** `localStorage`, keys starting with `stm.saves/`.
+- Saves carry a version; `packages/sim/src/migrate.ts` upgrades older saves. Bump `SAVE_VERSION` and add a migration whenever `GameState` changes shape.
+
 ## Layout
 ```
 packages/content   game data (chips, architectures, rivals, events) + Zod schemas

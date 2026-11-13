@@ -5,7 +5,8 @@ import { money } from '../format';
 
 export function Feed({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
-  const blocked = !!game.pendingEvent || game.status !== 'playing';
+  const pauseOpen = useStore((s) => s.pauseOpen);
+  const blocked = !!game.pendingEvent || game.status !== 'playing' || pauseOpen;
   const lw = game.lastWeek;
   const net = lw ? lw.revenue + lw.licenseRevenue - lw.salaries - lw.rent - lw.power - lw.licenseUpkeep : 0;
 

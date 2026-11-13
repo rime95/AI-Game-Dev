@@ -2,15 +2,25 @@ import { content } from '@stm/content';
 import { allChips, dateForWeek, freeChips, ownedPowerMW, totalUsers, type GameState } from '@stm/sim';
 import { big, dateLabel, money } from '../format';
 import { LAYER } from './layers';
+import { useStore } from '../store';
 
 export function TopBar({ game }: { game: GameState }) {
   const total = game.fleet.reduce((n, f) => n + f.count, 0);
   const free = allChips(game, content).reduce((n, c) => n + freeChips(game, c.id), 0);
   const power = ownedPowerMW(game, content);
+  const setPauseOpen = useStore((s) => s.setPauseOpen);
 
   return (
     <header className="topbar">
-      <div className="brand">SAND TO MIND</div>
+      <button className="menu-btn" aria-label="Open menu" title="Menu (Esc)" onClick={() => setPauseOpen(true)}>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+      <div className="brand">
+        <span>{game.companyName}</span>
+        <span className="brand-sub">SAND TO MIND</span>
+      </div>
       <Res k="Cash" v={money(game.cash)} c={LAYER.gold} neg={game.cash < 0} />
       <Res k="Users" v={big(totalUsers(game))} c={LAYER.products} />
       <Res k="Chips free / total" v={`${big(free)} / ${big(total)}`} c={LAYER.compute} />

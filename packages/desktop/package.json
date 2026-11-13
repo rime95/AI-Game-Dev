@@ -1,5 +1,6 @@
 {
   "name": "@stm/desktop",
+  "productName": "Sand to Mind",
   "private": true,
   "main": "main.cjs",
   "devDependencies": {

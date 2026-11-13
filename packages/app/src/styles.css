@@ -247,6 +247,67 @@ table.t th { text-align: left; font-size: 11px; text-transform: uppercase; lette
 table.t td { padding: 6px; border-top: 1px solid var(--line); }
 table.t tr.you td { background: color-mix(in srgb, var(--models) 8%, transparent); font-weight: 600; }
 
+/* ---------- Main menu ---------- */
+.menu-screen {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background-color: #123a63;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.08) 1px, transparent 1px),
+    radial-gradient(circle at 30% 20%, rgb(127 224 210 / 0.25), transparent 50%);
+  background-size: 24px 24px, 24px 24px, 100% 100%;
+  overflow-y: auto;
+  user-select: text;
+}
+.menu-card {
+  width: min(560px, 100%);
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.35);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.menu-title { display: flex; flex-direction: column; gap: 6px; }
+.menu-title h1 { font-size: 44px; letter-spacing: 0.06em; }
+.menu-title p { margin: 0; }
+.menu-title .bp-tag { color: var(--silicon); }
+.menu-buttons { display: flex; flex-direction: column; gap: 10px; }
+.menu-buttons .btn { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.menu-sub { font-size: 12px; font-weight: 400; opacity: 0.85; }
+.menu-section { display: flex; flex-direction: column; gap: 12px; }
+.menu-section h2 { font-size: 20px; }
+.save-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.save-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.save-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.menu-btn {
+  border: 0;
+  background: transparent;
+  color: #f4efe4;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.menu-btn:hover { background: rgb(255 255 255 / 0.1); }
+.brand { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-sub { font-size: 10px; letter-spacing: 0.14em; color: #c9c3b6; font-weight: 600; }
+.toast.good { background: var(--good); }
+
 /* ---------- Blueprint mode (art-direction §2): design tools ---------- */
 .blueprint {
   --bp-bg: #123a63;
