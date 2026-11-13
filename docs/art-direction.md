@@ -44,6 +44,8 @@ Neutrals: warm cream background, soft charcoal ink text. Exact hex values get de
 **Gameplay payoff:** an effect chip like `−8% serving cost` in blue+coral tells you at a glance it touches compute and products. A red pulse on the blue part of the stack = compute bottleneck.
 
 ## 4. The world shows the simulation
+> The full tycoon layer (growth stages, room templates on a grid, server rooms and data halls, the fab, exploded design visuals) is specified in [world-and-facilities.md](world-and-facilities.md). The table below is the first-pass placeholder campus.
+
 Rule: **every major system has a physical place, and its state is visible without opening a menu.**
 
 | System | In the diorama |
