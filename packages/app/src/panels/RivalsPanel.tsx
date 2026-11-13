@@ -1,16 +1,27 @@
 import { content } from '@stm/content';
-import { bestScore, TUNING, type GameState } from '@stm/sim';
+import { bestScore, rivalUsers, TUNING, type GameState } from '@stm/sim';
+import { big } from '../format';
 import { LAYER } from '../ui/layers';
 import { Advisor, Bar } from './Panel';
 
 export function RivalsPanel({ game }: { game: GameState }) {
   const mine = bestScore(game);
+  const users = rivalUsers(game, content);
   const rows = [
     ...game.rivals.map((r) => {
       const def = content.rivals.find((d) => d.id === r.id)!;
-      return { id: r.id, name: def.name, model: `${def.modelPrefix} ${r.version}`, score: r.score, price: def.apiPrice, you: false, note: def.personality };
+      return {
+        id: r.id,
+        name: def.name,
+        model: `${def.modelPrefix} ${r.version}`,
+        score: r.score,
+        price: def.apiPrice,
+        users: users[r.id] ?? 0,
+        you: false,
+        note: def.personality,
+      };
     }),
-    { id: 'you', name: 'Your lab', model: game.models.at(-1)?.name ?? '—', score: mine, price: game.apiPrice, you: true, note: '' },
+    { id: 'you', name: 'Your lab', model: game.models.at(-1)?.name ?? '—', score: mine, price: game.apiPrice, users: game.users, you: true, note: '' },
   ].sort((a, b) => b.score - a.score);
   const top = Math.max(...rows.map((r) => r.score));
   const yourRank = rows.findIndex((r) => r.you);
@@ -44,6 +55,7 @@ export function RivalsPanel({ game }: { game: GameState }) {
               <th>Model</th>
               <th>Score</th>
               <th>$/1M</th>
+              <th>Users</th>
             </tr>
           </thead>
           <tbody>
@@ -54,6 +66,7 @@ export function RivalsPanel({ game }: { game: GameState }) {
                 <td>{r.model}</td>
                 <td>{r.score.toFixed(1)}</td>
                 <td>{r.price}</td>
+                <td>{big(r.users)}</td>
               </tr>
             ))}
           </tbody>

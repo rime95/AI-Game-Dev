@@ -52,6 +52,18 @@ export const TUNING = {
   userConvergencePerWeek: 0.15,
   underServedReputationLoss: 0.5,
 
+  /** Endgame: the AGI Program. */
+  agiCapability: 27,
+  agiCost: 20_000_000_000,
+  agiMinChips: 50_000,
+  agiWeeks: 52,
+  /** Catastrophe chance per safety level below the top. */
+  agiCatastrophePerMissingSafety: 0.25,
+  /** Market Leader victory: weeks in a row with the biggest user share. */
+  marketLeaderWeeks: 104,
+  /** Full Stack victory: share of owned fleet on custom chips. */
+  fullStackCustomShare: 0.5,
+
   randomEventChance: 0.06,
   rivalPressEventChance: 0.6,
   bankruptAfterNegativeWeeks: 4,

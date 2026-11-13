@@ -353,6 +353,7 @@ table.t tr.you td { background: color-mix(in srgb, var(--models) 8%, transparent
 .modal .media.talent { background: var(--models); }
 .modal .media.supply { background: var(--compute); }
 .modal .media.incident { background: var(--bad); }
+.modal .media.victory { background: linear-gradient(120deg, var(--silicon), var(--models)); }
 .modal .body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
 .choice {
   text-align: left;

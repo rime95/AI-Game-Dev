@@ -71,11 +71,17 @@ function Campus({ game }: { game: GameState }) {
       <Building
         tab="models"
         setTab={setTab}
-        label={game.training ? `Lab · training ${Math.round((game.training.flopsDone / game.training.flopsTotal) * 100)}%` : 'Research lab'}
+        label={
+          game.agi
+            ? `AGI Program · ${game.agi.weeksLeft} wk`
+            : game.training
+              ? `Lab · training ${Math.round((game.training.flopsDone / game.training.flopsTotal) * 100)}%`
+              : 'Research lab'
+        }
         position={[-7, 0, 3.6]}
-        size={[3.4, 1.8, 3.2]}
+        size={[3.4, game.agi ? 3.4 : 1.8, 3.2]}
         color={LAYER.models}
-        pulse={!!game.training}
+        pulse={!!game.training || !!game.agi}
       />
       <Building tab="compute" setTab={setTab} label={`Data hall · ${total} chips`} position={[1, 0, -3.6]} size={[8, 1.4, 3.6]} color={LAYER.compute} />
       <RackYard total={total} training={training} serving={serving} />

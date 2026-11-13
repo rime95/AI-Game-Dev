@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
 import { Advisor, Bar, Stat } from './Panel';
+import { GoalsCard } from './GoalsCard';
 
 export function OverviewPanel({ game }: { game: GameState }) {
   const lw = game.lastWeek;
@@ -49,6 +50,8 @@ export function OverviewPanel({ game }: { game: GameState }) {
       </div>
 
       <FundingCard game={game} />
+
+      <GoalsCard game={game} />
 
       <div className="card">
         <h3>Game</h3>

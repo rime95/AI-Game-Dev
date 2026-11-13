@@ -60,7 +60,9 @@ export function maxClusterChips(state: GameState): number {
 }
 
 export function reservedChips(state: GameState, chipId: string): number {
-  return state.training && state.training.spec.chipId === chipId ? state.training.spec.chipCount : 0;
+  const training = state.training && state.training.spec.chipId === chipId ? state.training.spec.chipCount : 0;
+  const agi = state.agi && state.agi.chipId === chipId ? state.agi.chipCount : 0;
+  return training + agi;
 }
 
 export function freeChips(state: GameState, chipId: string): number {

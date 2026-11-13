@@ -31,7 +31,7 @@ export function App() {
       <Panel game={game} />
       <Feed game={game} />
       {game.pendingEvent && <DecisionModal event={game.pendingEvent} />}
-      {game.status === 'bankrupt' && <GameOver game={game} />}
+      {game.status !== 'playing' && <GameOver game={game} />}
       {error && (
         <button className="toast" onClick={clearError}>
           {error}

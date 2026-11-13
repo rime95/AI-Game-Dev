@@ -138,8 +138,23 @@ export interface HistoryPoint {
 
 import type { Chip } from '@stm/content';
 
+export type VictoryKind = 'safeFrontier' | 'recklessFrontier' | 'marketLeader' | 'fullStack';
+
+export interface AgiProgram {
+  chipId: string;
+  chipCount: number;
+  weeksLeft: number;
+  totalWeeks: number;
+  startedWeek: number;
+}
+
 export interface GameState {
-  version: 5;
+  version: 6;
+  /** First victory reached (the player may keep playing afterwards). */
+  victory: { kind: VictoryKind; week: number } | null;
+  /** Consecutive weeks with the largest user share of any lab. */
+  leaderStreak: number;
+  agi: AgiProgram | null;
   /** Founders' share of the company (1 = 100%). */
   ownership: number;
   /** How many funding rounds have closed (index of the next one). */
@@ -148,7 +163,7 @@ export interface GameState {
   seed: number;
   rng: number;
   week: number;
-  status: 'playing' | 'bankrupt';
+  status: 'playing' | 'bankrupt' | 'won' | 'catastrophe';
   weeksNegative: number;
   cash: number;
   reputation: number;
@@ -189,6 +204,8 @@ export type Command =
   | { type: 'startTapeout'; design: ChipDesign }
   | { type: 'upgradeLicense'; track: TrackId }
   | { type: 'raiseFunding' }
+  | { type: 'startAgiProgram'; chipId: string; chipCount: number }
+  | { type: 'continuePlaying' }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

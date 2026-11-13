@@ -33,10 +33,15 @@ import {
 } from './selectors';
 import { capabilityForScore } from './formulas';
 import { fundingCheck } from './funding';
+import { customChipShare, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
+import type { VictoryKind } from './types';
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 5,
+    version: 6,
+    victory: null,
+    leaderStreak: 0,
+    agi: null,
     ownership: TUNING.startOwnership,
     roundsRaised: 0,
     suite: { version: 1, mid: TUNING.capabilityMid, startedWeek: 0 },
@@ -84,11 +89,30 @@ export function createGame(content: Content, seed: number): GameState {
 
 /** Apply one player command. Never mutates the input state. */
 export function applyCommand(prev: GameState, content: Content, cmd: Command): CommandResult {
+  if (cmd.type === 'continuePlaying') {
+    if (prev.status !== 'won') return { state: prev, error: 'Nothing to continue.' };
+    return { state: { ...structuredClone(prev), status: 'playing' } };
+  }
   if (prev.status !== 'playing') return { state: prev, error: 'The game is over.' };
   const state = structuredClone(prev);
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
   switch (cmd.type) {
+    case 'startAgiProgram': {
+      const p = previewAgi(state, content, cmd.chipId, cmd.chipCount);
+      if (p.errors.length) return fail(p.errors[0]!);
+      state.cash -= TUNING.agiCost;
+      state.agi = {
+        chipId: cmd.chipId,
+        chipCount: Math.floor(cmd.chipCount),
+        weeksLeft: TUNING.agiWeeks,
+        totalWeeks: TUNING.agiWeeks,
+        startedWeek: state.week,
+      };
+      log(state, 'good', `The AGI Program has begun: ${TUNING.agiWeeks} weeks on ${Math.floor(cmd.chipCount).toLocaleString('en-US')} chips.`);
+      return { state };
+    }
+
     case 'advanceWeek': {
       if (state.pendingEvent) return fail('Decide on the open event first.');
       advanceWeek(state, content);
@@ -431,24 +455,48 @@ function advanceWeek(state: GameState, content: Content): void {
     targetUsers: target,
   };
   state.history.push({ week: state.week, cash: state.cash, users: state.users, bestScore: bestScore(state) });
+
+  // 9. Endgame: AGI Program and victory conditions
+  if (state.status === 'playing') checkEndgame(state, content);
+}
+
+function checkEndgame(state: GameState, content: Content): void {
+  const agi = state.agi;
+  if (agi) {
+    agi.weeksLeft -= 1;
+    if (agi.weeksLeft <= 0) {
+      state.agi = null;
+      const maxSafety = trackDef(content, 'safety').levels.length;
+      const catastrophe = Math.min(1, (maxSafety - state.license.safety.level) * TUNING.agiCatastrophePerMissingSafety);
+      if (catastrophe > 0 && rand(state) < catastrophe) {
+        state.status = 'catastrophe';
+        log(state, 'bad', 'The AGI system slipped its constraints. Without a full safety case, nobody could stop it in time.');
+        return;
+      }
+      win(state, catastrophe > 0 ? 'recklessFrontier' : 'safeFrontier');
+      return;
+    }
+  }
+
+  state.leaderStreak = isUserLeader(state, content) ? state.leaderStreak + 1 : 0;
+  if (state.victory) return; // already won once; keep playing freely
+  if (state.leaderStreak >= TUNING.marketLeaderWeeks) return win(state, 'marketLeader');
+  const maxPower = trackDef(content, 'power').levels.length;
+  if (customChipShare(state) >= TUNING.fullStackCustomShare && state.license.power.level >= maxPower && leadsEval(state)) {
+    win(state, 'fullStack');
+  }
+}
+
+function win(state: GameState, kind: VictoryKind): void {
+  if (!state.victory) state.victory = { kind, week: state.week };
+  state.status = 'won';
+  log(state, 'good', `Victory: ${VICTORY_TEXT[kind].title}. ${VICTORY_TEXT[kind].body}`);
 }
 
 /** Users we'd converge to: market × our share of "pull" against rivals. */
 export function targetUsers(state: GameState, content: Content): number {
-  const live = liveModel(state);
-  if (!live) return 0;
-  // Pull uses capability (not suite score), so retiring a suite doesn't reshuffle the market.
-  const pull = (capability: number, price: number) =>
-    Math.exp((capability - state.suite.mid) / TUNING.capabilitySoftness) *
-    Math.pow(price / TUNING.referencePrice, -TUNING.priceElasticity);
-  const boost = state.modifiers.reduce((b, m) => b * m.shareBoost, 1);
-  const ours = pull(live.capability, state.apiPrice) * Math.sqrt(state.reputation / 50) * boost;
-  let total = ours;
-  for (const r of state.rivals) {
-    const def = content.rivals.find((d) => d.id === r.id);
-    if (def) total += pull(r.capability, def.apiPrice);
-  }
-  return marketSize(state.week) * (ours / total);
+  if (!liveModel(state)) return 0;
+  return marketSize(state.week) * marketShares(state, content).you;
 }
 
 /** When any model hits the saturation score, replace the suite with a harder one and re-score everyone. */
