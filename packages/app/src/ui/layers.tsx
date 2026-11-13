@@ -20,6 +20,7 @@ export const TAB_META: Record<Tab, { label: string; color: string; icon: string 
   models: { label: 'Models', color: LAYER.models, icon: 'M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0-2 7 4 4 0 0 0 6 4 4 4 0 0 0 6-4 4 4 0 0 0-2-7V7a4 4 0 0 0-4-4zM12 3v18' },
   products: { label: 'Products', color: LAYER.products, icon: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2' },
   team: { label: 'Team', color: LAYER.gold, icon: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20a6 6 0 0 1 12 0M16 11a3 3 0 1 0 0-6M22 20a6 6 0 0 0-5-5.9' },
+  deals: { label: 'Deals', color: LAYER.gold, icon: 'M3 8h18v12H3zM8 8V5h8v3M3 13h18' },
   rivals: { label: 'Rivals', color: LAYER.products, icon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4' },
 };
 

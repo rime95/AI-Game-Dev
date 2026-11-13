@@ -114,6 +114,59 @@ function Campus({ game }: { game: GameState }) {
       />
       <Skyline share={share} onClick={() => setTab('products')} />
       <ExpansionScaffold game={game} onClick={() => setTab('license')} />
+      <AcquiredRow game={game} onClick={() => setTab('deals')} />
+    </group>
+  );
+}
+
+/**
+ * Acquisitions on the campus (art-direction §4): a company being integrated sits in grey with a
+ * pulsing gold beacon; once integrated it carries our gold trim.
+ */
+function AcquiredRow({ game, onClick }: { game: GameState; onClick: () => void }) {
+  const items = [
+    ...game.acquired.map((id) => ({ id, done: true })),
+    ...game.integrations.map((d) => ({ id: d.dealId, done: false })),
+  ].slice(0, 8);
+  if (!items.length) return null;
+  return (
+    <group position={[-1.6, 0, 4.4]}>
+      {items.map((it, i) => (
+        <AcquiredBuilding
+          key={it.id}
+          x={(i % 4) * 1.5}
+          z={Math.floor(i / 4) * 1.5}
+          done={it.done}
+          rival={it.id.startsWith('rival:')}
+          onClick={onClick}
+        />
+      ))}
+    </group>
+  );
+}
+
+function AcquiredBuilding({ x, z, done, rival, onClick }: { x: number; z: number; done: boolean; rival: boolean; onClick: () => void }) {
+  const beacon = useRef<MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (beacon.current) beacon.current.emissiveIntensity = done ? 0.3 : 0.4 + 0.4 * Math.sin(clock.elapsedTime * 4);
+  });
+  const h = rival ? 1.6 : 0.9;
+  return (
+    <group
+      position={[x, 0, z]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.1, h, 1.1]} />
+        <meshStandardMaterial color={done ? '#fbf8f1' : '#bdb6a8'} />
+      </mesh>
+      <mesh position={[0, h + 0.06, 0]}>
+        <boxGeometry args={[1.2, 0.12, 1.2]} />
+        <meshStandardMaterial ref={beacon} color={LAYER.gold} emissive={LAYER.gold} emissiveIntensity={0.3} />
+      </mesh>
     </group>
   );
 }

@@ -175,7 +175,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
   }
 
   const flops = trainingFlops(arch, spec.paramsB, spec.tokensB);
-  const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, state.staff.research);
+  const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, state.staff.research) * (1 + state.ipBonus);
   const projectedCapability = capabilityIndex(eff);
   const projectedScore = suiteScore(projectedCapability, state.suite.mid);
   const tier = tierForCapability(content, projectedCapability);

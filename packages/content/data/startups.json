@@ -1,0 +1,122 @@
+[
+  {
+    "id": "tokenmill",
+    "name": "Tokenmill",
+    "kind": "data",
+    "blurb": "A scrappy web-crawl startup with a clean, deduplicated corpus.",
+    "price": 3000000,
+    "availableFromWeek": 0,
+    "integrationWeeks": 2,
+    "gives": { "dataTokensB": 500 }
+  },
+  {
+    "id": "gradient-garage",
+    "name": "Gradient Garage",
+    "kind": "team",
+    "blurb": "Four ex-big-tech engineers who know how to run large training jobs.",
+    "price": 6000000,
+    "availableFromWeek": 0,
+    "integrationWeeks": 4,
+    "gives": { "staff": [{ "discipline": "modelEng", "count": 3 }, { "discipline": "research", "count": 1 }] }
+  },
+  {
+    "id": "quanta-labs",
+    "name": "Quanta Labs",
+    "kind": "ip",
+    "blurb": "Low-precision training tricks that squeeze more out of every FLOP.",
+    "price": 20000000,
+    "availableFromWeek": 10,
+    "integrationWeeks": 6,
+    "gives": { "ipBonus": 0.08, "staff": [{ "discipline": "research", "count": 2 }] }
+  },
+  {
+    "id": "riverbed-data",
+    "name": "Riverbed Data",
+    "kind": "data",
+    "blurb": "Licensed books, code and science papers: 5 trillion tokens.",
+    "price": 40000000,
+    "availableFromWeek": 20,
+    "integrationWeeks": 4,
+    "gives": { "dataTokensB": 5000 }
+  },
+  {
+    "id": "siliconsmith",
+    "name": "Siliconsmith",
+    "kind": "team",
+    "blurb": "A chip design boutique. Their team has taped out a dozen accelerators.",
+    "price": 35000000,
+    "availableFromWeek": 20,
+    "integrationWeeks": 6,
+    "gives": { "staff": [{ "discipline": "hardwareEng", "count": 4 }] }
+  },
+  {
+    "id": "chorus-ai",
+    "name": "Chorus AI",
+    "kind": "customers",
+    "blurb": "A popular consumer chat app running on someone else's model. Ours now.",
+    "price": 250000000,
+    "availableFromWeek": 30,
+    "integrationWeeks": 8,
+    "gives": { "users": 5000000 }
+  },
+  {
+    "id": "northwind-power",
+    "name": "Northwind Power",
+    "kind": "infra",
+    "blurb": "A wind and storage developer with 200 MW of grid connections.",
+    "price": 150000000,
+    "availableFromWeek": 40,
+    "integrationWeeks": 10,
+    "gives": { "powerMW": 200 }
+  },
+  {
+    "id": "deepfold",
+    "name": "Deepfold",
+    "kind": "ip",
+    "blurb": "A research lab with a better attention architecture and the patents to prove it.",
+    "price": 800000000,
+    "availableFromWeek": 60,
+    "integrationWeeks": 12,
+    "gives": { "ipBonus": 0.15, "staff": [{ "discipline": "research", "count": 6 }] }
+  },
+  {
+    "id": "atlas-compute",
+    "name": "Atlas Compute",
+    "kind": "infra",
+    "blurb": "A GPU cloud with 20,000 Kite K2s and the data center they sit in.",
+    "price": 1500000000,
+    "availableFromWeek": 70,
+    "integrationWeeks": 12,
+    "gives": { "chips": { "chipId": "kite-k2", "count": 20000 }, "powerMW": 30, "staff": [{ "discipline": "ops", "count": 5 }] }
+  },
+  {
+    "id": "meridian",
+    "name": "Meridian Enterprise",
+    "kind": "customers",
+    "blurb": "An enterprise software giant's AI division, with 40 million seats.",
+    "price": 3000000000,
+    "availableFromWeek": 90,
+    "integrationWeeks": 12,
+    "gives": { "users": 40000000 }
+  },
+  {
+    "id": "lattice-exchange",
+    "name": "Lattice Data Exchange",
+    "kind": "data",
+    "blurb": "The largest licensed data marketplace: 50 trillion tokens.",
+    "price": 2000000000,
+    "availableFromWeek": 100,
+    "integrationWeeks": 8,
+    "gives": { "dataTokensB": 50000 }
+  },
+  {
+    "id": "lumen-research",
+    "name": "Lumen Research",
+    "kind": "ip",
+    "blurb": "The best interpretability and reasoning researchers outside the big labs.",
+    "price": 6000000000,
+    "availableFromWeek": 120,
+    "integrationWeeks": 16,
+    "gives": { "ipBonus": 0.25, "staff": [{ "discipline": "research", "count": 12 }] }
+  }
+]

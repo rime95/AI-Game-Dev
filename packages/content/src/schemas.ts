@@ -160,8 +160,34 @@ export const FundingRoundSchema = z.object({
 });
 export type FundingRound = z.infer<typeof FundingRoundSchema>;
 
+/** What an acquisition delivers once integrated. */
+export const AcquisitionGainsSchema = z.object({
+  staff: z.array(z.object({ discipline: DisciplineSchema, count: z.number().int().positive() })).optional(),
+  dataTokensB: z.number().positive().optional(),
+  users: z.number().positive().optional(),
+  /** Added to the effective-compute multiplier on every future training run. */
+  ipBonus: z.number().positive().optional(),
+  powerMW: z.number().positive().optional(),
+  chips: z.object({ chipId: z.string(), count: z.number().int().positive() }).optional(),
+});
+export type AcquisitionGains = z.infer<typeof AcquisitionGainsSchema>;
+
+export const StartupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(['team', 'ip', 'data', 'infra', 'customers']),
+  blurb: z.string(),
+  /** Price when it first appears; grows with the AI boom. */
+  price: z.number().positive(),
+  availableFromWeek: z.number().int().nonnegative(),
+  integrationWeeks: z.number().int().positive(),
+  gives: AcquisitionGainsSchema,
+});
+export type Startup = z.infer<typeof StartupSchema>;
+
 export const ContentSchema = z.object({
   chips: z.array(ChipSchema).min(1),
+  startups: z.array(StartupSchema),
   funding: z.array(FundingRoundSchema),
   nodes: z.array(NodeSchema).min(1),
   license: LicenseSchema,

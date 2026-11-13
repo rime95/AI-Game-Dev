@@ -1,4 +1,4 @@
-import type { Deck, Discipline, Effects, Precision, TrackId } from '@stm/content';
+import type { AcquisitionGains, Deck, Discipline, Effects, Precision, TrackId } from '@stm/content';
 
 export interface FleetEntry {
   id: string;
@@ -148,8 +148,28 @@ export interface AgiProgram {
   startedWeek: number;
 }
 
+export interface Integration {
+  dealId: string;
+  name: string;
+  gives: AcquisitionGains;
+  /** Set when the target is a rival lab: it leaves the race on completion. */
+  rivalId?: string;
+  price: number;
+  weeksLeft: number;
+  totalWeeks: number;
+  antitrustChance: number;
+  clashChance: number;
+}
+
 export interface GameState {
-  version: 6;
+  version: 7;
+  /** Completed deal ids (startup ids, or `rival:<id>`). */
+  acquired: string[];
+  integrations: Integration[];
+  /** Effective-compute bonus from acquired IP (0.1 = +10%). */
+  ipBonus: number;
+  /** Site power added by acquisitions, on top of the License to Scale level. */
+  extraPowerMW: number;
   /** First victory reached (the player may keep playing afterwards). */
   victory: { kind: VictoryKind; week: number } | null;
   /** Consecutive weeks with the largest user share of any lab. */
@@ -206,6 +226,7 @@ export type Command =
   | { type: 'raiseFunding' }
   | { type: 'startAgiProgram'; chipId: string; chipCount: number }
   | { type: 'continuePlaying' }
+  | { type: 'acquire'; dealId: string }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

@@ -1,7 +1,7 @@
 import { useStore, type Tab } from '../store';
 import { Icon, TAB_META } from './layers';
 
-const TABS: Tab[] = ['overview', 'compute', 'silicon', 'license', 'models', 'products', 'team', 'rivals'];
+const TABS: Tab[] = ['overview', 'compute', 'silicon', 'license', 'models', 'products', 'team', 'deals', 'rivals'];
 
 export function NavRail() {
   const tab = useStore((s) => s.tab);

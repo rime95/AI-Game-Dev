@@ -34,11 +34,16 @@ import {
 import { capabilityForScore } from './formulas';
 import { fundingCheck } from './funding';
 import { customChipShare, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
-import type { VictoryKind } from './types';
+import type { Integration, VictoryKind } from './types';
+import { availableDeals } from './acquisitions';
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 6,
+    version: 7,
+    acquired: [],
+    integrations: [],
+    ipBonus: 0,
+    extraPowerMW: 0,
     victory: null,
     leaderStreak: 0,
     agi: null,
@@ -98,6 +103,31 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
   switch (cmd.type) {
+    case 'acquire': {
+      const deal = availableDeals(state, content).find((d) => d.id === cmd.dealId);
+      if (!deal) return fail('That company is not for sale right now.');
+      if (deal.price > state.cash) return fail('Not enough cash.');
+      state.cash -= deal.price;
+      state.integrations.push({
+        dealId: deal.id,
+        name: deal.name,
+        gives: deal.gives,
+        rivalId: deal.rivalId,
+        price: deal.price,
+        weeksLeft: deal.integrationWeeks,
+        totalWeeks: deal.integrationWeeks,
+        antitrustChance: deal.antitrustChance,
+        clashChance: deal.clashChance,
+      });
+      log(
+        state,
+        'good',
+        `Agreed to acquire ${deal.name} for ${formatM(deal.price)}. Integration: ${deal.integrationWeeks} wk` +
+          (deal.antitrustChance > 0 ? `, pending antitrust review.` : '.'),
+      );
+      return { state };
+    }
+
     case 'startAgiProgram': {
       const p = previewAgi(state, content, cmd.chipId, cmd.chipCount);
       if (p.errors.length) return fail(p.errors[0]!);
@@ -335,10 +365,15 @@ function advanceWeek(state: GameState, content: Content): void {
       t.level += 1;
       t.upgrade = null;
       const lvl = levelDef(content, track, t.level);
-      if (lvl?.powerCapMW) state.powerCapMW = lvl.powerCapMW;
+      if (lvl?.powerCapMW) state.powerCapMW = lvl.powerCapMW + state.extraPowerMW;
       log(state, 'good', `${trackDef(content, track).name} is now level ${t.level}: ${lvl?.name ?? ''}.`);
     }
   }
+
+  // 1c. Acquisitions finishing integration
+  for (const deal of state.integrations) deal.weeksLeft -= 1;
+  for (const deal of state.integrations.filter((d) => d.weeksLeft <= 0)) completeAcquisition(state, deal);
+  state.integrations = state.integrations.filter((d) => d.weeksLeft > 0);
 
   // 1b. Chip tape-out progress
   const project = state.chipProject;
@@ -485,6 +520,58 @@ function checkEndgame(state: GameState, content: Content): void {
   if (customChipShare(state) >= TUNING.fullStackCustomShare && state.license.power.level >= maxPower && leadsEval(state)) {
     win(state, 'fullStack');
   }
+}
+
+function completeAcquisition(state: GameState, deal: Integration): void {
+  if (deal.antitrustChance > 0 && rand(state) < deal.antitrustChance) {
+    const refund = deal.price * TUNING.blockedDealRefund;
+    state.cash += refund;
+    log(state, 'bad', `Regulators blocked our acquisition of ${deal.name}. ${formatM(refund)} refunded; the break fee is lost.`);
+    return;
+  }
+  const g = deal.gives;
+  const parts: string[] = [];
+  if (g.staff?.length) {
+    const clash = deal.clashChance > 0 && rand(state) < deal.clashChance;
+    let joined = 0;
+    for (const s of g.staff) {
+      const kept = clash ? Math.floor(s.count * 0.5) : s.count;
+      state.staff[s.discipline] += kept;
+      joined += kept;
+    }
+    parts.push(`${joined} staff`);
+    if (clash) {
+      state.reputation = clampRep(state.reputation - 1);
+      log(state, 'bad', `Culture clash at ${deal.name}: half of their team quit during integration.`);
+    }
+  }
+  if (g.dataTokensB) {
+    state.dataTokensB += g.dataTokensB;
+    parts.push(`${g.dataTokensB.toLocaleString('en-US')}B tokens`);
+  }
+  if (g.users) {
+    state.users += g.users;
+    parts.push(`${(g.users / 1e6).toFixed(1)}M users`);
+  }
+  if (g.ipBonus) {
+    state.ipBonus += g.ipBonus;
+    parts.push(`+${Math.round(g.ipBonus * 100)}% effective compute`);
+  }
+  if (g.powerMW) {
+    state.extraPowerMW += g.powerMW;
+    state.powerCapMW += g.powerMW;
+    parts.push(`${g.powerMW} MW of power`);
+  }
+  if (g.chips) {
+    addFleet(state, g.chips.chipId, g.chips.count, true);
+    parts.push(`${g.chips.count.toLocaleString('en-US')} chips`);
+  }
+  if (deal.rivalId) {
+    state.rivals = state.rivals.filter((r) => r.id !== deal.rivalId);
+    parts.push('one less rival');
+  }
+  state.acquired.push(deal.dealId);
+  log(state, 'good', `${deal.name} is fully integrated: ${parts.join(', ')}.`);
 }
 
 function win(state: GameState, kind: VictoryKind): void {

@@ -64,6 +64,19 @@ export const TUNING = {
   /** Full Stack victory: share of owned fleet on custom chips. */
   fullStackCustomShare: 0.5,
 
+  /** Acquisitions. */
+  startupPriceGrowthPerWeek: 0.01,
+  cultureClashBase: 0.35,
+  /** Each ops engineer cuts culture-clash risk by this factor. */
+  cultureClashOpsFactor: 0.85,
+  /** Antitrust reviews start when your user share exceeds this (rival deals: the lower one). */
+  antitrustShare: 0.25,
+  antitrustShareRivalDeal: 0.15,
+  /** Rival labs become buyable when their share drops below this, after this week. */
+  strugglingRivalShare: 0.03,
+  strugglingRivalFromWeek: 52,
+  blockedDealRefund: 0.8,
+
   randomEventChance: 0.06,
   rivalPressEventChance: 0.6,
   bankruptAfterNegativeWeeks: 4,

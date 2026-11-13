@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Command, GameState } from '@stm/sim';
 import type { FromWorker, ToWorker } from './sim.worker';
 
-export type Tab = 'overview' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'rivals';
+export type Tab = 'overview' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
 
 interface Store {
   game: GameState | null;
@@ -14,7 +14,7 @@ interface Store {
   clearError: () => void;
 }
 
-const SAVE_KEY = 'stm.save.v6';
+const SAVE_KEY = 'stm.save.v7';
 const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
 const post = (msg: ToWorker) => worker.postMessage(msg);
 
@@ -47,6 +47,6 @@ export function boot(): void {
   } catch {
     saved = null;
   }
-  if (saved && saved.version === 6) post({ type: 'load', state: saved });
+  if (saved && saved.version === 7) post({ type: 'load', state: saved });
   else useStore.getState().newGame();
 }
