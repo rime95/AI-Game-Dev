@@ -27,13 +27,18 @@ import {
   ownedPowerMW,
   previewTraining,
   scoreNow,
+  bestCapability,
+  buyAllowance,
   servingCapacityTokens,
 } from './selectors';
 import { capabilityForScore } from './formulas';
+import { fundingCheck } from './funding';
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 4,
+    version: 5,
+    ownership: TUNING.startOwnership,
+    roundsRaised: 0,
     suite: { version: 1, mid: TUNING.capabilityMid, startedWeek: 0 },
     seed,
     rng: seed | 0,
@@ -49,6 +54,7 @@ export function createGame(content: Content, seed: number): GameState {
     staff: { research: 1, modelEng: 1, hardwareEng: 0, product: 1, ops: 0 },
     fleet: [],
     customChips: [],
+    purchasedThisWeek: {},
     chipProject: null,
     license: initialLicense(),
     nextId: 1,
@@ -109,6 +115,9 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
       if (!chip) return fail('Unknown chip.');
       const count = Math.floor(cmd.count);
       if (!(count > 0)) return fail('Count must be positive.');
+      const allowance = buyAllowance(state, chip);
+      if (count > allowance)
+        return fail(`${chip.vendor === 'Your lab' ? 'The foundry' : chip.vendor} can only ship ${allowance} more ${chip.name} this week.`);
       const cost = chip.priceUsd * count;
       if (cost > state.cash) return fail('Not enough cash.');
       const newDraw = ownedPowerMW(state, content) + powerDrawMW(chip, count);
@@ -116,6 +125,7 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
         return fail(`Not enough site power: needs ${newDraw.toFixed(2)} MW of ${state.powerCapMW} MW.`);
       }
       state.cash -= cost;
+      state.purchasedThisWeek[chip.id] = (state.purchasedThisWeek[chip.id] ?? 0) + count;
       addFleet(state, chip.id, count, true);
       log(state, 'info', `Bought ${count} × ${chip.name}.`);
       return { state };
@@ -173,6 +183,22 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
         missing ? 'bad' : 'info',
         `Training started: ${cmd.spec.name.trim()} (${tierName(content, preview.tier)}, ~${preview.weeks} wk)` +
           (missing ? ` with ${missing} License to Scale requirement${missing > 1 ? 's' : ''} unmet.` : '.'),
+      );
+      return { state };
+    }
+
+    case 'raiseFunding': {
+      const f = fundingCheck(state, content);
+      if (!f.round) return fail('No more funding rounds.');
+      if (!f.canRaise) return fail(`Investors aren't convinced yet: ${f.checks.filter((c) => !c.ok).map((c) => c.label).join(', ')}.`);
+      state.cash += f.round.cash;
+      state.ownership -= f.equitySold;
+      state.roundsRaised += 1;
+      state.reputation = clampRep(state.reputation + 2);
+      log(
+        state,
+        'good',
+        `${f.round.name} closed: ${formatM(f.round.cash)} for ${Math.round(f.equitySold * 1000) / 10}% of the company. Founders now own ${Math.round(state.ownership * 1000) / 10}%.`,
       );
       return { state };
     }
@@ -273,6 +299,9 @@ function advanceWeek(state: GameState, content: Content): void {
     }
   }
 
+  // 0. New week, new vendor allocations
+  state.purchasedThisWeek = {};
+
   // 1a. License to Scale upgrades
   for (const track of TRACK_IDS) {
     const t = state.license[track];
@@ -347,7 +376,10 @@ function advanceWeek(state: GameState, content: Content): void {
     const def = content.rivals.find((r) => r.id === rival.id);
     if (!def) continue;
     rival.version += 1;
-    rival.capability += def.capabilityGain * (0.7 + rand(state) * 0.6);
+    // Labs that fall behind the leader scale harder (they're well funded too).
+    const leader = Math.max(bestCapability(state), ...state.rivals.map((r) => r.capability));
+    const catchUp = 1 + TUNING.rivalCatchUp * Math.max(0, leader - rival.capability);
+    rival.capability += def.capabilityGain * catchUp * (0.7 + rand(state) * 0.6);
     rival.score = round1(scoreNow(state, rival.capability));
     rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(def.releaseEveryWeeks * 0.7), Math.ceil(def.releaseEveryWeeks * 1.3));
     const modelName = `${def.modelPrefix} ${rival.version}`;
@@ -493,4 +525,4 @@ function log(state: GameState, kind: LogKind, text: string): void {
 
 const clampRep = (r: number) => Math.max(0, Math.min(100, r));
 const round1 = (n: number) => Math.round(n * 10) / 10;
-const formatM = (n: number) => `$${(n / 1e6).toFixed(1)}M`;
+const formatM = (n: number) => (n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : `$${(n / 1e6).toFixed(1)}M`);

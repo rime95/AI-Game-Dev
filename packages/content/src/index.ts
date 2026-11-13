@@ -5,8 +5,9 @@ import rivals from '../data/rivals.json';
 import events from '../data/events.json';
 import nodes from '../data/nodes.json';
 import license from '../data/license.json';
+import funding from '../data/funding.json';
 
 export * from './schemas';
 
 /** All game content, validated at load. Throws with a readable path if data is malformed. */
-export const content: Content = ContentSchema.parse({ chips, nodes, license, archs, rivals, events });
+export const content: Content = ContentSchema.parse({ chips, nodes, license, funding, archs, rivals, events });

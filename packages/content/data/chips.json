@@ -17,7 +17,9 @@
     "rentPerWeekUsd": 300,
     "cloudSupply": 256,
     "cloudGrowth": 0.03,
-    "cloudFromWeek": 0
+    "cloudFromWeek": 0,
+    "buyPerWeek": 1000,
+    "buyGrowth": 0.03
   },
   {
     "id": "monolith-m3",
@@ -37,7 +39,9 @@
     "rentPerWeekUsd": 420,
     "cloudSupply": 128,
     "cloudGrowth": 0.03,
-    "cloudFromWeek": 0
+    "cloudFromWeek": 0,
+    "buyPerWeek": 500,
+    "buyGrowth": 0.03
   },
   {
     "id": "kite-k2",
@@ -57,6 +61,8 @@
     "rentPerWeekUsd": 700,
     "cloudSupply": 64,
     "cloudGrowth": 0.04,
-    "cloudFromWeek": 26
+    "cloudFromWeek": 26,
+    "buyPerWeek": 300,
+    "buyGrowth": 0.03
   }
 ]

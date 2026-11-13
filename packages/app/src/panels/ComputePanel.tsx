@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { allChips, archFit, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
+import { allChips, archFit, buyAllowance, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -59,6 +59,8 @@ export function ComputePanel({ game }: { game: GameState }) {
                 : cloudSupply(chip, game.week) === 0
                 ? `Not on the cloud market until week ${chip.cloudFromWeek}.`
                 : `Cloud can rent you ${big(Math.max(0, cloudSupply(chip, game.week) - rentedChips(game, chip.id)))} more (supply grows ${pct(chip.cloudGrowth)}/wk).`}
+              {' '}
+              {custom ? 'The foundry' : chip.vendor} ships up to {big(buyAllowance(game, chip))} more units this week.
             </div>
             <div className="chips">
               <span className="chip" style={{ ['--c' as string]: LAYER.models }}>
@@ -74,7 +76,7 @@ export function ComputePanel({ game }: { game: GameState }) {
                   Rent {n}
                 </button>
               ))}
-              {(custom ? [8, 64, 512] : [8, 64]).map((n) => (
+              {(custom ? [8, 64, 512] : [8, 64, 256]).map((n) => (
                 <button key={`b${n}`} className="btn" onClick={() => send({ type: 'buyChips', chipId: chip.id, count: n })}>
                   Buy {n}
                 </button>

@@ -139,7 +139,11 @@ export interface HistoryPoint {
 import type { Chip } from '@stm/content';
 
 export interface GameState {
-  version: 4;
+  version: 5;
+  /** Founders' share of the company (1 = 100%). */
+  ownership: number;
+  /** How many funding rounds have closed (index of the next one). */
+  roundsRaised: number;
   suite: EvalSuite;
   seed: number;
   rng: number;
@@ -156,6 +160,8 @@ export interface GameState {
   fleet: FleetEntry[];
   /** Chips you designed and taped out. Same shape as vendor chips, so every formula works on them. */
   customChips: Chip[];
+  /** Units bought this week per chip, against the weekly allocation. */
+  purchasedThisWeek: Record<string, number>;
   chipProject: ChipProject | null;
   license: Record<TrackId, LicenseTrackState>;
   nextId: number;
@@ -182,6 +188,7 @@ export type Command =
   | { type: 'setLiveModel'; modelId: string }
   | { type: 'startTapeout'; design: ChipDesign }
   | { type: 'upgradeLicense'; track: TrackId }
+  | { type: 'raiseFunding' }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

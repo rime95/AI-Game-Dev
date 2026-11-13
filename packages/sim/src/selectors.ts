@@ -49,6 +49,12 @@ export function cloudSupply(chip: Chip, week: number): number {
   return Math.floor(chip.cloudSupply * Math.pow(1 + chip.cloudGrowth, week - chip.cloudFromWeek));
 }
 
+/** Units of this chip you can still buy this week (vendor or foundry allocation). */
+export function buyAllowance(state: GameState, chip: Chip): number {
+  const cap = Math.floor(chip.buyPerWeek * Math.pow(1 + chip.buyGrowth, state.week));
+  return Math.max(0, cap - (state.purchasedThisWeek[chip.id] ?? 0));
+}
+
 export function maxClusterChips(state: GameState): number {
   return state.staff.modelEng * TUNING.chipsPerModelEngineer;
 }

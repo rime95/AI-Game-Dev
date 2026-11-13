@@ -11,6 +11,9 @@ export const FP4_AREA_COST = 0.1;
 export const SRAM_BANDWIDTH_GAIN = 2;
 /** Each hardware engineer cuts tape-out bug risk by this factor. */
 export const BUG_REDUCTION_PER_ENGINEER = 0.85;
+/** Foundry wafer allocation for your own chips: far more than vendors will sell you. */
+export const FOUNDRY_UNITS_PER_WEEK = 2000;
+export const FOUNDRY_GROWTH = 0.03;
 export const RESPIN_COST_SHARE = 0.4;
 export const RESPIN_TIME_SHARE = 0.5;
 
@@ -48,6 +51,8 @@ export function deriveChip(node: ProcessNode, design: ChipDesign, id: string, yi
     cloudSupply: 0,
     cloudGrowth: 0,
     cloudFromWeek: 0,
+    buyPerWeek: FOUNDRY_UNITS_PER_WEEK,
+    buyGrowth: FOUNDRY_GROWTH,
   };
 }
 

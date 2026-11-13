@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { bestScore, liveModel, marketSize, type GameState } from '@stm/sim';
+import { bestScore, fundingCheck, liveModel, marketSize, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -48,6 +48,8 @@ export function OverviewPanel({ game }: { game: GameState }) {
         <Bar value={game.users / marketSize(game.week)} color={LAYER.products} />
       </div>
 
+      <FundingCard game={game} />
+
       <div className="card">
         <h3>Game</h3>
         <div className="small muted">
@@ -63,7 +65,45 @@ export function OverviewPanel({ game }: { game: GameState }) {
   );
 }
 
+function FundingCard({ game }: { game: GameState }) {
+  const send = useStore((s) => s.send);
+  const f = fundingCheck(game, content);
+  return (
+    <div className="card" style={{ ['--c' as string]: LAYER.gold }}>
+      <div className="row between">
+        <h3>Funding</h3>
+        <span className="small muted">Founders own {pct(game.ownership)}</span>
+      </div>
+      {f.round ? (
+        <>
+          <div className="small">
+            <strong>
+              {f.round.name}: {money(f.round.cash)} for {pct(f.equitySold)} of the company.
+            </strong>{' '}
+            {f.round.blurb}
+          </div>
+          <div className="chips">
+            {f.checks.map((c) => (
+              <span key={c.label} className="chip" style={{ ['--c' as string]: c.ok ? LAYER.env : '#c2413b' }}>
+                {c.ok ? '✓' : '✗'} {c.label}
+              </span>
+            ))}
+          </div>
+          <div className="row">
+            <button className="btn primary" disabled={!f.canRaise} onClick={() => send({ type: 'raiseFunding' })}>
+              Raise {f.round.name}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="small muted">We're public. No more private rounds.</div>
+      )}
+    </div>
+  );
+}
+
 function hint(game: GameState): string {
+  if (fundingCheck(game, content).canRaise) return 'Investors are calling. We qualify for the next funding round — see Funding below.';
   if (!game.fleet.length) return 'We have no compute. Rent some Kite K1 chips in Compute — 64 is plenty for a first model.';
   if (game.training) {
     const t = game.training;

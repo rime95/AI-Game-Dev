@@ -1,6 +1,8 @@
 /** Balance knobs in one place. Placeholder values; tune with the headless balance runner. */
 export const TUNING = {
   startCash: 8_000_000,
+  /** Founders own 80% after the seed round that funded the starting cash. */
+  startOwnership: 0.8,
   startReputation: 40,
   startDataTokensB: 300,
   startPowerCapMW: 5,
@@ -28,6 +30,8 @@ export const TUNING = {
   capabilityScale: 1.2,
   suiteSaturationScore: 90,
   suiteStep: 2.5,
+  /** Rival release gain multiplier per capability unit behind the leader. */
+  rivalCatchUp: 0.6,
   /** Market pull: capability units per e-fold of user preference. */
   capabilitySoftness: 0.3,
 
@@ -40,8 +44,8 @@ export const TUNING = {
   chipsPerServer: 8,
   tokensPerUserPerWeek: 50_000,
 
-  marketStartUsers: 5_000_000,
-  marketGrowthPerWeek: 0.015,
+  marketStartUsers: 100_000_000,
+  marketGrowthPerWeek: 0.008,
   marketCapUsers: 4_000_000_000,
   priceElasticity: 1.3,
   referencePrice: 8,

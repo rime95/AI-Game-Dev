@@ -1,0 +1,48 @@
+[
+  {
+    "id": "series-a",
+    "name": "Series A",
+    "cash": 25000000,
+    "equity": 0.15,
+    "minUsers": 1000000,
+    "minTier": 2,
+    "blurb": "Early-stage funds want proof that people use our model."
+  },
+  {
+    "id": "series-b",
+    "name": "Series B",
+    "cash": 120000000,
+    "equity": 0.15,
+    "minUsers": 10000000,
+    "minTier": 3,
+    "blurb": "Growth investors want a competitive model and real traction."
+  },
+  {
+    "id": "series-c",
+    "name": "Series C",
+    "cash": 500000000,
+    "equity": 0.12,
+    "minUsers": 40000000,
+    "minTier": 4,
+    "blurb": "Crossover funds back labs that can reach the frontier."
+  },
+  {
+    "id": "series-d",
+    "name": "Series D",
+    "cash": 2000000000,
+    "equity": 0.1,
+    "minUsers": 100000000,
+    "minTier": 4,
+    "blurb": "Sovereign funds and strategic partners write the big checks."
+  },
+  {
+    "id": "ipo",
+    "name": "IPO",
+    "cash": 8000000000,
+    "equity": 0.15,
+    "minUsers": 250000000,
+    "minTier": 5,
+    "requiresProfit": true,
+    "blurb": "Public markets want a profitable leader. Ring the bell."
+  }
+]

@@ -28,6 +28,9 @@ export const ChipSchema = z.object({
   /** Weekly growth of that supply. */
   cloudGrowth: z.number().nonnegative(),
   cloudFromWeek: z.number().int().nonnegative(),
+  /** Units the vendor will sell you per week (allocation), and its weekly growth. */
+  buyPerWeek: z.number().int().nonnegative(),
+  buyGrowth: z.number().nonnegative(),
 });
 export type Chip = z.infer<typeof ChipSchema>;
 
@@ -142,8 +145,24 @@ export const LicenseSchema = z.object({
 });
 export type License = z.infer<typeof LicenseSchema>;
 
+export const FundingRoundSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  blurb: z.string(),
+  cash: z.number().positive(),
+  /** Share of the company sold, taken from your remaining ownership. */
+  equity: z.number().positive().max(1),
+  minUsers: z.number().nonnegative(),
+  /** Best released model's License to Scale tier. */
+  minTier: z.number().int().positive(),
+  /** Last week's net must be positive. */
+  requiresProfit: z.boolean().default(false),
+});
+export type FundingRound = z.infer<typeof FundingRoundSchema>;
+
 export const ContentSchema = z.object({
   chips: z.array(ChipSchema).min(1),
+  funding: z.array(FundingRoundSchema),
   nodes: z.array(NodeSchema).min(1),
   license: LicenseSchema,
   archs: z.array(ArchSchema).min(1),

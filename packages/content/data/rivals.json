@@ -7,7 +7,7 @@
     "startScore": 34,
     "releaseEveryWeeks": 11,
     "apiPrice": 12,
-    "capabilityGain": 0.22
+    "capabilityGain": 0.18
   },
   {
     "id": "aurora",
@@ -17,7 +17,7 @@
     "startScore": 28,
     "releaseEveryWeeks": 13,
     "apiPrice": 4,
-    "capabilityGain": 0.2
+    "capabilityGain": 0.16
   },
   {
     "id": "kestrel",
@@ -27,7 +27,7 @@
     "startScore": 31,
     "releaseEveryWeeks": 17,
     "apiPrice": 10,
-    "capabilityGain": 0.3
+    "capabilityGain": 0.24
   },
   {
     "id": "tessellate",
@@ -37,6 +37,6 @@
     "startScore": 36,
     "releaseEveryWeeks": 15,
     "apiPrice": 8,
-    "capabilityGain": 0.25
+    "capabilityGain": 0.2
   }
 ]
