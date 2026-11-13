@@ -1,0 +1,50 @@
+/** Balance knobs in one place. Placeholder values; tune with the headless balance runner. */
+export const TUNING = {
+  startCash: 8_000_000,
+  startReputation: 40,
+  startDataTokensB: 300,
+  startPowerCapMW: 5,
+  startApiPrice: 10,
+
+  salaryPerWeek: 4_000,
+  hireCost: 20_000,
+  dataCostPerBillionTokens: 5_000,
+  /** Largest training cluster one model engineer can orchestrate. */
+  chipsPerModelEngineer: 256,
+
+  /** Best-case share of peak FLOPS a well-matched cluster achieves. */
+  baseUtilization: 0.45,
+  /** Cluster size at which fabric scaling efficiency halves. */
+  fabricHalfEfficiencyChips: 50_000,
+  /** Each researcher adds this much effective compute, up to the cap. */
+  researcherComputeBonus: 0.03,
+  researcherComputeBonusCap: 0.6,
+
+  /** Capability curve: score = 100 / (1 + exp(-(log10(Ceff) - mid) / scale)). */
+  capabilityMid: 24.2,
+  capabilityScale: 1.2,
+
+  pue: 1.3,
+  powerPricePerMWh: 80,
+  secondsPerWeek: 604_800,
+  servingBatch: 64,
+  servingComputeUtilization: 0.3,
+  /** Chips per server; a model's weights must fit in one server's memory. */
+  chipsPerServer: 8,
+  tokensPerUserPerWeek: 50_000,
+
+  marketStartUsers: 5_000_000,
+  marketGrowthPerWeek: 0.015,
+  marketCapUsers: 4_000_000_000,
+  /** Score points per e-fold of market pull. */
+  scoreSoftness: 6,
+  priceElasticity: 1.3,
+  referencePrice: 8,
+  userConvergencePerWeek: 0.15,
+  underServedReputationLoss: 0.5,
+
+  randomEventChance: 0.06,
+  rivalPressEventChance: 0.6,
+  bankruptAfterNegativeWeeks: 4,
+  logLimit: 200,
+} as const;

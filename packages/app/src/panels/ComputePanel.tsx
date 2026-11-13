@@ -1,0 +1,113 @@
+import { content } from '@stm/content';
+import { archFit, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
+import { useStore } from '../store';
+import { big, money, pct } from '../format';
+import { LAYER } from '../ui/layers';
+import { Advisor, Bar, Stat } from './Panel';
+
+export function ComputePanel({ game }: { game: GameState }) {
+  const send = useStore((s) => s.send);
+  const power = ownedPowerMW(game, content);
+
+  return (
+    <>
+      <Advisor who="Infrastructure lead" color={LAYER.compute}>
+        Rented chips cost rent every week. Bought chips cost cash up front, then only power — but they need site power.
+        Match the chip to the model: check the fit chips below.
+      </Advisor>
+
+      <div className="card" style={{ ['--c' as string]: LAYER.power }}>
+        <div className="row between">
+          <h3>Colo site power</h3>
+          <span className="small muted">
+            {power.toFixed(2)} / {game.powerCapMW} MW
+          </span>
+        </div>
+        <Bar value={power / game.powerCapMW} color={LAYER.power} />
+        <div className="small muted">Only owned chips draw from your site. Rented chips run in someone else's data center.</div>
+      </div>
+
+      {content.chips.map((chip) => {
+        const dense = archFit(chip, content.archs.find((a) => a.id === 'dense')!);
+        const moe = archFit(chip, content.archs.find((a) => a.id === 'moe')!);
+        return (
+          <div className="card" key={chip.id}>
+            <div className="row between">
+              <div>
+                <h3>{chip.name}</h3>
+                <div className="sub">{chip.vendor}</div>
+              </div>
+              <div className="small muted" style={{ textAlign: 'right' }}>
+                You have {big(totalChips(game, chip.id))}
+                <br />
+                {reservedChips(game, chip.id) > 0 && `${big(reservedChips(game, chip.id))} training`}
+              </div>
+            </div>
+            <div className="small">{chip.blurb}</div>
+            <div className="grid3">
+              <Stat k="FP16 / FP8 / FP4" v={`${chip.tflops.fp16}/${chip.tflops.fp8}/${chip.tflops.fp4 || '—'}`} c={LAYER.compute} />
+              <Stat k="Memory" v={`${chip.memGB} GB`} />
+              <Stat k="Bandwidth" v={`${chip.memBwTBs} TB/s`} />
+              <Stat k="Links" v={`${chip.interconnectGBs} GB/s`} />
+              <Stat k="Power" v={`${chip.watts} W`} c={LAYER.power} />
+              <Stat k="Rent / Buy" v={`${money(chip.rentPerWeekUsd)}/wk · ${money(chip.priceUsd)}`} />
+            </div>
+            <div className="small muted">
+              {cloudSupply(chip, game.week) === 0
+                ? `Not on the cloud market until week ${chip.cloudFromWeek}.`
+                : `Cloud can rent you ${big(Math.max(0, cloudSupply(chip, game.week) - rentedChips(game, chip.id)))} more (supply grows ${pct(chip.cloudGrowth)}/wk).`}
+            </div>
+            <div className="chips">
+              <span className="chip" style={{ ['--c' as string]: LAYER.models }}>
+                Dense fit {pct(dense.fit)}
+              </span>
+              <span className="chip" style={{ ['--c' as string]: moe.fit < 0.6 ? '#c2413b' : LAYER.models }}>
+                MoE fit {pct(moe.fit)}
+              </span>
+            </div>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              {[8, 64, 512].map((n) => (
+                <button key={`r${n}`} className="btn" onClick={() => send({ type: 'rentChips', chipId: chip.id, count: n })}>
+                  Rent {n}
+                </button>
+              ))}
+              {[8, 64].map((n) => (
+                <button key={`b${n}`} className="btn" onClick={() => send({ type: 'buyChips', chipId: chip.id, count: n })}>
+                  Buy {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="card">
+        <h3>Your fleet</h3>
+        {game.fleet.length === 0 && <div className="muted">No chips yet.</div>}
+        {game.fleet.map((f) => {
+          const chip = content.chips.find((c) => c.id === f.chipId);
+          const free = Math.min(f.count, freeChips(game, f.chipId));
+          return (
+            <div className="row between" key={f.id}>
+              <span>
+                {big(f.count)} × {chip?.name} <span className="muted small">{f.owned ? 'owned' : 'rented'}</span>
+              </span>
+              <span className="row">
+                <button
+                  className="btn"
+                  disabled={free < Math.min(8, f.count)}
+                  onClick={() => send({ type: 'releaseChips', fleetId: f.id, count: Math.min(8, f.count) })}
+                >
+                  {f.owned ? 'Sell' : 'Return'} {Math.min(8, f.count)}
+                </button>
+                <button className="btn" disabled={free < f.count} onClick={() => send({ type: 'releaseChips', fleetId: f.id, count: f.count })}>
+                  All
+                </button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,143 @@
+[
+  {
+    "id": "press-rival-release",
+    "deck": "press",
+    "trigger": "rivalRelease",
+    "speaker": "Comms lead",
+    "title": "{rival} ships {model}",
+    "body": "{model} scores {score} on the frontier eval. Reporters are asking for our take.",
+    "choices": [
+      {
+        "id": "publish",
+        "label": "Publish our results",
+        "detail": "Share our eval numbers and method.",
+        "effects": { "cash": -150000, "reputation": 2, "riskChance": 0.2, "riskReputation": -2 }
+      },
+      {
+        "id": "promo",
+        "label": "Run an API price promo",
+        "detail": "Pull developers our way for a month.",
+        "effects": { "cash": -300000, "shareBoost": 1.25, "boostWeeks": 4 }
+      },
+      {
+        "id": "ignore",
+        "label": "Stay heads-down",
+        "detail": "Let the next model talk.",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "talent-star",
+    "deck": "talent",
+    "trigger": "random",
+    "speaker": "Research lead",
+    "title": "A star researcher wants in",
+    "body": "She can join next week, but wants a large signing bonus.",
+    "choices": [
+      {
+        "id": "pay",
+        "label": "Pay the bonus",
+        "detail": "One more researcher, and the community notices.",
+        "effects": { "cash": -400000, "reputation": 1, "staff": { "discipline": "research", "delta": 1 } }
+      },
+      {
+        "id": "pass",
+        "label": "Pass",
+        "detail": "Keep the cash.",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "incident-outage",
+    "deck": "incident",
+    "trigger": "random",
+    "requiresLiveModel": true,
+    "speaker": "Ops lead",
+    "title": "API outage: 3 hours down",
+    "body": "A bad deploy took the API offline. Developers are angry on social media.",
+    "choices": [
+      {
+        "id": "credits",
+        "label": "Issue service credits",
+        "detail": "Refund affected customers and publish a postmortem.",
+        "effects": { "cash": -200000, "reputation": 1 }
+      },
+      {
+        "id": "quiet",
+        "label": "Fix it quietly",
+        "detail": "Maybe nobody remembers by Friday.",
+        "effects": { "riskChance": 0.5, "riskReputation": -4 }
+      }
+    ]
+  },
+  {
+    "id": "board-update",
+    "deck": "board",
+    "trigger": "random",
+    "speaker": "Board chair",
+    "title": "Investors want a growth story",
+    "body": "Next week is the investor update. How bold should the forecast be?",
+    "choices": [
+      {
+        "id": "bold",
+        "label": "Promise big growth",
+        "detail": "Hype pulls users in, but misses get noticed.",
+        "effects": { "reputation": 1, "shareBoost": 1.1, "boostWeeks": 4, "riskChance": 0.3, "riskReputation": -3 }
+      },
+      {
+        "id": "steady",
+        "label": "Stay conservative",
+        "detail": "Under-promise, over-deliver.",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "regulation-model-card",
+    "deck": "regulation",
+    "trigger": "random",
+    "requiresLiveModel": true,
+    "speaker": "Policy counsel",
+    "title": "Regulator requests a model card",
+    "body": "The AI office wants documentation for our live model: data sources, evals and known risks.",
+    "choices": [
+      {
+        "id": "full",
+        "label": "Publish a full model card",
+        "detail": "Costs time and legal review. Builds trust.",
+        "effects": { "cash": -100000, "reputation": 3 }
+      },
+      {
+        "id": "minimal",
+        "label": "Send the minimum",
+        "detail": "Technically compliant.",
+        "effects": { "riskChance": 0.4, "riskReputation": -3 }
+      }
+    ]
+  },
+  {
+    "id": "press-viral-demo",
+    "deck": "press",
+    "trigger": "random",
+    "requiresLiveModel": true,
+    "speaker": "Product lead",
+    "title": "Our model went viral",
+    "body": "A demo of our model is everywhere this week. Sign-ups are spiking.",
+    "choices": [
+      {
+        "id": "ride",
+        "label": "Ride the wave",
+        "detail": "Spend on ads while attention is high.",
+        "effects": { "cash": -200000, "shareBoost": 1.3, "boostWeeks": 3 }
+      },
+      {
+        "id": "let",
+        "label": "Let it play out",
+        "detail": "Free attention is still attention.",
+        "effects": { "shareBoost": 1.1, "boostWeeks": 2 }
+      }
+    ]
+  }
+]

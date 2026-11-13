@@ -1,0 +1,62 @@
+[
+  {
+    "id": "kite-k1",
+    "name": "Kite K1",
+    "vendor": "Kite Semiconductor",
+    "blurb": "The workhorse. Balanced and everywhere, but no FP4.",
+    "tflops": {
+      "fp16": 400,
+      "fp8": 800,
+      "fp4": 0
+    },
+    "memGB": 80,
+    "memBwTBs": 2,
+    "interconnectGBs": 450,
+    "watts": 700,
+    "priceUsd": 25000,
+    "rentPerWeekUsd": 300,
+    "cloudSupply": 256,
+    "cloudGrowth": 0.03,
+    "cloudFromWeek": 0
+  },
+  {
+    "id": "monolith-m3",
+    "name": "Monolith M3",
+    "vendor": "Monolith Semiconductor",
+    "blurb": "Raw compute for cheap. Memory and links are thin.",
+    "tflops": {
+      "fp16": 1200,
+      "fp8": 2400,
+      "fp4": 0
+    },
+    "memGB": 64,
+    "memBwTBs": 2.5,
+    "interconnectGBs": 300,
+    "watts": 900,
+    "priceUsd": 30000,
+    "rentPerWeekUsd": 420,
+    "cloudSupply": 128,
+    "cloudGrowth": 0.03,
+    "cloudFromWeek": 0
+  },
+  {
+    "id": "kite-k2",
+    "name": "Kite K2",
+    "vendor": "Kite Semiconductor",
+    "blurb": "Flagship. Huge memory, fast links, FP4. Priced like it.",
+    "tflops": {
+      "fp16": 1000,
+      "fp8": 2000,
+      "fp4": 4000
+    },
+    "memGB": 192,
+    "memBwTBs": 8,
+    "interconnectGBs": 900,
+    "watts": 1000,
+    "priceUsd": 45000,
+    "rentPerWeekUsd": 700,
+    "cloudSupply": 64,
+    "cloudGrowth": 0.04,
+    "cloudFromWeek": 26
+  }
+]

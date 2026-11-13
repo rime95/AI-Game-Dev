@@ -1,0 +1,20 @@
+[
+  {
+    "id": "dense",
+    "name": "Dense transformer",
+    "blurb": "Every parameter works on every token. Compute-hungry, easy on memory and links.",
+    "activeParamFraction": 1,
+    "computeMultiplier": 1,
+    "memNeedGBPerPF": 60,
+    "linkNeedGBsPerTF": 0.3
+  },
+  {
+    "id": "moe",
+    "name": "Mixture of experts",
+    "blurb": "Only a quarter of the experts fire per token: cheap to train and serve, but it needs lots of memory and fast links.",
+    "activeParamFraction": 0.25,
+    "computeMultiplier": 3,
+    "memNeedGBPerPF": 160,
+    "linkNeedGBsPerTF": 0.8
+  }
+]

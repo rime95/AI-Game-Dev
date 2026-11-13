@@ -1,0 +1,24 @@
+{
+  "name": "sand-to-mind",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @stm/app",
+    "build": "npm run build -w @stm/app",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "desktop": "npm run build && electron packages/desktop",
+    "desktop:dev": "electron packages/desktop --dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.21.5": true
+  }
+}
