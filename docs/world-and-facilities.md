@@ -13,25 +13,75 @@ All numbers are first-pass placeholders for the balance runner.
 4. **Readable at a glance.** Overlays and hover cards explain every bonus and penalty with the exact formula.
 5. **Our own look.** Genre conventions (isometric cutaway, room templates, site views) in the daylight/blueprint style and layer colors from [art-direction.md](art-direction.md). Nothing copied from the reference game's layouts or art.
 
-## 2. Growth stages
+## 2. Two tracks: HQ (people) and sites (machines)
+The company grows along two separate tracks:
+- **HQ** is where **people** work: desks, labs, culture.
+- **Sites** are where **machines** work: data halls and the fab.
+
+They share building blocks (§2.4) but hold different things.
+
+### 2.1 HQ track: Garage → Office → HQ building → HQ campus
 
 | Stage | Space | How you get there | What it unlocks |
 |---|---|---|---|
 | **Garage** | 1 floor, 6×4 tiles | Start | Up to ~5 desks, 1 shelf rack, a box fan |
-| **Office floor** | 1 floor, 14×10 tiles, rent $40K/wk | Series A *or* $20M cash | Real rooms, a small server room |
-| **Campus building** | 3 floors × 20×14 tiles; build $60M or lease $250K/wk | Series B | Specialized labs, boardroom, cafeteria, larger server room |
-| **Campus** | Several buildings on a lot | Series C | Extra buildings (acquired companies, chip lab, vault), on-site substation |
-| **Data center sites** | Separate locations; each has 2–6 halls of 20×12 tiles | Power license level 3 | Large-scale owned compute, hall interiors, world map |
-| **Fab** | Cleanroom of 12 bays | Series D / IPO money, Power level 4, 4+ hardware engineers | Your own chip production (§7) |
+| **Office** | 1 floor, 14×10 tiles, rent $40K/wk | Series A *or* $20M cash | Real rooms, a small server room |
+| **HQ building** | 3 floors × 20×14 tiles; build $60M or lease $250K/wk | Series B | Specialized labs, boardroom, cafeteria |
+| **HQ campus** | Several buildings on a lot | Series C | Extra buildings: chip design center, acquired companies, vault, garage memorial |
 
-- **Moving is a choice** with a cost and a short move-in: a few days of lower productivity while people unpack.
-- **Earlier locations aren't thrown away:** the garage becomes a memorial landmark on the campus, a nice nostalgia beat.
-- **Transition moments:** the camera pulls back, a construction timelapse plays, and a news card announces the move ("We're out of the garage").
+What an HQ contains:
+
+| Contains | Why it's there |
+|---|---|
+| Desk pods | Every employee needs a desk (soft cap, §5) |
+| Research lab, hardware lab, ops room, product studio | Specialist bonuses come from seats here |
+| Break room, cafeteria | Morale |
+| Boardroom | Unlocks Series B+ |
+| Legal office, secure vault | Compliance and Safety level 3+ |
+| **Small server room** | Early-game owned chips only. Capped to a few racks by office power and cooling (§2.5) |
+| HQ campus extras | Acquired companies' buildings, the chip design center, the garage memorial |
+
+### 2.2 Sites track: Data center campus → Fab
+
+| Site | How you get there | What it unlocks |
+|---|---|---|
+| **Data center campus** (several over time) | Power license level 3 | Large-scale owned compute, hall interiors, world map |
+| **Fab** | Series D / IPO money, Power level 4, 4+ hardware engineers | Your own chip production (§7) |
+
+What a data center campus contains:
+
+| Contains | Why it's there |
+|---|---|
+| **Data halls** (2–6, each 20×12 tiles; enter to see the interior grid) | Racks, cooling units and power units: where most owned chips live (§6) |
+| Cooling yard (fans, chillers, liquid loops) | The halls' cooling capacity, made visible outside |
+| Substation, then on-site generation | Site power from the Power license track |
+| Water reclaim | The Environmental license track |
+| Operations center (small building) | A few technicians; their seats cut hardware failures at that site |
+| Security fence and gate | Safety: weight security at scale |
+| Fiber line to HQ | Visual link, plus the network tier that affects cluster scaling |
+
+Each site has its own **location stats**: power price, climate (cold sites cool for less), and water availability (affects environmental rules).
+
+The fab is also a machine site: cleanroom bays with production lines, plus its own power and water plant (§7).
+
+### 2.3 Moving and transitions
+- **Moving up the HQ track is a choice** with a cost and a short move-in: a few days of lower productivity while people unpack.
+- **Opening a site is a construction project:** it takes weeks and needs power secured first.
+- **Earlier locations aren't thrown away:** the garage becomes a memorial landmark on the HQ campus, a nostalgia beat.
+- **Transition moments:** the camera pulls back, a construction timelapse plays, and a news card announces the move ("We're out of the garage", "Our first data center is online").
+
+### 2.4 Shared building blocks
+- **Racks, cooling units and power units** behave the same in the HQ server room and in a data hall, just at different scale. You learn them in the garage and office, and they scale up later.
+- **Ops seats** exist in both: the HQ ops room covers company-wide work, and each site's operations center covers that site.
+- **The template grid and build tools** are the same everywhere.
+
+### 2.5 How the tracks connect
+The HQ server room can't grow much: offices don't have the power or cooling for big racks. That ceiling is what **pushes you to open your first data center campus**, the big jump from small to large. After that, the HQ is mostly about people and the sites are about compute.
 
 ## 3. Views and camera
-- **Location view** (default): an isometric cutaway with walls cut to knee height. Floors are switched with tabs on multi-floor buildings.
-- **Site view:** the exterior of a data center or fab. Click a hall to enter its interior grid.
-- **World map** (from the sites stage): a schematic globe with your sites, plus power-price and climate overlays.
+- **HQ view** (default): an isometric cutaway with walls cut to knee height. Floors are switched with tabs on multi-floor buildings.
+- **Site view:** the exterior of a data center campus or the fab. Click a hall to enter its interior grid.
+- **World map** (once you have a site): a schematic globe with your HQ and sites, plus power-price and climate overlays. It's the way to switch between places.
 - **Blueprint mode:** any design tool (chip, model, rack, site plan) turns the scene into blueprint, as in art-direction §2.
 
 ## 4. Rooms (templates on a grid)
@@ -49,7 +99,7 @@ You pick a template, drag it onto free tiles, and rotate it in 90° steps. Furni
 | **Boardroom** | 3×3 | — | Required before Series B+ investors will meet you |
 | **Legal office** | 2×2 | — | Required for Compliance level 3+ |
 | **Secure vault** | 2×2 | — | Required for Safety level 3+ (weight security) |
-| **Server room** | min 4×3, any size | racks inside (§6) | Houses owned chips at HQ |
+| **Server room** | min 4×3, any size | racks inside (§6) | Houses early owned chips at HQ; limited by office power and cooling (§2.5) |
 
 Rules:
 - A staff member without the right room still works, but **only generic work**. For example, an unseated researcher adds nothing to compute. The hover card says exactly why.
@@ -82,7 +132,8 @@ Same template system, with equipment instead of furniture:
 - **Power per room:** racks beyond PDU capacity won't power on. Site power from the License to Scale track still caps the total.
 - **Cooling tiers are visible:** air (fans and vents) → liquid (pipes and manifolds) → immersion (tanks). Moving up also lowers PUE, which cuts the power bill.
 - **Rack lights:** violet = training, blue = serving, dark = idle, red blinking = throttled.
-- **Data center sites** reuse this inside each hall. Outside, the site shows halls, cooling yards, substation, water reclaim and generation, all driven by the hall interiors and your license levels.
+- **HQ server rooms have a building limit:** office power and cooling cap them at a few racks (roughly 8 racks / 250 kW in an office, 24 racks / 1 MW in an HQ building). Data halls have no such limit beyond site power.
+- **Data center campuses** reuse this inside each hall. Outside, the site shows halls, cooling yards, substation, water reclaim and generation, all driven by the hall interiors and your license levels (§2.2).
 
 ## 7. The fab (late game)
 - **Cleanroom of 12 bays.** You place a **production line** in a bay. A line is a chain of 4 tool groups: **lithography → deposition/etch → test → advanced packaging**. The slowest stage sets the line's throughput.
@@ -118,12 +169,11 @@ All of these are **generated from the design's actual numbers**, so they always 
 
 ## 10. What changes in the simulation
 New state:
-- **Locations:** the current one plus history.
-- **Buildings and floors:** a grid size per floor.
+- **HQ:** the current stage, plus buildings and floors with a grid size per floor.
+- **Sites:** each data center campus with its location stats, halls and construction status.
 - **Placed rooms:** template, tier, position and rotation.
 - **Placed equipment:** racks, cooling units and PDUs, with chip assignment per rack.
 - **Morale.**
-- **Sites:** location, power, halls.
 - **Fab lines:** node, design, yield, wafers produced.
 
 Systems that change:
@@ -137,11 +187,11 @@ Unchanged: rented cloud chips, training math, eval suites, products, acquisition
 The simulation stays authoritative and testable. The layout is game state, and the 3D view only renders it.
 
 ## 11. Build order (each step playable)
-1. **Grid + templates + garage/office:** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move.
-2. **Server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay.
-3. **Campus building and campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings.
+1. **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move.
+2. **HQ server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay, building power/cooling limit.
+3. **HQ building and HQ campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings, garage memorial.
 4. **Exploded chip card** and model layer stack in Blueprint mode.
-5. **Data center sites, hall interiors and world map.**
+5. **Data center campuses (sites track):** site construction, location stats, hall interiors, operations center, world map.
 6. **Fab:** lines, nodes, yield, HBM and packaging bottlenecks, selling surplus chips.
 7. **Product visuals and polish:** transitions, the garage memorial, nudges.
 

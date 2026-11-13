@@ -191,7 +191,7 @@ Tracked **per site**, with thresholds that scale with MW and capability tier:
 **Lose:** bankruptcy, board ousts you, or a catastrophic incident (only possible with very low safety investment, and telegraphed well in advance).
 
 ## 13. Presentation (distinct identity)
-Growth stages (garage → office → campus → data center sites → fab), room templates, server rooms and every design visual are specified in [world-and-facilities.md](world-and-facilities.md).
+Growth along two tracks (HQ: garage → office → HQ building → HQ campus; sites: data center campuses → fab), room templates, server rooms and every design visual are specified in [world-and-facilities.md](world-and-facilities.md).
 
 Full direction in [art-direction.md](art-direction.md). Summary:
 - **"Daylight & Blueprint":** a bright low-poly campus diorama for running the company; it dissolves into blueprint when you open a design tool (chip, model, site).
