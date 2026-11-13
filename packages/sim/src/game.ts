@@ -34,7 +34,8 @@ import {
 import { capabilityForScore } from './formulas';
 import { fundingCheck } from './funding';
 import { customChipShare, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
-import type { Integration, VictoryKind } from './types';
+import type { Integration, TrainingRun, VictoryKind } from './types';
+import { checkpointCapability, runFlopsPerWeek, runIncidentRates, runProgress } from './training';
 import { availableDeals } from './acquisitions';
 import {
   consumerTarget,
@@ -47,7 +48,7 @@ import {
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 8,
+    version: 9,
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
     offers: [],
     contracts: [],
@@ -114,6 +115,15 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
   switch (cmd.type) {
+    case 'releaseCheckpoint': {
+      const run = state.training;
+      if (!run) return fail('No training run in progress.');
+      if (runProgress(run) < TUNING.checkpointMinProgress)
+        return fail(`Checkpoints are only worth shipping after ${Math.round(TUNING.checkpointMinProgress * 100)}% of training.`);
+      releaseRun(state, content, run, checkpointCapability(run), true);
+      return { state };
+    }
+
     case 'launchConsumerApp': {
       if (state.consumer.launched) return fail('The app is already live.');
       if (state.staff.product < 1) return fail('Hire a product manager first.');
@@ -282,6 +292,9 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
         tier: preview.tier,
         gaps: Object.fromEntries(preview.requirements.map((r) => [r.track, r.gap])) as Record<TrackId, number>,
         speedFactor: preview.speedFactor,
+        capabilityDelta: 0,
+        scandalChance: 0,
+        incidents: 0,
       };
       const missing = preview.requirements.filter((r) => r.gap > 0).length;
       log(
@@ -354,7 +367,7 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
       if (!ev) return fail('No open event.');
       const choice = ev.choices.find((c) => c.id === cmd.choiceId);
       if (!choice) return fail('Unknown choice.');
-      applyEffects(state, choice.effects);
+      applyEffects(state, content, choice.effects);
       log(state, 'info', `${ev.title}: ${choice.label}.`);
       state.pendingEvent = null;
       return { state };
@@ -374,34 +387,22 @@ function advanceWeek(state: GameState, content: Content): void {
   // 1. Training progress
   const run = state.training;
   if (run) {
-    const arch = getArch(content, run.spec.archId);
-    const chip = getChip(content, run.spec.chipId, state);
-    if (arch && chip) {
-      run.flopsDone +=
-        clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) * TUNING.secondsPerWeek * run.speedFactor;
-    }
+    run.flopsDone += runFlopsPerWeek(state, content, run);
     if (run.flopsDone >= run.flopsTotal) {
-      const id = `m${state.nextId++}`;
-      state.models.push({
-        id,
-        name: run.spec.name,
-        archId: run.spec.archId,
-        paramsB: run.spec.paramsB,
-        tokensB: run.spec.tokensB,
-        precision: run.spec.precision,
-        capability: run.projectedCapability,
-        score: round1(scoreNow(state, run.projectedCapability)),
-        releasedWeek: state.week + 1,
-      });
-      const live = liveModel(state);
-      if (!live || run.projectedCapability > live.capability) state.liveModelId = id;
-      log(
-        state,
-        'good',
-        `${run.spec.name} released: scores ${round1(scoreNow(state, run.projectedCapability))} on Suite v${state.suite.version}.`,
-      );
-      rollLicenseConsequences(state, content, run.tier, run.gaps, run.spec.name);
-      state.training = null;
+      releaseRun(state, content, run, run.projectedCapability + run.capabilityDelta, false);
+    } else if (!state.pendingEvent) {
+      // Things go wrong in big training runs.
+      const rates = runIncidentRates(state, content, run);
+      const kinds = (['hardware', 'lossSpike', 'contamination'] as const).filter((k) => rand(state) < rates[k]);
+      const kind = kinds[0];
+      if (kind) {
+        const ev = content.events.find((e) => e.trigger === 'training' && e.incident === kind);
+        const chip = getChip(content, run.spec.chipId, state);
+        if (ev) {
+          run.incidents += 1;
+          state.pendingEvent = instantiate(ev, { model: run.spec.name, chip: chip?.name ?? 'chip' });
+        }
+      }
     }
   }
 
@@ -712,7 +713,50 @@ function rollLicenseConsequences(state: GameState, content: Content, tier: numbe
   }
 }
 
-function applyEffects(state: GameState, e: Effects): void {
+/** Turn a training run into a released model (complete or from an early checkpoint). */
+function releaseRun(state: GameState, content: Content, run: TrainingRun, capability: number, checkpoint: boolean): void {
+  const id = `m${state.nextId++}`;
+  state.models.push({
+    id,
+    name: run.spec.name,
+    archId: run.spec.archId,
+    paramsB: run.spec.paramsB,
+    tokensB: run.spec.tokensB,
+    precision: run.spec.precision,
+    capability,
+    score: round1(scoreNow(state, capability)),
+    releasedWeek: state.week + 1,
+  });
+  const live = liveModel(state);
+  if (!live || capability > live.capability) state.liveModelId = id;
+  log(
+    state,
+    'good',
+    `${run.spec.name} released${checkpoint ? ` early from a ${Math.round(runProgress(run) * 100)}% checkpoint` : ''}: scores ${round1(scoreNow(state, capability))} on Suite v${state.suite.version}.`,
+  );
+  rollLicenseConsequences(state, content, run.tier, run.gaps, run.spec.name);
+  if (run.scandalChance > 0 && rand(state) < run.scandalChance) {
+    state.reputation = clampRep(state.reputation - 6);
+    log(state, 'bad', `Researchers found eval questions in ${run.spec.name}'s training data. Contamination scandal: reputation −6.`);
+  }
+  state.training = null;
+}
+
+function applyEffects(state: GameState, content: Content, e: Effects): void {
+  const run = state.training;
+  if (run) {
+    if (e.runProgressWeeks) {
+      run.flopsDone = Math.max(0, run.flopsDone + e.runProgressWeeks * runFlopsPerWeek(state, content, run));
+    }
+    if (e.runSpeedMult) run.speedFactor *= e.runSpeedMult;
+    if (e.runCapabilityDelta) run.capabilityDelta += e.runCapabilityDelta;
+    if (e.runCapabilityRiskChance && e.runCapabilityRiskDelta && rand(state) < e.runCapabilityRiskChance) {
+      run.capabilityDelta += e.runCapabilityRiskDelta;
+      log(state, 'bad', `${run.spec.name} didn't fully recover from the instability. The final model will be weaker.`);
+    }
+    if (e.runCostPerChip) state.cash -= e.runCostPerChip * run.spec.chipCount;
+    if (e.runScandalChance) run.scandalChance = Math.max(run.scandalChance, e.runScandalChance);
+  }
   if (e.cash) state.cash += e.cash;
   if (e.reputation) state.reputation = clampRep(state.reputation + e.reputation);
   if (e.staff) state.staff[e.staff.discipline] = Math.max(0, state.staff[e.staff.discipline] + e.staff.delta);

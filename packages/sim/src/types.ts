@@ -32,8 +32,13 @@ export interface TrainingRun {
   tier: number;
   /** Levels missing per track when the run started; consequences roll on release. */
   gaps: Record<TrackId, number>;
-  /** Multiplier on training speed (power curtailment). */
+  /** Multiplier on training speed (power curtailment, incidents). */
   speedFactor: number;
+  /** Capability change from incidents, applied on release. */
+  capabilityDelta: number;
+  /** Chance of a contamination scandal on release. */
+  scandalChance: number;
+  incidents: number;
 }
 
 export interface LicenseTrackState {
@@ -199,7 +204,7 @@ export interface Contract {
 }
 
 export interface GameState {
-  version: 8;
+  version: 9;
   consumer: ConsumerApp;
   offers: EnterpriseOffer[];
   contracts: Contract[];
@@ -267,6 +272,7 @@ export type Command =
   | { type: 'startAgiProgram'; chipId: string; chipCount: number }
   | { type: 'continuePlaying' }
   | { type: 'acquire'; dealId: string }
+  | { type: 'releaseCheckpoint' }
   | { type: 'launchConsumerApp' }
   | { type: 'setSubPrice'; price: number }
   | { type: 'acceptOffer'; offerId: string }

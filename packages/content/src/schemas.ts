@@ -73,6 +73,21 @@ export const EffectsSchema = z.object({
   /** Chance of a bad outcome, applied as `riskReputation`. */
   riskChance: z.number().min(0).max(1).optional(),
   riskReputation: z.number().optional(),
+
+  // Training-incident effects, applied to the run in progress:
+  /** Weeks of training progress gained (+) or lost (−). */
+  runProgressWeeks: z.number().optional(),
+  /** Multiplies the run's speed for the rest of the run. */
+  runSpeedMult: z.number().positive().optional(),
+  /** Change to the model's final capability (log10 effective compute). */
+  runCapabilityDelta: z.number().optional(),
+  /** A chance of an extra capability loss, decided now. */
+  runCapabilityRiskChance: z.number().min(0).max(1).optional(),
+  runCapabilityRiskDelta: z.number().optional(),
+  /** Cash cost per chip in the training cluster. */
+  runCostPerChip: z.number().nonnegative().optional(),
+  /** Chance of a reputation scandal when the model is released. */
+  runScandalChance: z.number().min(0).max(1).optional(),
 });
 export type Effects = z.infer<typeof EffectsSchema>;
 
@@ -82,7 +97,9 @@ export type Deck = z.infer<typeof DeckSchema>;
 export const EventSchema = z.object({
   id: z.string(),
   deck: DeckSchema,
-  trigger: z.enum(['rivalRelease', 'random']),
+  trigger: z.enum(['rivalRelease', 'random', 'training']),
+  /** For training incidents: which risk this event represents. */
+  incident: z.enum(['hardware', 'lossSpike', 'contamination']).optional(),
   requiresLiveModel: z.boolean().default(false),
   weight: z.number().positive().default(1),
   speaker: z.string(),

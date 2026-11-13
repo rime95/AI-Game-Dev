@@ -12,6 +12,16 @@ export function EffectChips({ effects }: { effects: Effects }) {
     chips.push({ text: `User pull +${Math.round((effects.shareBoost - 1) * 100)}% · ${effects.boostWeeks} wk`, c: LAYER.products });
   if (effects.riskChance && effects.riskReputation)
     chips.push({ text: `${Math.round(effects.riskChance * 100)}% risk · Reputation ${signed(effects.riskReputation)}`, c: '#c2413b' });
+  if (effects.runProgressWeeks)
+    chips.push({ text: `${effects.runProgressWeeks > 0 ? '+' : '−'}${Math.abs(effects.runProgressWeeks)} wk of training`, c: LAYER.models });
+  if (effects.runSpeedMult)
+    chips.push({ text: `Run speed ${effects.runSpeedMult >= 1 ? '+' : '−'}${Math.round(Math.abs(effects.runSpeedMult - 1) * 100)}%`, c: LAYER.compute });
+  if (effects.runCapabilityDelta) chips.push({ text: 'Slightly weaker model', c: '#c2413b' });
+  if (effects.runCapabilityRiskChance)
+    chips.push({ text: `${Math.round(effects.runCapabilityRiskChance * 100)}% risk · weaker model`, c: '#c2413b' });
+  if (effects.runCostPerChip) chips.push({ text: `${money(effects.runCostPerChip)} per chip`, c: LAYER.gold });
+  if (effects.runScandalChance)
+    chips.push({ text: `${Math.round(effects.runScandalChance * 100)}% scandal on release`, c: '#c2413b' });
   if (!chips.length) chips.push({ text: 'No effect', c: '#6f7079' });
   return (
     <div className="chips">

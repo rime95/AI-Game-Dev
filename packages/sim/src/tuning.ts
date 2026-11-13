@@ -64,6 +64,19 @@ export const TUNING = {
   /** Full Stack victory: share of owned fleet on custom chips. */
   fullStackCustomShare: 0.5,
 
+  /** Training incidents: weekly base chances. */
+  hardwareFailureBase: 0.02,
+  /** Extra hardware risk per doubling of cluster size above 1024 chips. */
+  hardwareFailurePerDoubling: 0.5,
+  /** First-generation custom silicon is flakier. */
+  customChipFailureMult: 1.5,
+  /** Each ops engineer cuts hardware failures by this factor. */
+  hardwareFailureOpsFactor: 0.9,
+  lossSpikeBase: 0.02,
+  contaminationBase: 0.012,
+  /** Release a run early from a checkpoint once it's at least this far along. */
+  checkpointMinProgress: 0.5,
+
   /** Consumer app. */
   consumerLaunchCost: 5_000_000,
   consumerMarketMultiplier: 2,

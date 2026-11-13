@@ -15,6 +15,7 @@ import {
 } from './formulas';
 
 import { powerSpeedFactor, requirementsFor, tierForCapability, type Requirement } from './license';
+import { incidentRates, type IncidentRates } from './training';
 
 const START_DATE_UTC = Date.UTC(2026, 0, 5); // Monday, Jan 5 2026
 
@@ -131,6 +132,8 @@ export interface TrainingPreview {
   requirements: Requirement[];
   /** Training speed multiplier from missing power (1 = no curtailment). */
   speedFactor: number;
+  /** Weekly chance of each training incident. */
+  incidents: IncidentRates;
 }
 
 /** Pure preview of a training run: everything the player sees before committing. */
@@ -171,6 +174,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
       tier: 1,
       requirements: requirementsFor(state, content, 1),
       speedFactor: 1,
+      incidents: { hardware: 0, lossSpike: 0, contamination: 0 },
     };
   }
 
@@ -203,6 +207,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     tier,
     requirements,
     speedFactor,
+    incidents: incidentRates(state, chip, spec.chipCount, spec.paramsB, spec.precision),
   };
 }
 

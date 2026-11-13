@@ -10,7 +10,7 @@ const ROLES: { id: Discipline; label: string; does: string; color: string }[] = 
   { id: 'modelEng', label: 'Model engineers', does: `Each can orchestrate a training cluster of up to ${TUNING.chipsPerModelEngineer} chips.`, color: LAYER.models },
   { id: 'hardwareEng', label: 'Hardware engineers', does: 'Design custom chips in Silicon. Each cuts tape-out bug risk by 15%; newer nodes need more of them.', color: LAYER.silicon },
   { id: 'product', label: 'Product managers', does: 'Each adds 0.5% paid conversion to the consumer app (max 8%) and handles 2 enterprise accounts.', color: LAYER.products },
-  { id: 'ops', label: 'Ops engineers', does: 'Smooth acquisitions: each cuts culture-clash risk by 15%.', color: LAYER.compute },
+  { id: 'ops', label: 'Ops engineers', does: 'Each cuts training hardware failures by 10% and acquisition culture-clash risk by 15%.', color: LAYER.compute },
 ];
 
 export function TeamPanel({ game }: { game: GameState }) {

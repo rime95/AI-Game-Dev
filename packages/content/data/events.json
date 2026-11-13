@@ -1,5 +1,92 @@
 [
   {
+    "id": "training-hardware-failure",
+    "deck": "incident",
+    "trigger": "training",
+    "incident": "hardware",
+    "speaker": "Ops lead",
+    "title": "Node failures in the {model} cluster",
+    "body": "A batch of {chip} boards started throwing memory errors overnight. The run is limping along on the healthy nodes.",
+    "choices": [
+      {
+        "id": "swap",
+        "label": "Swap the bad boards",
+        "detail": "Pay for replacements and lose a few days restarting.",
+        "effects": { "runCostPerChip": 200, "runProgressWeeks": -0.5 }
+      },
+      {
+        "id": "degraded",
+        "label": "Run degraded",
+        "detail": "Keep going on fewer nodes for the rest of the run.",
+        "effects": { "runSpeedMult": 0.85 }
+      },
+      {
+        "id": "audit",
+        "label": "Pause for a full audit",
+        "detail": "Lose a week, but find the root cause.",
+        "effects": { "runProgressWeeks": -1, "runSpeedMult": 1.05 }
+      }
+    ]
+  },
+  {
+    "id": "training-loss-spike",
+    "deck": "incident",
+    "trigger": "training",
+    "incident": "lossSpike",
+    "speaker": "Model engineering lead",
+    "title": "{model}: the loss just spiked",
+    "body": "Training loss jumped and hasn't come back down. It might recover on its own. It might not.",
+    "choices": [
+      {
+        "id": "rollback",
+        "label": "Roll back to the last checkpoint",
+        "detail": "Safe. Costs about a week of progress.",
+        "effects": { "runProgressWeeks": -1 }
+      },
+      {
+        "id": "push",
+        "label": "Push through",
+        "detail": "No time lost, but the model may come out worse.",
+        "effects": { "runCapabilityRiskChance": 0.4, "runCapabilityRiskDelta": -0.2 }
+      },
+      {
+        "id": "lower-lr",
+        "label": "Lower the learning rate",
+        "detail": "Stable from here on, but slower.",
+        "effects": { "runSpeedMult": 0.9 }
+      }
+    ]
+  },
+  {
+    "id": "training-contamination",
+    "deck": "incident",
+    "trigger": "training",
+    "incident": "contamination",
+    "speaker": "Research lead",
+    "title": "Eval questions found in {model}'s training data",
+    "body": "Part of our data mix contains frontier-eval questions. Our scores would look great — and be wrong.",
+    "choices": [
+      {
+        "id": "retrain",
+        "label": "Purge and retrain that stage",
+        "detail": "Clean, but costs two weeks.",
+        "effects": { "runProgressWeeks": -2 }
+      },
+      {
+        "id": "filter",
+        "label": "Filter and continue",
+        "detail": "Remove what we can. A small hit to quality.",
+        "effects": { "runCapabilityDelta": -0.05 }
+      },
+      {
+        "id": "ignore",
+        "label": "Ignore it",
+        "detail": "Ship the inflated numbers. Someone may notice.",
+        "effects": { "runScandalChance": 0.5 }
+      }
+    ]
+  },
+  {
     "id": "press-rival-release",
     "deck": "press",
     "trigger": "rivalRelease",

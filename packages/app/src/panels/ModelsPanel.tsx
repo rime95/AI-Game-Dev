@@ -1,11 +1,75 @@
 import { useMemo, useState } from 'react';
 import { content, type Precision } from '@stm/content';
-import { allChips, freeChips, previewTraining, tierName, trackDef, TUNING, type GameState, type TrainingSpec } from '@stm/sim';
+import {
+  allChips,
+  checkpointCapability,
+  freeChips,
+  previewTraining,
+  runIncidentRates,
+  runProgress,
+  scoreNow,
+  tierName,
+  trackDef,
+  TUNING,
+  type GameState,
+  type TrainingSpec,
+} from '@stm/sim';
 import { TRACK_COLOR } from './LicensePanel';
 import { useStore } from '../store';
 import { big, money, pct, sci } from '../format';
 import { LAYER } from '../ui/layers';
 import { Advisor, Bar, Stat } from './Panel';
+
+/** The run in progress: progress, what incidents did to it, and the early-release option. */
+function RunCard({ game }: { game: GameState }) {
+  const send = useStore((s) => s.send);
+  const run = game.training!;
+  const progress = runProgress(run);
+  const finalScore = scoreNow(game, run.projectedCapability + run.capabilityDelta);
+  const checkpointScore = scoreNow(game, checkpointCapability(run));
+  const rates = runIncidentRates(game, content, run);
+  const canCheckpoint = progress >= TUNING.checkpointMinProgress;
+  return (
+    <div className="card">
+      <div className="row between">
+        <h3>Training: {run.spec.name}</h3>
+        <span className="small muted">Final score ≈ {finalScore.toFixed(1)}</span>
+      </div>
+      <Bar value={progress} color={LAYER.models} />
+      <div className="small muted">
+        {pct(progress)} of {sci(run.flopsTotal)} FLOPs · {big(run.spec.chipCount)} chips busy · speed {pct(run.speedFactor)}
+      </div>
+      <div className="chips">
+        <span className="chip" style={{ ['--c' as string]: LAYER.models }}>
+          {run.incidents} incident{run.incidents === 1 ? '' : 's'} so far
+        </span>
+        {run.capabilityDelta < 0 && (
+          <span className="chip" style={{ ['--c' as string]: '#c2413b' }}>
+            Damaged: −{(scoreNow(game, run.projectedCapability) - finalScore).toFixed(1)} score
+          </span>
+        )}
+        {run.scandalChance > 0 && (
+          <span className="chip" style={{ ['--c' as string]: '#c2413b' }}>
+            {pct(run.scandalChance)} contamination scandal risk
+          </span>
+        )}
+        <span className="chip" style={{ ['--c' as string]: '#6f7079' }}>
+          Weekly risk: hardware {pct(rates.hardware)} · instability {pct(rates.lossSpike)} · data {pct(rates.contamination)}
+        </span>
+      </div>
+      <div className="row between">
+        <span className="small muted">
+          {canCheckpoint
+            ? `Ship the latest checkpoint now: score ≈ ${checkpointScore.toFixed(1)}.`
+            : `Checkpoints can ship from ${pct(TUNING.checkpointMinProgress)}.`}
+        </span>
+        <button className="btn" disabled={!canCheckpoint} onClick={() => send({ type: 'releaseCheckpoint' })}>
+          Release checkpoint
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const PARAM_OPTIONS = [1, 3, 7, 13, 34, 70, 180, 400, 1000, 2000];
 const PRECISIONS: Precision[] = ['fp16', 'fp8', 'fp4'];
@@ -34,19 +98,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
         wastes most of the compute you pay for.
       </Advisor>
 
-      {game.training && (
-        <div className="card">
-          <div className="row between">
-            <h3>Training: {game.training.spec.name}</h3>
-            <span className="small muted">Projected {game.training.projectedScore.toFixed(1)}</span>
-          </div>
-          <Bar value={game.training.flopsDone / game.training.flopsTotal} color={LAYER.models} />
-          <div className="small muted">
-            {pct(game.training.flopsDone / game.training.flopsTotal)} of {sci(game.training.flopsTotal)} FLOPs ·{' '}
-            {big(game.training.spec.chipCount)} chips busy
-          </div>
-        </div>
-      )}
+      {game.training && <RunCard game={game} />}
 
       <div className="card">
         <h3>Design a training run</h3>
@@ -161,6 +213,11 @@ export function ModelsPanel({ game }: { game: GameState }) {
         </div>
         <div className="small muted">
           Training FLOPs = 6 × active params × tokens. Utilization = {TUNING.baseUtilization * 100}% × fit × scaling.
+        </div>
+        <div className="small muted">
+          Weekly incident risk: hardware {pct(preview.incidents.hardware)} · instability {pct(preview.incidents.lossSpike)} · data{' '}
+          {pct(preview.incidents.contamination)}. Bigger clusters, lower precision and bigger models are riskier; ops engineers
+          cut hardware failures.
         </div>
         <div className="small" style={{ fontWeight: 600 }}>
           License to Scale · {tierName(content, preview.tier)}
