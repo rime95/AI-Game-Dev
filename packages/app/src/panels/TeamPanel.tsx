@@ -8,7 +8,7 @@ import { Advisor } from './Panel';
 const ROLES: { id: Discipline; label: string; does: string; color: string }[] = [
   { id: 'research', label: 'Researchers', does: 'Each adds +3% effective training compute (up to +60%).', color: LAYER.models },
   { id: 'modelEng', label: 'Model engineers', does: `Each can orchestrate a training cluster of up to ${TUNING.chipsPerModelEngineer} chips.`, color: LAYER.models },
-  { id: 'hardwareEng', label: 'Hardware engineers', does: 'Will design custom chips (coming in the chip designer).', color: LAYER.silicon },
+  { id: 'hardwareEng', label: 'Hardware engineers', does: 'Design custom chips in Silicon. Each cuts tape-out bug risk by 15%; newer nodes need more of them.', color: LAYER.silicon },
   { id: 'product', label: 'Product managers', does: 'Will ship apps and enterprise products (coming later).', color: LAYER.products },
   { id: 'ops', label: 'Ops engineers', does: 'Will run data centers and cut incidents (coming later).', color: LAYER.compute },
 ];

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { content, type Precision } from '@stm/content';
-import { freeChips, previewTraining, TUNING, type GameState, type TrainingSpec } from '@stm/sim';
+import { allChips, freeChips, previewTraining, TUNING, type GameState, type TrainingSpec } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct, sci } from '../format';
 import { LAYER } from '../ui/layers';
@@ -11,7 +11,7 @@ const PRECISIONS: Precision[] = ['fp16', 'fp8', 'fp4'];
 
 export function ModelsPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
-  const defaultChip = content.chips.find((c) => freeChips(game, c.id) > 0) ?? content.chips[0]!;
+  const defaultChip = allChips(game, content).find((c) => freeChips(game, c.id) > 0) ?? content.chips[0]!;
   const [spec, setSpec] = useState<TrainingSpec>(() => ({
     name: `Model ${game.models.length + 1}`,
     archId: 'dense',
@@ -23,7 +23,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
   }));
   const update = (patch: Partial<TrainingSpec>) => setSpec((s) => ({ ...s, ...patch }));
   const preview = useMemo(() => previewTraining(game, content, spec), [game, spec]);
-  const chip = content.chips.find((c) => c.id === spec.chipId);
+  const chip = allChips(game, content).find((c) => c.id === spec.chipId);
   const precisionSupported = chip ? chip.tflops[spec.precision] > 0 : true;
 
   return (
@@ -117,7 +117,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
           <div className="field">
             <label htmlFor="m-chip">Chip</label>
             <select id="m-chip" value={spec.chipId} onChange={(e) => update({ chipId: e.target.value })}>
-              {content.chips.map((c) => (
+              {allChips(game, content).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({big(freeChips(game, c.id))} free)
                 </option>

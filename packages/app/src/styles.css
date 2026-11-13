@@ -46,7 +46,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; font-weight: 600; 
 .shell {
   display: grid;
   grid-template-columns: 76px 1fr 440px;
-  grid-template-rows: 60px 1fr 132px;
+  /* minmax(0, …) stops a long side panel from stretching the row and pushing the feed off-screen. */
+  grid-template-rows: 60px minmax(0, 1fr) 132px;
   grid-template-areas:
     'top top top'
     'rail world panel'
@@ -245,6 +246,69 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.t th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); font-weight: 600; padding: 4px 6px; }
 table.t td { padding: 6px; border-top: 1px solid var(--line); }
 table.t tr.you td { background: color-mix(in srgb, var(--models) 8%, transparent); font-weight: 600; }
+
+/* ---------- Blueprint mode (art-direction §2): design tools ---------- */
+.blueprint {
+  --bp-bg: #123a63;
+  --bp-line: rgb(255 255 255 / 0.12);
+  --bp-ink: #eaf3ff;
+  color: var(--bp-ink);
+  background-color: var(--bp-bg);
+  background-image:
+    linear-gradient(var(--bp-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bp-line) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 2px solid #0b2747;
+}
+.blueprint h3 { color: #fff; }
+.blueprint .field label, .bp-label { color: #b9d3f2; font-size: 12px; font-weight: 600; }
+.blueprint input:not([type]), .blueprint input[type='text'] {
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.35);
+  color: #fff;
+}
+.blueprint input[type='range'] { width: 100%; accent-color: #7fe0d2; }
+.blueprint input[type='checkbox'] { accent-color: #7fe0d2; }
+.blueprint .seg button { background: transparent; color: #eaf3ff; border-color: rgb(255 255 255 / 0.35); }
+.blueprint .seg button[aria-pressed='true'] { background: #eaf3ff; color: #123a63; }
+.blueprint .seg button:hover { background: rgb(255 255 255 / 0.1); }
+.blueprint .seg button[aria-pressed='true']:hover { background: #eaf3ff; }
+.bp-tag { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7fe0d2; font-weight: 700; }
+.floorplan { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.floorplan figcaption { font-size: 11px; color: #b9d3f2; font-family: ui-monospace, monospace; }
+.die {
+  width: 240px;
+  height: 240px;
+  border: 2px solid #fff;
+  outline: 1px dashed rgb(255 255 255 / 0.5);
+  outline-offset: 5px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  gap: 4px;
+}
+.die-row { display: flex; gap: 4px; min-height: 22px; flex-basis: 0; }
+.blk {
+  border: 1.5px solid #fff;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: width 120ms ease;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  min-width: 18px;
+}
+.blk span { padding: 2px; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 0.4); }
+.blk.compute { background: rgb(127 224 210 / 0.35); }
+.blk.sram { background: rgb(255 255 255 / 0.18); background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgb(255 255 255 / 0.15) 4px 5px); }
+.blk.memory { background: rgb(160 140 255 / 0.35); }
+.blk.link { background: rgb(255 190 120 / 0.35); }
 
 /* ---------- Feed ---------- */
 .feed {

@@ -19,8 +19,13 @@ export function dateForWeek(week: number): Date {
   return new Date(START_DATE_UTC + week * 7 * 86_400_000);
 }
 
-export function getChip(content: Content, id: string): Chip | undefined {
-  return content.chips.find((c) => c.id === id);
+/** Vendor chips plus the player's own taped-out designs. */
+export function allChips(state: GameState | undefined, content: Content): Chip[] {
+  return state ? [...content.chips, ...state.customChips] : content.chips;
+}
+
+export function getChip(content: Content, id: string, state?: GameState): Chip | undefined {
+  return allChips(state, content).find((c) => c.id === id);
 }
 
 export function getArch(content: Content, id: string): Arch | undefined {
@@ -57,7 +62,7 @@ export function ownedPowerMW(state: GameState, content: Content): number {
   return state.fleet
     .filter((f) => f.owned)
     .reduce((mw, f) => {
-      const chip = getChip(content, f.chipId);
+      const chip = getChip(content, f.chipId, state);
       return chip ? mw + powerDrawMW(chip, f.count) : mw;
     }, 0);
 }
@@ -81,7 +86,7 @@ export function servingCapacityTokens(state: GameState, content: Content): numbe
   const arch = getArch(content, model.archId);
   if (!arch) return 0;
   let tokensPerSec = 0;
-  for (const chip of content.chips) {
+  for (const chip of allChips(state, content)) {
     const free = freeChips(state, chip.id);
     if (free > 0) tokensPerSec += free * servingTokensPerSecond(chip, arch, model.paramsB, model.precision);
   }
@@ -106,7 +111,7 @@ export interface TrainingPreview {
 export function previewTraining(state: GameState, content: Content, spec: TrainingSpec): TrainingPreview {
   const errors: string[] = [];
   const arch = getArch(content, spec.archId);
-  const chip = getChip(content, spec.chipId);
+  const chip = getChip(content, spec.chipId, state);
   const chipsFree = chip ? freeChips(state, chip.id) : 0;
 
   if (!spec.name.trim()) errors.push('Give the model a name.');

@@ -1,11 +1,11 @@
 import { content } from '@stm/content';
-import { dateForWeek, freeChips, ownedPowerMW, type GameState } from '@stm/sim';
+import { allChips, dateForWeek, freeChips, ownedPowerMW, type GameState } from '@stm/sim';
 import { big, dateLabel, money } from '../format';
 import { LAYER } from './layers';
 
 export function TopBar({ game }: { game: GameState }) {
   const total = game.fleet.reduce((n, f) => n + f.count, 0);
-  const free = content.chips.reduce((n, c) => n + freeChips(game, c.id), 0);
+  const free = allChips(game, content).reduce((n, c) => n + freeChips(game, c.id), 0);
   const power = ownedPowerMW(game, content);
 
   return (

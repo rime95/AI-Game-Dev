@@ -3,6 +3,7 @@ import type { Command, CommandResult, GameState, LogKind, PendingEvent } from '.
 import { TUNING } from './tuning';
 import { pickWeighted, rand, randInt } from './rng';
 import { clusterFlopsPerSecond, powerDrawMW, weeklyPowerCost } from './formulas';
+import { bugChance, deriveChip, previewChip, RESPIN_COST_SHARE, RESPIN_TIME_SHARE } from './chipDesign';
 import {
   bestScore,
   cloudSupply,
@@ -19,7 +20,7 @@ import {
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 1,
+    version: 2,
     seed,
     rng: seed | 0,
     week: 0,
@@ -33,6 +34,8 @@ export function createGame(content: Content, seed: number): GameState {
     powerCapMW: TUNING.startPowerCapMW,
     staff: { research: 1, modelEng: 1, hardwareEng: 0, product: 1, ops: 0 },
     fleet: [],
+    customChips: [],
+    chipProject: null,
     nextId: 1,
     training: null,
     models: [],
@@ -71,9 +74,10 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
     }
 
     case 'rentChips': {
-      const chip = getChip(content, cmd.chipId);
+      const chip = getChip(content, cmd.chipId, state);
       if (!chip) return fail('Unknown chip.');
       if (!(cmd.count > 0)) return fail('Count must be positive.');
+      if (state.customChips.some((c) => c.id === chip.id)) return fail(`Nobody rents out ${chip.name}: it's ours. Buy units from the foundry.`);
       const supply = cloudSupply(chip, state.week);
       const available = supply - rentedChips(state, chip.id);
       if (supply === 0) return fail(`${chip.name} isn't available to rent until week ${chip.cloudFromWeek}.`);
@@ -85,7 +89,7 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
     }
 
     case 'buyChips': {
-      const chip = getChip(content, cmd.chipId);
+      const chip = getChip(content, cmd.chipId, state);
       if (!chip) return fail('Unknown chip.');
       const count = Math.floor(cmd.count);
       if (!(count > 0)) return fail('Count must be positive.');
@@ -106,7 +110,7 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
       if (!entry) return fail('Unknown fleet entry.');
       const count = Math.min(entry.count, Math.floor(cmd.count));
       if (count > freeChips(state, entry.chipId)) return fail('Those chips are busy training.');
-      const chip = getChip(content, entry.chipId);
+      const chip = getChip(content, entry.chipId, state);
       entry.count -= count;
       if (entry.owned && chip) state.cash += chip.priceUsd * count * 0.5; // resale at half price
       state.fleet = state.fleet.filter((f) => f.count > 0);
@@ -153,6 +157,21 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
       return { state };
     }
 
+    case 'startTapeout': {
+      const preview = previewChip(state, content, cmd.design);
+      if (preview.errors.length || !preview.node) return fail(preview.errors[0] ?? 'Invalid design.');
+      state.cash -= preview.tapeoutCost;
+      state.chipProject = {
+        design: { ...cmd.design, name: cmd.design.name.trim() },
+        startedWeek: state.week,
+        weeksLeft: preview.tapeoutWeeks,
+        totalWeeks: preview.tapeoutWeeks,
+        respun: false,
+      };
+      log(state, 'info', `Taped out ${cmd.design.name.trim()} on ${preview.node.name}. First silicon in ${preview.tapeoutWeeks} wk.`);
+      return { state };
+    }
+
     case 'setLiveModel': {
       if (!state.models.some((m) => m.id === cmd.modelId)) return fail('Unknown model.');
       state.liveModelId = cmd.modelId;
@@ -185,7 +204,7 @@ function advanceWeek(state: GameState, content: Content): void {
   const run = state.training;
   if (run) {
     const arch = getArch(content, run.spec.archId);
-    const chip = getChip(content, run.spec.chipId);
+    const chip = getChip(content, run.spec.chipId, state);
     if (arch && chip) {
       run.flopsDone += clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) * TUNING.secondsPerWeek;
     }
@@ -208,6 +227,30 @@ function advanceWeek(state: GameState, content: Content): void {
     }
   }
 
+  // 1b. Chip tape-out progress
+  const project = state.chipProject;
+  if (project) {
+    project.weeksLeft -= 1;
+    const node = content.nodes.find((n) => n.id === project.design.nodeId);
+    if (project.weeksLeft <= 0 && node) {
+      if (!project.respun && rand(state) < bugChance(node, state.staff.hardwareEng)) {
+        const extra = Math.ceil(node.tapeoutWeeks * RESPIN_TIME_SHARE);
+        const cost = node.tapeoutCost * RESPIN_COST_SHARE;
+        project.respun = true;
+        project.weeksLeft = extra;
+        project.totalWeeks += extra;
+        state.cash -= cost;
+        log(state, 'bad', `First silicon of ${project.design.name} has a bug. Respin: ${extra} more weeks, ${formatM(cost)}.`);
+      } else {
+        const yieldRate = Math.max(0.3, Math.min(0.95, node.baseYield + (rand(state) - 0.5) * 0.2 + state.staff.hardwareEng * 0.01));
+        const chip = deriveChip(node, project.design, `custom-${state.nextId++}`, yieldRate);
+        state.customChips.push(chip);
+        state.chipProject = null;
+        log(state, 'good', `${chip.name} works! Yield ${Math.round(yieldRate * 100)}%, unit cost $${Math.round(chip.priceUsd).toLocaleString('en-US')}. Buy units in Compute.`);
+      }
+    }
+  }
+
   // 2. Serving and revenue
   const capacity = servingCapacityTokens(state, content);
   const demand = state.users * TUNING.tokensPerUserPerWeek;
@@ -219,7 +262,7 @@ function advanceWeek(state: GameState, content: Content): void {
   let rent = 0;
   let power = 0;
   for (const f of state.fleet) {
-    const chip = getChip(content, f.chipId);
+    const chip = getChip(content, f.chipId, state);
     if (!chip) continue;
     if (f.owned) power += weeklyPowerCost(chip, f.count);
     else rent += chip.rentPerWeekUsd * f.count;
@@ -342,3 +385,4 @@ function log(state: GameState, kind: LogKind, text: string): void {
 
 const clampRep = (r: number) => Math.max(0, Math.min(100, r));
 const round1 = (n: number) => Math.round(n * 10) / 10;
+const formatM = (n: number) => `$${(n / 1e6).toFixed(1)}M`;

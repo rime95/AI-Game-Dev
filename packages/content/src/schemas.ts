@@ -91,8 +91,31 @@ export const EventSchema = z.object({
 });
 export type GameEvent = z.infer<typeof EventSchema>;
 
+/** A foundry process node for custom chips. */
+export const NodeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  availableFromWeek: z.number().int().nonnegative(),
+  minHardwareEng: z.number().int().positive(),
+  dieAreaMm2: z.number().positive(),
+  /** FP16 TFLOPS per mm² of compute area. */
+  tflopsPerMm2: z.number().positive(),
+  wattsPerTflop: z.number().positive(),
+  hbmGBPerStack: z.number().positive(),
+  hbmTBsPerStack: z.number().positive(),
+  linkGBsPerMm2: z.number().positive(),
+  costPerMm2: z.number().positive(),
+  hbmStackCost: z.number().positive(),
+  tapeoutCost: z.number().positive(),
+  tapeoutWeeks: z.number().int().positive(),
+  bugChance: z.number().min(0).max(1),
+  baseYield: z.number().min(0).max(1),
+});
+export type ProcessNode = z.infer<typeof NodeSchema>;
+
 export const ContentSchema = z.object({
   chips: z.array(ChipSchema).min(1),
+  nodes: z.array(NodeSchema).min(1),
   archs: z.array(ArchSchema).min(1),
   rivals: z.array(RivalSchema).min(1),
   events: z.array(EventSchema),

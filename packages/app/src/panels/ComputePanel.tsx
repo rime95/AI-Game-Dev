@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { archFit, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
+import { allChips, archFit, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -27,11 +27,12 @@ export function ComputePanel({ game }: { game: GameState }) {
         <div className="small muted">Only owned chips draw from your site. Rented chips run in someone else's data center.</div>
       </div>
 
-      {content.chips.map((chip) => {
+      {allChips(game, content).map((chip) => {
         const dense = archFit(chip, content.archs.find((a) => a.id === 'dense')!);
         const moe = archFit(chip, content.archs.find((a) => a.id === 'moe')!);
+        const custom = game.customChips.some((c) => c.id === chip.id);
         return (
-          <div className="card" key={chip.id}>
+          <div className="card" key={chip.id} style={custom ? { borderColor: LAYER.silicon, borderWidth: 2 } : undefined}>
             <div className="row between">
               <div>
                 <h3>{chip.name}</h3>
@@ -50,10 +51,12 @@ export function ComputePanel({ game }: { game: GameState }) {
               <Stat k="Bandwidth" v={`${chip.memBwTBs} TB/s`} />
               <Stat k="Links" v={`${chip.interconnectGBs} GB/s`} />
               <Stat k="Power" v={`${chip.watts} W`} c={LAYER.power} />
-              <Stat k="Rent / Buy" v={`${money(chip.rentPerWeekUsd)}/wk · ${money(chip.priceUsd)}`} />
+              <Stat k={custom ? 'Foundry price' : 'Rent / Buy'} v={custom ? money(chip.priceUsd) : `${money(chip.rentPerWeekUsd)}/wk · ${money(chip.priceUsd)}`} />
             </div>
             <div className="small muted">
-              {cloudSupply(chip, game.week) === 0
+              {custom
+                ? 'Our own silicon: bought from the foundry at cost, never rented.'
+                : cloudSupply(chip, game.week) === 0
                 ? `Not on the cloud market until week ${chip.cloudFromWeek}.`
                 : `Cloud can rent you ${big(Math.max(0, cloudSupply(chip, game.week) - rentedChips(game, chip.id)))} more (supply grows ${pct(chip.cloudGrowth)}/wk).`}
             </div>
@@ -66,12 +69,12 @@ export function ComputePanel({ game }: { game: GameState }) {
               </span>
             </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              {[8, 64, 512].map((n) => (
+              {(custom ? [] : [8, 64, 512]).map((n) => (
                 <button key={`r${n}`} className="btn" onClick={() => send({ type: 'rentChips', chipId: chip.id, count: n })}>
                   Rent {n}
                 </button>
               ))}
-              {[8, 64].map((n) => (
+              {(custom ? [8, 64, 512] : [8, 64]).map((n) => (
                 <button key={`b${n}`} className="btn" onClick={() => send({ type: 'buyChips', chipId: chip.id, count: n })}>
                   Buy {n}
                 </button>
@@ -85,7 +88,7 @@ export function ComputePanel({ game }: { game: GameState }) {
         <h3>Your fleet</h3>
         {game.fleet.length === 0 && <div className="muted">No chips yet.</div>}
         {game.fleet.map((f) => {
-          const chip = content.chips.find((c) => c.id === f.chipId);
+          const chip = allChips(game, content).find((c) => c.id === f.chipId);
           const free = Math.min(f.count, freeChips(game, f.chipId));
           return (
             <div className="row between" key={f.id}>

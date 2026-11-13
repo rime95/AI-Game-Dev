@@ -38,6 +38,30 @@ export interface ReleasedModel {
   releasedWeek: number;
 }
 
+/** Share of the die given to each block. Normalized to sum to 1 when derived. */
+export interface DieSplit {
+  compute: number;
+  sram: number;
+  memory: number;
+  interconnect: number;
+}
+
+export interface ChipDesign {
+  name: string;
+  nodeId: string;
+  split: DieSplit;
+  fp8: boolean;
+  fp4: boolean;
+}
+
+export interface ChipProject {
+  design: ChipDesign;
+  startedWeek: number;
+  weeksLeft: number;
+  totalWeeks: number;
+  respun: boolean;
+}
+
 export interface RivalState {
   id: string;
   score: number;
@@ -85,8 +109,10 @@ export interface HistoryPoint {
   bestScore: number;
 }
 
+import type { Chip } from '@stm/content';
+
 export interface GameState {
-  version: 1;
+  version: 2;
   seed: number;
   rng: number;
   week: number;
@@ -100,6 +126,9 @@ export interface GameState {
   powerCapMW: number;
   staff: Record<Discipline, number>;
   fleet: FleetEntry[];
+  /** Chips you designed and taped out. Same shape as vendor chips, so every formula works on them. */
+  customChips: Chip[];
+  chipProject: ChipProject | null;
   nextId: number;
   training: TrainingRun | null;
   models: ReleasedModel[];
@@ -122,6 +151,7 @@ export type Command =
   | { type: 'startTraining'; spec: TrainingSpec }
   | { type: 'setApiPrice'; price: number }
   | { type: 'setLiveModel'; modelId: string }
+  | { type: 'startTapeout'; design: ChipDesign }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

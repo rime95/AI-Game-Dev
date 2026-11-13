@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
 import type { MeshStandardMaterial } from 'three';
 import { content } from '@stm/content';
-import { freeChips, marketSize, ownedPowerMW, type GameState } from '@stm/sim';
+import { allChips, freeChips, marketSize, ownedPowerMW, type GameState } from '@stm/sim';
 import { useStore, type Tab } from '../store';
 import { LAYER } from '../ui/layers';
 
@@ -44,7 +44,7 @@ function Campus({ game }: { game: GameState }) {
   const setTab = useStore((s) => s.setTab);
   const total = game.fleet.reduce((n, f) => n + f.count, 0);
   const training = game.training?.spec.chipCount ?? 0;
-  const free = content.chips.reduce((n, c) => n + freeChips(game, c.id), 0);
+  const free = allChips(game, content).reduce((n, c) => n + freeChips(game, c.id), 0);
   const serving = game.liveModelId ? free : 0;
   const share = game.users / marketSize(game.week);
   const power = ownedPowerMW(game, content) / game.powerCapMW;
@@ -87,7 +87,24 @@ function Campus({ game }: { game: GameState }) {
         color={LAYER.power}
         glow={power}
       />
-      <Building tab="team" setTab={setTab} label="Fab · locked" position={[8, 0, 3.6]} size={[3.2, 1.6, 3]} color={LAYER.silicon} ghost />
+      <Building
+        tab="silicon"
+        setTab={setTab}
+        label={
+          game.chipProject
+            ? `Chip lab · tape-out ${game.chipProject.weeksLeft} wk`
+            : game.customChips.length
+              ? `Chip lab · ${game.customChips.length} design${game.customChips.length > 1 ? 's' : ''}`
+              : game.staff.hardwareEng
+                ? 'Chip lab · ready'
+                : 'Chip lab · no engineers'
+        }
+        position={[8, 0, 3.6]}
+        size={[3.2, 1.6, 3]}
+        color={LAYER.silicon}
+        pulse={!!game.chipProject}
+        ghost={!game.staff.hardwareEng && !game.customChips.length}
+      />
       <Skyline share={share} onClick={() => setTab('products')} />
     </group>
   );
