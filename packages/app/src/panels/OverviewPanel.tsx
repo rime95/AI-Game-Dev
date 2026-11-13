@@ -7,7 +7,8 @@ import { Advisor, Bar, Stat } from './Panel';
 
 export function OverviewPanel({ game }: { game: GameState }) {
   const lw = game.lastWeek;
-  const costs = lw ? lw.salaries + lw.rent + lw.power : 0;
+  const costs = lw ? lw.salaries + lw.rent + lw.power + lw.licenseUpkeep : 0;
+  const income = lw ? lw.revenue + lw.licenseRevenue : 0;
   const live = liveModel(game);
   const newGame = useStore((s) => s.newGame);
 
@@ -21,12 +22,14 @@ export function OverviewPanel({ game }: { game: GameState }) {
         <h3>Last week</h3>
         {lw ? (
           <div className="grid2">
-            <Stat k="Revenue" v={money(lw.revenue)} c={LAYER.products} />
+            <Stat k="API revenue" v={money(lw.revenue)} c={LAYER.products} />
             <Stat k="Costs" v={money(costs)} />
             <Stat k="Salaries" v={money(lw.salaries)} />
             <Stat k="Chip rent" v={money(lw.rent)} />
             <Stat k="Power" v={money(lw.power)} />
-            <Stat k="Net" v={money(lw.revenue - costs)} c={lw.revenue - costs >= 0 ? 'var(--good)' : 'var(--bad)'} />
+            <Stat k="License upkeep" v={money(lw.licenseUpkeep)} c={LAYER.trust} />
+            {lw.licenseRevenue > 0 && <Stat k="Heat sales" v={money(lw.licenseRevenue)} c={LAYER.env} />}
+            <Stat k="Net" v={money(income - costs)} c={income - costs >= 0 ? 'var(--good)' : 'var(--bad)'} />
           </div>
         ) : (
           <div className="muted">Advance a week to see results.</div>

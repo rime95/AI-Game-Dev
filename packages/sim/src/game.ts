@@ -5,6 +5,17 @@ import { pickWeighted, rand, randInt } from './rng';
 import { clusterFlopsPerSecond, powerDrawMW, weeklyPowerCost } from './formulas';
 import { bugChance, deriveChip, previewChip, RESPIN_COST_SHARE, RESPIN_TIME_SHARE } from './chipDesign';
 import {
+  initialLicense,
+  levelDef,
+  licenseRevenue,
+  licenseUpkeep,
+  nextUpgrade,
+  tierName,
+  trackDef,
+  TRACK_IDS,
+} from './license';
+import type { TrackId } from '@stm/content';
+import {
   bestScore,
   cloudSupply,
   rentedChips,
@@ -20,7 +31,7 @@ import {
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 2,
+    version: 3,
     seed,
     rng: seed | 0,
     week: 0,
@@ -36,6 +47,7 @@ export function createGame(content: Content, seed: number): GameState {
     fleet: [],
     customChips: [],
     chipProject: null,
+    license: initialLicense(),
     nextId: 1,
     training: null,
     models: [],
@@ -146,8 +158,30 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
         flopsDone: 0,
         startedWeek: state.week,
         projectedScore: preview.projectedScore,
+        tier: preview.tier,
+        gaps: Object.fromEntries(preview.requirements.map((r) => [r.track, r.gap])) as Record<TrackId, number>,
+        speedFactor: preview.speedFactor,
       };
-      log(state, 'info', `Training started: ${cmd.spec.name.trim()} (~${preview.weeks} wk).`);
+      const missing = preview.requirements.filter((r) => r.gap > 0).length;
+      log(
+        state,
+        missing ? 'bad' : 'info',
+        `Training started: ${cmd.spec.name.trim()} (${tierName(content, preview.tier)}, ~${preview.weeks} wk)` +
+          (missing ? ` with ${missing} License to Scale requirement${missing > 1 ? 's' : ''} unmet.` : '.'),
+      );
+      return { state };
+    }
+
+    case 'upgradeLicense': {
+      const t = state.license[cmd.track];
+      if (!t) return fail('Unknown track.');
+      if (t.upgrade) return fail('That upgrade is already underway.');
+      const next = nextUpgrade(state, content, cmd.track);
+      if (!next) return fail('Already at the highest level.');
+      if (next.cost > state.cash) return fail('Not enough cash.');
+      state.cash -= next.cost;
+      t.upgrade = { weeksLeft: next.weeks, totalWeeks: next.weeks };
+      log(state, 'info', `Started: ${next.name} (${next.weeks} wk).`);
       return { state };
     }
 
@@ -206,7 +240,8 @@ function advanceWeek(state: GameState, content: Content): void {
     const arch = getArch(content, run.spec.archId);
     const chip = getChip(content, run.spec.chipId, state);
     if (arch && chip) {
-      run.flopsDone += clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) * TUNING.secondsPerWeek;
+      run.flopsDone +=
+        clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) * TUNING.secondsPerWeek * run.speedFactor;
     }
     if (run.flopsDone >= run.flopsTotal) {
       const id = `m${state.nextId++}`;
@@ -223,7 +258,22 @@ function advanceWeek(state: GameState, content: Content): void {
       const live = liveModel(state);
       if (!live || run.projectedScore > live.score) state.liveModelId = id;
       log(state, 'good', `${run.spec.name} released: scores ${round1(run.projectedScore)} on the frontier eval.`);
+      rollLicenseConsequences(state, content, run.tier, run.gaps, run.spec.name);
       state.training = null;
+    }
+  }
+
+  // 1a. License to Scale upgrades
+  for (const track of TRACK_IDS) {
+    const t = state.license[track];
+    if (!t.upgrade) continue;
+    t.upgrade.weeksLeft -= 1;
+    if (t.upgrade.weeksLeft <= 0) {
+      t.level += 1;
+      t.upgrade = null;
+      const lvl = levelDef(content, track, t.level);
+      if (lvl?.powerCapMW) state.powerCapMW = lvl.powerCapMW;
+      log(state, 'good', `${trackDef(content, track).name} is now level ${t.level}: ${lvl?.name ?? ''}.`);
     }
   }
 
@@ -267,7 +317,9 @@ function advanceWeek(state: GameState, content: Content): void {
     if (f.owned) power += weeklyPowerCost(chip, f.count);
     else rent += chip.rentPerWeekUsd * f.count;
   }
-  state.cash += revenue - salaries - rent - power;
+  const upkeep = licenseUpkeep(state, content);
+  const licenseIncome = licenseRevenue(state, content);
+  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep;
 
   // 4. Users move toward the market share our model + price earn
   const target = targetUsers(state, content);
@@ -325,6 +377,8 @@ function advanceWeek(state: GameState, content: Content): void {
     salaries,
     rent,
     power,
+    licenseUpkeep: upkeep,
+    licenseRevenue: licenseIncome,
     demandTokens: demand,
     servedTokens: served,
     servingCapacityTokens: capacity,
@@ -347,6 +401,27 @@ export function targetUsers(state: GameState, content: Content): number {
     if (def) total += pull(r.score, def.apiPrice);
   }
   return marketSize(state.week) * (ours / total);
+}
+
+/** A model shipped without the License to Scale requirements can trigger consequences per missing track. */
+function rollLicenseConsequences(state: GameState, content: Content, tier: number, gaps: Record<TrackId, number>, name: string): void {
+  const chance = (gap: number) => Math.min(0.9, gap * content.license.riskPerGap);
+  if (gaps.safety > 0 && rand(state) < chance(gaps.safety)) {
+    state.reputation = clampRep(state.reputation - 4 * gaps.safety);
+    state.users *= 1 - 0.1 * gaps.safety;
+    log(state, 'bad', `Safety incident: ${name} was jailbroken into harmful output. Reputation −${4 * gaps.safety}, users −${10 * gaps.safety}%.`);
+  }
+  if (gaps.compliance > 0 && rand(state) < chance(gaps.compliance)) {
+    const fine = 2_000_000 * tier * gaps.compliance;
+    state.cash -= fine;
+    log(state, 'bad', `Regulators fined us ${formatM(fine)} for launching ${name} without the required filings.`);
+  }
+  if (gaps.environmental > 0 && rand(state) < chance(gaps.environmental)) {
+    state.reputation = clampRep(state.reputation - 3 * gaps.environmental);
+    const fine = 1_000_000 * gaps.environmental;
+    state.cash -= fine;
+    log(state, 'bad', `Permit violation: water and carbon limits exceeded. ${formatM(fine)} fine, reputation −${3 * gaps.environmental}.`);
+  }
 }
 
 function applyEffects(state: GameState, e: Effects): void {

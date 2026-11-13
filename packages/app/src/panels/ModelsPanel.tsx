@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { content, type Precision } from '@stm/content';
-import { allChips, freeChips, previewTraining, TUNING, type GameState, type TrainingSpec } from '@stm/sim';
+import { allChips, freeChips, previewTraining, tierName, trackDef, TUNING, type GameState, type TrainingSpec } from '@stm/sim';
+import { TRACK_COLOR } from './LicensePanel';
 import { useStore } from '../store';
 import { big, money, pct, sci } from '../format';
 import { LAYER } from '../ui/layers';
@@ -160,6 +161,20 @@ export function ModelsPanel({ game }: { game: GameState }) {
         </div>
         <div className="small muted">
           Training FLOPs = 6 × active params × tokens. Utilization = {TUNING.baseUtilization * 100}% × fit × scaling.
+        </div>
+        <div className="small" style={{ fontWeight: 600 }}>
+          License to Scale · {tierName(content, preview.tier)}
+        </div>
+        <div className="chips">
+          {preview.requirements.map((r) => (
+            <span key={r.track} className="chip" style={{ ['--c' as string]: r.gap === 0 ? TRACK_COLOR[r.track] : '#c2413b' }}>
+              {r.gap === 0
+                ? `✓ ${trackDef(content, r.track).name}`
+                : r.track === 'power'
+                  ? `✗ Power ${r.have}/${r.need} · ${pct(1 - preview.speedFactor)} slower`
+                  : `✗ ${trackDef(content, r.track).name} ${r.have}/${r.need} · ${pct(r.risk)} risk`}
+            </span>
+          ))}
         </div>
         {preview.errors.length > 0 && (
           <ul className="errors">

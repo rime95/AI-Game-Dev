@@ -113,9 +113,39 @@ export const NodeSchema = z.object({
 });
 export type ProcessNode = z.infer<typeof NodeSchema>;
 
+export const TrackIdSchema = z.enum(['power', 'safety', 'compliance', 'environmental']);
+export type TrackId = z.infer<typeof TrackIdSchema>;
+
+/** One upgrade level on a License to Scale track. Level 1 is the free starting level. */
+export const LicenseLevelSchema = z.object({
+  name: z.string(),
+  blurb: z.string(),
+  cost: z.number().nonnegative(),
+  weeks: z.number().int().nonnegative(),
+  upkeep: z.number().nonnegative(),
+  /** Power track only: the site power cap this level provides. */
+  powerCapMW: z.number().positive().optional(),
+  /** Environmental track: e.g. selling waste heat. */
+  weeklyRevenue: z.number().nonnegative().optional(),
+});
+export type LicenseLevel = z.infer<typeof LicenseLevelSchema>;
+
+export const LicenseSchema = z.object({
+  /** Chance per missing level that a track's consequence hits on release. */
+  riskPerGap: z.number().min(0).max(1),
+  /** Training slowdown per missing power level. */
+  powerSlowdownPerGap: z.number().min(0).max(1),
+  tiers: z.array(z.object({ tier: z.number().int().positive(), name: z.string(), minScore: z.number() })).min(1),
+  tracks: z
+    .array(z.object({ id: TrackIdSchema, name: z.string(), missing: z.string(), levels: z.array(LicenseLevelSchema).min(1) }))
+    .length(4),
+});
+export type License = z.infer<typeof LicenseSchema>;
+
 export const ContentSchema = z.object({
   chips: z.array(ChipSchema).min(1),
   nodes: z.array(NodeSchema).min(1),
+  license: LicenseSchema,
   archs: z.array(ArchSchema).min(1),
   rivals: z.array(RivalSchema).min(1),
   events: z.array(EventSchema),

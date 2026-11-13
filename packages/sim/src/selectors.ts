@@ -13,6 +13,8 @@ import {
   type ArchFit,
 } from './formulas';
 
+import { powerSpeedFactor, requirementsFor, tierForScore, type Requirement } from './license';
+
 const START_DATE_UTC = Date.UTC(2026, 0, 5); // Monday, Jan 5 2026
 
 export function dateForWeek(week: number): Date {
@@ -105,6 +107,11 @@ export interface TrainingPreview {
   chipsFree: number;
   /** Weekly cost of the chips used (rent or power), for the run's duration. */
   weeklyChipCost: number;
+  /** License to Scale: the run's capability tier and the checklist for it. */
+  tier: number;
+  requirements: Requirement[];
+  /** Training speed multiplier from missing power (1 = no curtailment). */
+  speedFactor: number;
 }
 
 /** Pure preview of a training run: everything the player sees before committing. */
@@ -141,12 +148,20 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
       weeks: 0,
       chipsFree,
       weeklyChipCost: 0,
+      tier: 1,
+      requirements: requirementsFor(state, content, 1),
+      speedFactor: 1,
     };
   }
 
   const flops = trainingFlops(arch, spec.paramsB, spec.tokensB);
   const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, state.staff.research);
-  const flopsPerWeek = clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount) * TUNING.secondsPerWeek;
+  const projectedScore = capabilityScore(eff);
+  const tier = tierForScore(content, projectedScore);
+  const requirements = requirementsFor(state, content, tier);
+  const speedFactor = powerSpeedFactor(content, requirements.find((r) => r.track === 'power')!.gap);
+  const flopsPerWeek =
+    clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount) * TUNING.secondsPerWeek * speedFactor;
   const weeks = Math.max(1, Math.ceil(flops / flopsPerWeek));
   const ownedShare = Math.min(1, totalChips(state, chip.id) > 0 ? ownedCount(state, chip.id) / totalChips(state, chip.id) : 0);
   const weeklyChipCost =
@@ -156,13 +171,16 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     errors,
     flops,
     effectiveCompute: eff,
-    projectedScore: capabilityScore(eff),
+    projectedScore,
     fit: archFit(chip, arch),
     utilization: utilization(chip, arch, spec.chipCount),
     flopsPerWeek,
     weeks,
     chipsFree,
     weeklyChipCost,
+    tier,
+    requirements,
+    speedFactor,
   };
 }
 

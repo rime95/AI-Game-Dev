@@ -7,7 +7,7 @@ export function Feed({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const blocked = !!game.pendingEvent || game.status !== 'playing';
   const lw = game.lastWeek;
-  const net = lw ? lw.revenue - lw.salaries - lw.rent - lw.power : 0;
+  const net = lw ? lw.revenue + lw.licenseRevenue - lw.salaries - lw.rent - lw.power - lw.licenseUpkeep : 0;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

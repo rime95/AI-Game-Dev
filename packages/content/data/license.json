@@ -1,0 +1,61 @@
+{
+  "riskPerGap": 0.2,
+  "powerSlowdownPerGap": 0.15,
+  "tiers": [
+    { "tier": 1, "name": "Tier 1 · Hobby", "minScore": 0 },
+    { "tier": 2, "name": "Tier 2 · Competitive", "minScore": 30 },
+    { "tier": 3, "name": "Tier 3 · Advanced", "minScore": 45 },
+    { "tier": 4, "name": "Tier 4 · Leading", "minScore": 60 },
+    { "tier": 5, "name": "Tier 5 · Frontier", "minScore": 75 }
+  ],
+  "tracks": [
+    {
+      "id": "power",
+      "name": "Power secured",
+      "missing": "Not enough power: the run is curtailed and trains slower.",
+      "levels": [
+        { "name": "Grid connection", "blurb": "A standard commercial grid hookup.", "cost": 0, "weeks": 0, "upkeep": 0, "powerCapMW": 5 },
+        { "name": "Expanded grid contract", "blurb": "A bigger feed from the utility.", "cost": 2000000, "weeks": 4, "upkeep": 20000, "powerCapMW": 20 },
+        { "name": "Dedicated supply agreement", "blurb": "A long-term power purchase agreement with a wind farm.", "cost": 15000000, "weeks": 10, "upkeep": 100000, "powerCapMW": 100 },
+        { "name": "On-site solar + storage", "blurb": "Our own solar fields and battery banks.", "cost": 80000000, "weeks": 20, "upkeep": 200000, "powerCapMW": 300 },
+        { "name": "Small modular reactors", "blurb": "Firm, carbon-free generation we own.", "cost": 600000000, "weeks": 40, "upkeep": 1000000, "powerCapMW": 2000 }
+      ]
+    },
+    {
+      "id": "safety",
+      "name": "Safety level",
+      "missing": "Under-tested model: risk of a public safety incident.",
+      "levels": [
+        { "name": "Basic evals", "blurb": "Standard capability and misuse tests.", "cost": 0, "weeks": 0, "upkeep": 0 },
+        { "name": "Red team", "blurb": "A dedicated team attacking our models before launch.", "cost": 1000000, "weeks": 4, "upkeep": 40000 },
+        { "name": "Weight security", "blurb": "Locked-down infrastructure so our weights can't be stolen.", "cost": 8000000, "weeks": 8, "upkeep": 150000 },
+        { "name": "Interpretability program", "blurb": "Research into what our models are actually doing inside.", "cost": 40000000, "weeks": 16, "upkeep": 500000 },
+        { "name": "Full safety case", "blurb": "A documented, audited argument that the frontier model is safe to deploy.", "cost": 150000000, "weeks": 24, "upkeep": 1500000 }
+      ]
+    },
+    {
+      "id": "compliance",
+      "name": "Compliance",
+      "missing": "Regulators may fine us for launching without the paperwork.",
+      "levels": [
+        { "name": "Registration", "blurb": "We are a registered AI provider.", "cost": 0, "weeks": 0, "upkeep": 0 },
+        { "name": "External audits", "blurb": "Independent audits in every market we sell in.", "cost": 500000, "weeks": 4, "upkeep": 30000 },
+        { "name": "Transparency reports", "blurb": "Regular public reporting on data, evals and incidents.", "cost": 4000000, "weeks": 8, "upkeep": 100000 },
+        { "name": "Licensing office", "blurb": "A legal team that handles licensing in each jurisdiction.", "cost": 25000000, "weeks": 12, "upkeep": 400000 },
+        { "name": "Frontier license", "blurb": "Government approval to train and deploy frontier models.", "cost": 100000000, "weeks": 20, "upkeep": 1000000 }
+      ]
+    },
+    {
+      "id": "environmental",
+      "name": "Environmental",
+      "missing": "Permit violation risk: water and carbon limits are being exceeded.",
+      "levels": [
+        { "name": "Site permit", "blurb": "Basic environmental permit for our site.", "cost": 0, "weeks": 0, "upkeep": 0 },
+        { "name": "Water recycling", "blurb": "Closed-loop cooling cuts fresh-water use.", "cost": 1500000, "weeks": 6, "upkeep": 20000 },
+        { "name": "Renewable power mix", "blurb": "Carbon targets met with clean power contracts.", "cost": 12000000, "weeks": 10, "upkeep": 80000 },
+        { "name": "Water reclaim + heat reuse", "blurb": "Treated-wastewater cooling, and waste heat sold to district heating.", "cost": 50000000, "weeks": 16, "upkeep": 100000, "weeklyRevenue": 150000 },
+        { "name": "Water-positive campus", "blurb": "We return more water than we use and run near-zero carbon.", "cost": 200000000, "weeks": 26, "upkeep": 300000, "weeklyRevenue": 250000 }
+      ]
+    }
+  ]
+}

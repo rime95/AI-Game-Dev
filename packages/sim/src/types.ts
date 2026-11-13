@@ -1,4 +1,4 @@
-import type { Deck, Discipline, Effects, Precision } from '@stm/content';
+import type { Deck, Discipline, Effects, Precision, TrackId } from '@stm/content';
 
 export interface FleetEntry {
   id: string;
@@ -25,6 +25,17 @@ export interface TrainingRun {
   flopsDone: number;
   startedWeek: number;
   projectedScore: number;
+  /** Capability tier of this run (License to Scale). */
+  tier: number;
+  /** Levels missing per track when the run started; consequences roll on release. */
+  gaps: Record<TrackId, number>;
+  /** Multiplier on training speed (power curtailment). */
+  speedFactor: number;
+}
+
+export interface LicenseTrackState {
+  level: number;
+  upgrade: { weeksLeft: number; totalWeeks: number } | null;
 }
 
 export interface ReleasedModel {
@@ -96,6 +107,8 @@ export interface WeekReport {
   salaries: number;
   rent: number;
   power: number;
+  licenseUpkeep: number;
+  licenseRevenue: number;
   demandTokens: number;
   servedTokens: number;
   servingCapacityTokens: number;
@@ -112,7 +125,7 @@ export interface HistoryPoint {
 import type { Chip } from '@stm/content';
 
 export interface GameState {
-  version: 2;
+  version: 3;
   seed: number;
   rng: number;
   week: number;
@@ -129,6 +142,7 @@ export interface GameState {
   /** Chips you designed and taped out. Same shape as vendor chips, so every formula works on them. */
   customChips: Chip[];
   chipProject: ChipProject | null;
+  license: Record<TrackId, LicenseTrackState>;
   nextId: number;
   training: TrainingRun | null;
   models: ReleasedModel[];
@@ -152,6 +166,7 @@ export type Command =
   | { type: 'setApiPrice'; price: number }
   | { type: 'setLiveModel'; modelId: string }
   | { type: 'startTapeout'; design: ChipDesign }
+  | { type: 'upgradeLicense'; track: TrackId }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

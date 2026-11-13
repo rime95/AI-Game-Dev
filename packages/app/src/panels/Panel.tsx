@@ -6,6 +6,7 @@ import { OverviewPanel } from './OverviewPanel';
 import { ComputePanel } from './ComputePanel';
 import { ModelsPanel } from './ModelsPanel';
 import { SiliconPanel } from './SiliconPanel';
+import { LicensePanel } from './LicensePanel';
 import { ProductsPanel } from './ProductsPanel';
 import { TeamPanel } from './TeamPanel';
 import { RivalsPanel } from './RivalsPanel';
@@ -22,6 +23,7 @@ export function Panel({ game }: { game: GameState }) {
       {tab === 'overview' && <OverviewPanel game={game} />}
       {tab === 'compute' && <ComputePanel game={game} />}
       {tab === 'silicon' && <SiliconPanel game={game} />}
+      {tab === 'license' && <LicensePanel game={game} />}
       {tab === 'models' && <ModelsPanel game={game} />}
       {tab === 'products' && <ProductsPanel game={game} />}
       {tab === 'team' && <TeamPanel game={game} />}

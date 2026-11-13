@@ -3,9 +3,10 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
 import type { MeshStandardMaterial } from 'three';
 import { content } from '@stm/content';
-import { allChips, freeChips, marketSize, ownedPowerMW, type GameState } from '@stm/sim';
+import { allChips, freeChips, marketSize, ownedPowerMW, requirementsFor, tierName, type GameState } from '@stm/sim';
 import { useStore, type Tab } from '../store';
 import { LAYER } from '../ui/layers';
+import { nextTier, TRACK_COLOR } from '../panels/LicensePanel';
 
 /**
  * Placeholder diorama (art-direction §4 and §10): every building is a box in its layer color,
@@ -106,6 +107,67 @@ function Campus({ game }: { game: GameState }) {
         ghost={!game.staff.hardwareEng && !game.customChips.length}
       />
       <Skyline share={share} onClick={() => setTab('products')} />
+      <ExpansionScaffold game={game} onClick={() => setTab('license')} />
+    </group>
+  );
+}
+
+/**
+ * License to Scale made physical (art-direction §4): the next campus expansion sits behind
+ * scaffolding with one sign per requirement. A sign lights in its track color once met.
+ */
+function ExpansionScaffold({ game, onClick }: { game: GameState; onClick: () => void }) {
+  const target = nextTier(game);
+  const reqs = requirementsFor(game, content, target);
+  const met = reqs.filter((r) => r.gap === 0).length;
+  const click = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    onClick();
+  };
+  return (
+    <group position={[0, 0, -10.6]}>
+      {/* Unbuilt expansion pad */}
+      <mesh position={[0, -0.4, 0]} receiveShadow onClick={click}>
+        <boxGeometry args={[22, 0.8, 5.4]} />
+        <meshStandardMaterial color="#d9cfba" transparent opacity={0.7} />
+      </mesh>
+      {/* Scaffolding frame */}
+      <mesh position={[0, 1.4, 0]} onClick={click}>
+        <boxGeometry args={[14, 2.8, 3.4]} />
+        <meshStandardMaterial color="#8a7f6a" wireframe />
+      </mesh>
+      {reqs.map((r, i) => {
+        const color = r.gap === 0 ? TRACK_COLOR[r.track] : '#c2413b';
+        const x = -5.4 + i * 3.6;
+        return (
+          <group key={r.track} position={[x, 0, 2]} onClick={click}>
+            <mesh position={[0, 0.7, 0]} castShadow>
+              <boxGeometry args={[0.12, 1.4, 0.12]} />
+              <meshStandardMaterial color="#6b6455" />
+            </mesh>
+            <mesh position={[0, 1.55, 0]} castShadow>
+              <boxGeometry args={[1.5, 0.75, 0.1]} />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={r.gap === 0 ? 0.45 : 0.15} />
+            </mesh>
+          </group>
+        );
+      })}
+      <Html position={[0, 3.6, 0]} center zIndexRange={[5, 0]}>
+        <div
+          style={{
+            padding: '3px 8px',
+            borderRadius: 999,
+            background: '#fffdf8',
+            border: `2px solid ${LAYER.trust}`,
+            fontSize: 12,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}
+        >
+          Expansion · {tierName(content, target)} · {met}/4 met
+        </div>
+      </Html>
     </group>
   );
 }
