@@ -1,4 +1,4 @@
-import { bestScore, VICTORY_TEXT, type GameState } from '@stm/sim';
+import { bestScore, totalUsers, VICTORY_TEXT, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 
@@ -29,7 +29,7 @@ export function GameOver({ game }: { game: GameState }) {
             </div>
             <div className="stat">
               <div className="k">Users</div>
-              <div className="v">{big(game.users)}</div>
+              <div className="v">{big(totalUsers(game))}</div>
             </div>
             <div className="stat">
               <div className="k">Best score</div>

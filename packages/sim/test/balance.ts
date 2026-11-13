@@ -5,6 +5,8 @@ import {
   applyCommand,
   bestScore,
   buyAllowance,
+  contractCapacity,
+  offerCheck,
   cloudSupply,
   createGame,
   freeChips,
@@ -16,6 +18,7 @@ import {
   previewTraining,
   rentedChips,
   TUNING,
+  totalUsers,
   weeklyNet,
   type Command,
   type GameState,
@@ -138,6 +141,13 @@ function play(seed: number) {
       }
     }
 
+    // Products: launch the app once there's a decent model, sign every enterprise deal we qualify for.
+    if (!s.consumer.launched && s.liveModelId && s.cash > 15_000_000) s = act(s, { type: 'launchConsumerApp' });
+    for (const o of [...s.offers]) {
+      if (s.contracts.length >= contractCapacity(s) && s.cash > 2_000_000) s = act(s, { type: 'hire', discipline: 'product' });
+      if (offerCheck(s, content, o).canAccept) s = act(s, { type: 'acceptOffer', offerId: o.id });
+    }
+
     // Hire a researcher whenever comfortably profitable.
     if (weeklyNet(s) > 200_000 && s.staff.research < 20) s = act(s, { type: 'hire', discipline: 'research' });
 
@@ -158,7 +168,9 @@ function play(seed: number) {
     status: s.status,
     week: s.week,
     cashM: Math.round(s.cash / 1e6),
-    usersM: Math.round(s.users / 1e5) / 10,
+    usersM: Math.round(totalUsers(s) / 1e5) / 10,
+    appM: Math.round(s.consumer.users / 1e5) / 10,
+    contracts: s.contracts.length,
     best: bestScore(s).toFixed(1),
     topRival: top.toFixed(1),
     rank: 1 + s.rivals.filter((r) => r.score > bestScore(s)).length,

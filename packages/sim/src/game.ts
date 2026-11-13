@@ -36,10 +36,21 @@ import { fundingCheck } from './funding';
 import { customChipShare, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
 import type { Integration, VictoryKind } from './types';
 import { availableDeals } from './acquisitions';
+import {
+  consumerTarget,
+  consumerWeeklyRevenue,
+  enterpriseSeats,
+  enterpriseWeeklyRevenue,
+  generateOffer,
+  offerCheck,
+} from './products';
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 7,
+    version: 8,
+    consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
+    offers: [],
+    contracts: [],
     acquired: [],
     integrations: [],
     ipBonus: 0,
@@ -103,6 +114,47 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
   switch (cmd.type) {
+    case 'launchConsumerApp': {
+      if (state.consumer.launched) return fail('The app is already live.');
+      if (state.staff.product < 1) return fail('Hire a product manager first.');
+      if (!state.liveModelId) return fail('We need a released model to power the app.');
+      if (state.cash < TUNING.consumerLaunchCost) return fail('Not enough cash.');
+      state.cash -= TUNING.consumerLaunchCost;
+      state.consumer.launched = true;
+      log(state, 'good', 'Our consumer app is live in the app stores.');
+      return { state };
+    }
+
+    case 'setSubPrice': {
+      if (!(cmd.price >= 1 && cmd.price <= 500)) return fail('Subscription must be between $1 and $500 a month.');
+      state.consumer.subPrice = cmd.price;
+      return { state };
+    }
+
+    case 'acceptOffer': {
+      const offer = state.offers.find((o) => o.id === cmd.offerId);
+      if (!offer) return fail('That offer has expired.');
+      const check = offerCheck(state, content, offer);
+      if (!check.canAccept) return fail(`Can't sign yet: ${check.checks.filter((c) => !c.ok).map((c) => c.label).join(', ')}.`);
+      state.offers = state.offers.filter((o) => o.id !== offer.id);
+      state.contracts.push({
+        id: offer.id,
+        client: offer.client,
+        sector: offer.sector,
+        seats: offer.seats,
+        pricePerSeat: offer.pricePerSeat,
+        termWeeks: offer.termWeeks,
+        weeksLeft: offer.termWeeks,
+      });
+      log(state, 'good', `Signed ${offer.client}: ${offer.seats.toLocaleString('en-US')} seats for ${offer.termWeeks} weeks.`);
+      return { state };
+    }
+
+    case 'declineOffer': {
+      state.offers = state.offers.filter((o) => o.id !== cmd.offerId);
+      return { state };
+    }
+
     case 'acquire': {
       const deal = availableDeals(state, content).find((d) => d.id === cmd.dealId);
       if (!deal) return fail('That company is not for sale right now.');
@@ -399,11 +451,26 @@ function advanceWeek(state: GameState, content: Content): void {
     }
   }
 
-  // 2. Serving and revenue
+  // 2. Serving and revenue: API, consumer app and enterprise all share the same serving chips
   const capacity = servingCapacityTokens(state, content);
-  const demand = state.users * TUNING.tokensPerUserPerWeek;
-  const served = Math.min(capacity, demand);
-  const revenue = (served / 1e6) * state.apiPrice;
+  const apiDemand = state.users * TUNING.tokensPerUserPerWeek;
+  const consumerDemand = state.consumer.launched ? state.consumer.users * TUNING.consumerTokensPerUser : 0;
+  const demand = apiDemand + consumerDemand + enterpriseSeats(state) * TUNING.enterpriseTokensPerSeat;
+  const servedRatio = demand > 0 ? Math.min(1, capacity / demand) : 1;
+  const served = demand * servedRatio;
+  const apiRevenue = ((apiDemand * servedRatio) / 1e6) * state.apiPrice;
+  const consumerRevenue = consumerWeeklyRevenue(state) * servedRatio;
+  let enterpriseRevenue = enterpriseWeeklyRevenue(state);
+  let slaPenalty = 0;
+  if (state.contracts.length && servedRatio < TUNING.slaThreshold) {
+    slaPenalty = enterpriseRevenue * TUNING.slaPenaltyShare;
+    const cancelled = state.contracts.filter(() => rand(state) < TUNING.slaCancelChance);
+    for (const c of cancelled) log(state, 'bad', `${c.client} cancelled their contract after we missed our uptime SLA.`);
+    state.contracts = state.contracts.filter((c) => !cancelled.includes(c));
+    log(state, 'bad', `SLA breach: serving covered ${Math.round(servedRatio * 100)}% of demand. ${formatM(slaPenalty)} in credits.`);
+  }
+  enterpriseRevenue -= slaPenalty;
+  const revenue = apiRevenue + consumerRevenue + enterpriseRevenue;
 
   // 3. Costs
   const salaries = Object.values(state.staff).reduce((n, c) => n + c, 0) * TUNING.salaryPerWeek;
@@ -421,12 +488,29 @@ function advanceWeek(state: GameState, content: Content): void {
 
   // 4. Users move toward the market share our model + price earn
   const target = targetUsers(state, content);
-  const servedRatio = demand > 0 ? served / demand : 1;
-  const adjustedTarget = target * Math.min(1, servedRatio + 0.1);
-  state.users = Math.max(0, state.users + (adjustedTarget - state.users) * TUNING.userConvergencePerWeek);
+  const serviceFactor = Math.min(1, servedRatio + 0.1);
+  state.users = Math.max(0, state.users + (target * serviceFactor - state.users) * TUNING.userConvergencePerWeek);
+  if (state.consumer.launched) {
+    const appTarget = consumerTarget(state, content) * serviceFactor;
+    state.consumer.users = Math.max(0, state.consumer.users + (appTarget - state.consumer.users) * TUNING.consumerConvergencePerWeek);
+  }
   if (servedRatio < 0.95 && demand > 0) {
     state.reputation = clampRep(state.reputation - TUNING.underServedReputationLoss);
     if (servedRatio < 0.8) log(state, 'bad', `Serving capacity covers only ${Math.round(servedRatio * 100)}% of demand.`);
+  }
+
+  // 4b. Enterprise: contracts run their term; new offers arrive, old ones expire
+  for (const c of state.contracts) c.weeksLeft -= 1;
+  for (const c of state.contracts.filter((x) => x.weeksLeft <= 0)) {
+    state.reputation = clampRep(state.reputation + 1);
+    log(state, 'good', `Contract with ${c.client} completed its ${c.termWeeks}-week term.`);
+  }
+  state.contracts = state.contracts.filter((c) => c.weeksLeft > 0);
+  state.offers = state.offers.filter((o) => o.expiresWeek > state.week + 1);
+  if (state.liveModelId && state.offers.length < TUNING.maxOpenOffers && rand(state) < TUNING.offerChancePerWeek) {
+    const offer = generateOffer(state, content);
+    state.offers.push(offer);
+    log(state, 'info', `New enterprise offer: ${offer.client} (${offer.sector}) wants ${offer.seats.toLocaleString('en-US')} seats.`);
   }
 
   // 5. Rivals
@@ -479,6 +563,10 @@ function advanceWeek(state: GameState, content: Content): void {
   state.week += 1;
   state.lastWeek = {
     revenue,
+    apiRevenue,
+    consumerRevenue,
+    enterpriseRevenue,
+    slaPenalty,
     salaries,
     rent,
     power,

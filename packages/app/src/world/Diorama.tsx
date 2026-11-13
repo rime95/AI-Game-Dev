@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
 import type { MeshStandardMaterial } from 'three';
 import { content } from '@stm/content';
-import { allChips, freeChips, marketSize, ownedPowerMW, requirementsFor, tierName, type GameState } from '@stm/sim';
+import { allChips, freeChips, marketSize, ownedPowerMW, totalUsers, requirementsFor, tierName, type GameState } from '@stm/sim';
 import { useStore, type Tab } from '../store';
 import { LAYER } from '../ui/layers';
 import { nextTier, TRACK_COLOR } from '../panels/LicensePanel';
@@ -47,7 +47,7 @@ function Campus({ game }: { game: GameState }) {
   const training = game.training?.spec.chipCount ?? 0;
   const free = allChips(game, content).reduce((n, c) => n + freeChips(game, c.id), 0);
   const serving = game.liveModelId ? free : 0;
-  const share = game.users / marketSize(game.week);
+  const share = totalUsers(game) / (marketSize(game.week) * 3);
   const power = ownedPowerMW(game, content) / game.powerCapMW;
 
   return (

@@ -185,8 +185,19 @@ export const StartupSchema = z.object({
 });
 export type Startup = z.infer<typeof StartupSchema>;
 
+/** An enterprise customer sector: requirements and pricing for its contract offers. */
+export const ClientSectorSchema = z.object({
+  sector: z.string(),
+  names: z.array(z.string()).min(1),
+  minSafety: z.number().int().positive(),
+  minCompliance: z.number().int().positive(),
+  priceFactor: z.number().positive(),
+});
+export type ClientSector = z.infer<typeof ClientSectorSchema>;
+
 export const ContentSchema = z.object({
   chips: z.array(ChipSchema).min(1),
+  clients: z.array(ClientSectorSchema).min(1),
   startups: z.array(StartupSchema),
   funding: z.array(FundingRoundSchema),
   nodes: z.array(NodeSchema).min(1),

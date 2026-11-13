@@ -6,5 +6,6 @@ export * from './license';
 export * from './funding';
 export * from './victory';
 export * from './acquisitions';
+export * from './products';
 export { TUNING } from './tuning';
 export { createGame, applyCommand, targetUsers, DISCIPLINE_LABEL } from './game';

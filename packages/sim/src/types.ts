@@ -117,7 +117,12 @@ export interface LogEntry {
 }
 
 export interface WeekReport {
+  /** Total product revenue (API + consumer + enterprise, after SLA penalties). */
   revenue: number;
+  apiRevenue: number;
+  consumerRevenue: number;
+  enterpriseRevenue: number;
+  slaPenalty: number;
   salaries: number;
   rent: number;
   power: number;
@@ -161,8 +166,43 @@ export interface Integration {
   clashChance: number;
 }
 
+export interface ConsumerApp {
+  launched: boolean;
+  /** Monthly subscription price, $. */
+  subPrice: number;
+  /** Monthly active users of the app (free + paid). */
+  users: number;
+}
+
+export interface EnterpriseOffer {
+  id: string;
+  client: string;
+  sector: string;
+  seats: number;
+  /** $ per seat per week. */
+  pricePerSeat: number;
+  termWeeks: number;
+  minTier: number;
+  minSafety: number;
+  minCompliance: number;
+  expiresWeek: number;
+}
+
+export interface Contract {
+  id: string;
+  client: string;
+  sector: string;
+  seats: number;
+  pricePerSeat: number;
+  termWeeks: number;
+  weeksLeft: number;
+}
+
 export interface GameState {
-  version: 7;
+  version: 8;
+  consumer: ConsumerApp;
+  offers: EnterpriseOffer[];
+  contracts: Contract[];
   /** Completed deal ids (startup ids, or `rival:<id>`). */
   acquired: string[];
   integrations: Integration[];
@@ -227,6 +267,10 @@ export type Command =
   | { type: 'startAgiProgram'; chipId: string; chipCount: number }
   | { type: 'continuePlaying' }
   | { type: 'acquire'; dealId: string }
+  | { type: 'launchConsumerApp' }
+  | { type: 'setSubPrice'; price: number }
+  | { type: 'acceptOffer'; offerId: string }
+  | { type: 'declineOffer'; offerId: string }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

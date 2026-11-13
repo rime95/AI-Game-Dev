@@ -64,6 +64,29 @@ export const TUNING = {
   /** Full Stack victory: share of owned fleet on custom chips. */
   fullStackCustomShare: 0.5,
 
+  /** Consumer app. */
+  consumerLaunchCost: 5_000_000,
+  consumerMarketMultiplier: 2,
+  consumerTokensPerUser: 20_000,
+  referenceSubPrice: 20,
+  startSubPrice: 20,
+  baseConversion: 0.03,
+  conversionPerProductManager: 0.005,
+  maxConversion: 0.08,
+  /** App users grow slower than developers: a consumer brand takes time. */
+  consumerConvergencePerWeek: 0.05,
+
+  /** Enterprise. */
+  enterpriseTokensPerSeat: 100_000,
+  baseSeatPricePerWeek: 8,
+  contractsPerProductManager: 2,
+  offerChancePerWeek: 0.25,
+  maxOpenOffers: 3,
+  offerLifetimeWeeks: 6,
+  slaThreshold: 0.95,
+  slaPenaltyShare: 0.1,
+  slaCancelChance: 0.15,
+
   /** Acquisitions. */
   startupPriceGrowthPerWeek: 0.01,
   cultureClashBase: 0.35,

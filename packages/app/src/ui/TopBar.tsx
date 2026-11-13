@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { allChips, dateForWeek, freeChips, ownedPowerMW, type GameState } from '@stm/sim';
+import { allChips, dateForWeek, freeChips, ownedPowerMW, totalUsers, type GameState } from '@stm/sim';
 import { big, dateLabel, money } from '../format';
 import { LAYER } from './layers';
 
@@ -12,7 +12,7 @@ export function TopBar({ game }: { game: GameState }) {
     <header className="topbar">
       <div className="brand">SAND TO MIND</div>
       <Res k="Cash" v={money(game.cash)} c={LAYER.gold} neg={game.cash < 0} />
-      <Res k="Users" v={big(game.users)} c={LAYER.products} />
+      <Res k="Users" v={big(totalUsers(game))} c={LAYER.products} />
       <Res k="Chips free / total" v={`${big(free)} / ${big(total)}`} c={LAYER.compute} />
       <Res k="Site power" v={`${power.toFixed(2)} / ${game.powerCapMW} MW`} c={LAYER.power} />
       <Res k="Data" v={`${big(game.dataTokensB * 1e9)} tok`} c={LAYER.models} />

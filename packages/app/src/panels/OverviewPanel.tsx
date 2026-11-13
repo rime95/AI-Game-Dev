@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { bestScore, fundingCheck, liveModel, marketSize, type GameState } from '@stm/sim';
+import { bestScore, fundingCheck, liveModel, marketSize, totalUsers, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -23,7 +23,10 @@ export function OverviewPanel({ game }: { game: GameState }) {
         <h3>Last week</h3>
         {lw ? (
           <div className="grid2">
-            <Stat k="API revenue" v={money(lw.revenue)} c={LAYER.products} />
+            <Stat k="API revenue" v={money(lw.apiRevenue)} c={LAYER.products} />
+            <Stat k="App subscriptions" v={money(lw.consumerRevenue)} c={LAYER.products} />
+            <Stat k="Enterprise" v={money(lw.enterpriseRevenue)} c={LAYER.products} />
+            {lw.slaPenalty > 0 && <Stat k="SLA credits" v={money(-lw.slaPenalty)} c="var(--bad)" />}
             <Stat k="Costs" v={money(costs)} />
             <Stat k="Salaries" v={money(lw.salaries)} />
             <Stat k="Chip rent" v={money(lw.rent)} />
@@ -42,10 +45,9 @@ export function OverviewPanel({ game }: { game: GameState }) {
         <div className="grid2">
           <Stat k="Live model" v={live ? `${live.name} · ${live.score.toFixed(1)}` : 'None yet'} c={LAYER.models} />
           <Stat k="Best score" v={bestScore(game).toFixed(1)} />
-          <Stat k="Users" v={big(game.users)} c={LAYER.products} />
-          <Stat k="Market" v={big(marketSize(game.week))} />
+          <Stat k="Users (all products)" v={big(totalUsers(game))} c={LAYER.products} />
+          <Stat k="Developer API share" v={pct(game.users / marketSize(game.week))} />
         </div>
-        <div className="small muted">Market share {pct(game.users / marketSize(game.week))}</div>
         <Bar value={game.users / marketSize(game.week)} color={LAYER.products} />
       </div>
 

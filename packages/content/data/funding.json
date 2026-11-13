@@ -31,7 +31,7 @@
     "name": "Series D",
     "cash": 2000000000,
     "equity": 0.1,
-    "minUsers": 100000000,
+    "minUsers": 150000000,
     "minTier": 4,
     "blurb": "Sovereign funds and strategic partners write the big checks."
   },
@@ -40,7 +40,7 @@
     "name": "IPO",
     "cash": 8000000000,
     "equity": 0.15,
-    "minUsers": 250000000,
+    "minUsers": 400000000,
     "minTier": 5,
     "requiresProfit": true,
     "blurb": "Public markets want a profitable leader. Ring the bell."

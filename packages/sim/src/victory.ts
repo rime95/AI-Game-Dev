@@ -22,11 +22,23 @@ export const VICTORY_TEXT: Record<VictoryKind, { title: string; body: string }> 
   },
 };
 
-/** Each lab's share of the market's "pull" (capability, price, reputation, boosts). */
+/**
+ * How strongly a lab's model attracts users: rises steeply with capability, falls with price.
+ * Uses capability (not suite score), so retiring an eval suite doesn't reshuffle the market.
+ */
+export function labPull(state: GameState, capability: number, priceRatio: number): number {
+  return Math.exp((capability - state.suite.mid) / TUNING.capabilitySoftness) * Math.pow(priceRatio, -TUNING.priceElasticity);
+}
+
+/** Everyone using our models: API users, app users and enterprise seats. */
+function ourTotalUsers(state: GameState): number {
+  const seats = state.contracts.reduce((n, c) => n + c.seats, 0);
+  return state.users + (state.consumer.launched ? state.consumer.users : 0) + seats;
+}
+
+/** Each lab's share of the API market's "pull" (capability, price, reputation, boosts). */
 export function marketShares(state: GameState, content: Content): { you: number; rivals: Record<string, number> } {
-  const pull = (capability: number, price: number) =>
-    Math.exp((capability - state.suite.mid) / TUNING.capabilitySoftness) *
-    Math.pow(price / TUNING.referencePrice, -TUNING.priceElasticity);
+  const pull = (capability: number, price: number) => labPull(state, capability, price / TUNING.referencePrice);
   const live = liveModel(state);
   const boost = state.modifiers.reduce((b, m) => b * m.shareBoost, 1);
   const ours = live ? pull(live.capability, state.apiPrice) * Math.sqrt(state.reputation / 50) * boost : 0;
@@ -43,16 +55,17 @@ export function marketShares(state: GameState, content: Content): { you: number;
   return { you: total > 0 ? ours / total : 0, rivals };
 }
 
-/** Rival user counts: they convert their share instantly (they're established). */
+/** Rival user counts across API and consumer markets: established labs convert their share instantly. */
 export function rivalUsers(state: GameState, content: Content): Record<string, number> {
   const { rivals } = marketShares(state, content);
-  const m = marketSize(state.week);
+  const m = marketSize(state.week) * (1 + TUNING.consumerMarketMultiplier);
   return Object.fromEntries(Object.entries(rivals).map(([id, s]) => [id, s * m]));
 }
 
 export function isUserLeader(state: GameState, content: Content): boolean {
+  const ours = ourTotalUsers(state);
   const others = Object.values(rivalUsers(state, content));
-  return state.users > 0 && others.every((u) => state.users > u);
+  return ours > 0 && others.every((u) => ours > u);
 }
 
 export function leadsEval(state: GameState): boolean {
