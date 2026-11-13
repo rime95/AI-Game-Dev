@@ -20,9 +20,16 @@ export const TUNING = {
   researcherComputeBonus: 0.03,
   researcherComputeBonusCap: 0.6,
 
-  /** Capability curve: score = 100 / (1 + exp(-(log10(Ceff) - mid) / scale)). */
+  /**
+   * Capability = log10(effective compute). A suite's score = 100 / (1 + exp(-(capability - mid) / scale)).
+   * capabilityMid is suite v1's midpoint; each retired suite moves the midpoint up by suiteStep.
+   */
   capabilityMid: 24.2,
   capabilityScale: 1.2,
+  suiteSaturationScore: 90,
+  suiteStep: 2.5,
+  /** Market pull: capability units per e-fold of user preference. */
+  capabilitySoftness: 0.3,
 
   pue: 1.3,
   powerPricePerMWh: 80,
@@ -36,8 +43,6 @@ export const TUNING = {
   marketStartUsers: 5_000_000,
   marketGrowthPerWeek: 0.015,
   marketCapUsers: 4_000_000_000,
-  /** Score points per e-fold of market pull. */
-  scoreSoftness: 6,
   priceElasticity: 1.3,
   referencePrice: 8,
   userConvergencePerWeek: 0.15,

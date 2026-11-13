@@ -23,17 +23,20 @@ function act(s: GameState, cmd: Command): GameState {
 let s = createGame(content, 123);
 s = act(s, { type: 'rentChips', chipId: 'kite-k1', count: 64 });
 let gen = 0;
+// A careful player: grow model size step by step, and only start the next run with cash to spare.
 const plan = [
-  { paramsB: 7, tokensB: 140, chips: 64 },
-  { paramsB: 13, tokensB: 260, chips: 512 },
-  { paramsB: 34, tokensB: 680, chips: 1024 },
-  { paramsB: 70, tokensB: 1400, chips: 2048 },
+  { paramsB: 7, tokensB: 140, chips: 64, minCash: 0 },
+  { paramsB: 13, tokensB: 260, chips: 256, minCash: 4_000_000 },
+  { paramsB: 34, tokensB: 500, chips: 256, minCash: 4_000_000 },
+  { paramsB: 70, tokensB: 900, chips: 512, minCash: 3_000_000 },
+  { paramsB: 180, tokensB: 2000, chips: 1024, minCash: 12_000_000 },
+  { paramsB: 400, tokensB: 5000, chips: 2048, minCash: 60_000_000 },
 ];
 
 for (let w = 0; w < 156 && s.status === 'playing'; w++) {
   if (s.pendingEvent) s = act(s, { type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id });
   const next = plan[gen];
-  if (!s.training && next) {
+  if (!s.training && next && s.cash >= next.minCash) {
     if (s.dataTokensB < next.tokensB) s = act(s, { type: 'buyData', billions: next.tokensB - s.dataTokensB });
     while (maxClusterChips(s) < next.chips) s = act(s, { type: 'hire', discipline: 'modelEng' });
     const k1 = getChip(content, 'kite-k1')!;
@@ -42,7 +45,12 @@ for (let w = 0; w < 156 && s.status === 'playing'; w++) {
     if (want > 0 && canRent > 0) s = act(s, { type: 'rentChips', chipId: 'kite-k1', count: Math.min(want, canRent) });
     const chips = Math.min(next.chips, freeChips(s, 'kite-k1'));
     const spec = { name: `G${gen + 1}`, archId: 'dense', paramsB: next.paramsB, tokensB: next.tokensB, precision: 'fp8' as const, chipId: 'kite-k1', chipCount: chips };
-    const p = previewTraining(s, content, spec);
+    let p = previewTraining(s, content, spec);
+    // Buy the License to Scale levels the run needs, if we can afford them.
+    for (const r of p.requirements) {
+      if (r.gap > 0 && !s.license[r.track].upgrade) s = act(s, { type: 'upgradeLicense', track: r.track });
+    }
+    p = previewTraining(s, content, spec);
     if (!p.errors.length) {
       s = act(s, { type: 'startTraining', spec });
       console.log(`wk ${s.week}: start G${gen + 1} ${next.paramsB}B → proj ${p.projectedScore.toFixed(1)}, ${p.weeks} wk`);

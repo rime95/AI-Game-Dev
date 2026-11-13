@@ -1,7 +1,7 @@
 import { content } from '@stm/content';
-import { bestScore, type GameState } from '@stm/sim';
+import { bestScore, TUNING, type GameState } from '@stm/sim';
 import { LAYER } from '../ui/layers';
-import { Advisor } from './Panel';
+import { Advisor, Bar } from './Panel';
 
 export function RivalsPanel({ game }: { game: GameState }) {
   const mine = bestScore(game);
@@ -12,6 +12,7 @@ export function RivalsPanel({ game }: { game: GameState }) {
     }),
     { id: 'you', name: 'Your lab', model: game.models.at(-1)?.name ?? '—', score: mine, price: game.apiPrice, you: true, note: '' },
   ].sort((a, b) => b.score - a.score);
+  const top = Math.max(...rows.map((r) => r.score));
   const yourRank = rows.findIndex((r) => r.you);
   const next = yourRank > 0 ? rows[yourRank - 1] : undefined;
 
@@ -23,7 +24,18 @@ export function RivalsPanel({ game }: { game: GameState }) {
           : 'We lead the frontier eval. Expect everyone to come after us.'}
       </Advisor>
       <div className="card">
-        <h3>Frontier eval leaderboard</h3>
+        <div className="row between">
+          <h3>Frontier eval · Suite v{game.suite.version}</h3>
+          <span className="small muted">since week {game.suite.startedWeek}</span>
+        </div>
+        <div className="small muted">
+          Top score {top.toFixed(1)} / {TUNING.suiteSaturationScore}. When any model reaches {TUNING.suiteSaturationScore}, the suite
+          retires and a harder one re-scores every model. Capability and license tiers don't change — only the numbers do.
+        </div>
+        <Bar value={top / TUNING.suiteSaturationScore} color={LAYER.models} />
+      </div>
+      <div className="card">
+        <h3>Leaderboard</h3>
         <table className="t">
           <thead>
             <tr>

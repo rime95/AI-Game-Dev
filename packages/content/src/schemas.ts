@@ -53,8 +53,8 @@ export const RivalSchema = z.object({
   personality: z.string(),
   modelPrefix: z.string(),
   startScore: z.number().min(0).max(100),
-  /** Share of the remaining gap to 100 closed per release. */
-  releaseGain: z.number().positive().max(1),
+  /** Capability (log10 effective compute) gained per release. */
+  capabilityGain: z.number().positive(),
   releaseEveryWeeks: z.number().int().positive(),
   apiPrice: z.number().positive(),
 });
@@ -135,7 +135,7 @@ export const LicenseSchema = z.object({
   riskPerGap: z.number().min(0).max(1),
   /** Training slowdown per missing power level. */
   powerSlowdownPerGap: z.number().min(0).max(1),
-  tiers: z.array(z.object({ tier: z.number().int().positive(), name: z.string(), minScore: z.number() })).min(1),
+  tiers: z.array(z.object({ tier: z.number().int().positive(), name: z.string(), minCapability: z.number() })).min(1),
   tracks: z
     .array(z.object({ id: TrackIdSchema, name: z.string(), missing: z.string(), levels: z.array(LicenseLevelSchema).min(1) }))
     .length(4),

@@ -81,11 +81,26 @@ export function effectiveCompute(
   );
 }
 
-/** Frontier-eval score (0–100) from effective compute. */
+/** Capability index: log10 of effective compute. Unbounded, never re-baselined. */
+export function capabilityIndex(effCompute: number): number {
+  return effCompute > 0 ? Math.log10(effCompute) : 0;
+}
+
+/** Score (0–100) of a capability on an eval suite with the given midpoint. */
+export function suiteScore(capability: number, suiteMid: number): number {
+  if (capability <= 0) return 0;
+  return 100 / (1 + Math.exp(-(capability - suiteMid) / TUNING.capabilityScale));
+}
+
+/** Inverse of suiteScore: the capability that scores `score` on a suite. */
+export function capabilityForScore(score: number, suiteMid: number): number {
+  const p = Math.min(99.999, Math.max(0.001, score)) / 100;
+  return suiteMid + TUNING.capabilityScale * Math.log(p / (1 - p));
+}
+
+/** Score on suite v1 from effective compute. */
 export function capabilityScore(effCompute: number): number {
-  if (effCompute <= 0) return 0;
-  const x = (Math.log10(effCompute) - TUNING.capabilityMid) / TUNING.capabilityScale;
-  return 100 / (1 + Math.exp(-x));
+  return suiteScore(capabilityIndex(effCompute), TUNING.capabilityMid);
 }
 
 /** True if the model's weights fit in one server of this chip. */

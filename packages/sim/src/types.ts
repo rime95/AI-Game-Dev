@@ -24,6 +24,9 @@ export interface TrainingRun {
   flopsTotal: number;
   flopsDone: number;
   startedWeek: number;
+  /** Capability the run will reach (log10 effective compute). */
+  projectedCapability: number;
+  /** That capability's score on the current eval suite (re-baselined when a suite retires). */
   projectedScore: number;
   /** Capability tier of this run (License to Scale). */
   tier: number;
@@ -45,8 +48,17 @@ export interface ReleasedModel {
   paramsB: number;
   tokensB: number;
   precision: Precision;
+  capability: number;
+  /** Score on the current eval suite. */
   score: number;
   releasedWeek: number;
+}
+
+export interface EvalSuite {
+  version: number;
+  /** Capability that scores 50 on this suite. */
+  mid: number;
+  startedWeek: number;
 }
 
 /** Share of the die given to each block. Normalized to sum to 1 when derived. */
@@ -75,6 +87,8 @@ export interface ChipProject {
 
 export interface RivalState {
   id: string;
+  capability: number;
+  /** Score on the current eval suite. */
   score: number;
   version: number;
   nextReleaseWeek: number;
@@ -125,7 +139,8 @@ export interface HistoryPoint {
 import type { Chip } from '@stm/content';
 
 export interface GameState {
-  version: 3;
+  version: 4;
+  suite: EvalSuite;
   seed: number;
   rng: number;
   week: number;

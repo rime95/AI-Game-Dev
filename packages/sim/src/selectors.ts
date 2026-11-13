@@ -3,17 +3,18 @@ import type { GameState, ReleasedModel, TrainingSpec } from './types';
 import { TUNING } from './tuning';
 import {
   archFit,
+  capabilityIndex,
   clusterFlopsPerSecond,
-  capabilityScore,
   effectiveCompute,
   powerDrawMW,
   servingTokensPerSecond,
+  suiteScore,
   trainingFlops,
   utilization,
   type ArchFit,
 } from './formulas';
 
-import { powerSpeedFactor, requirementsFor, tierForScore, type Requirement } from './license';
+import { powerSpeedFactor, requirementsFor, tierForCapability, type Requirement } from './license';
 
 const START_DATE_UTC = Date.UTC(2026, 0, 5); // Monday, Jan 5 2026
 
@@ -77,6 +78,15 @@ export function bestScore(state: GameState): number {
   return state.models.reduce((best, m) => Math.max(best, m.score), 0);
 }
 
+export function bestCapability(state: GameState): number {
+  return state.models.reduce((best, m) => Math.max(best, m.capability), 0);
+}
+
+/** Score of a capability on the current eval suite. */
+export function scoreNow(state: GameState, capability: number): number {
+  return suiteScore(capability, state.suite.mid);
+}
+
 export function marketSize(week: number): number {
   return Math.min(TUNING.marketCapUsers, TUNING.marketStartUsers * Math.pow(1 + TUNING.marketGrowthPerWeek, week));
 }
@@ -99,6 +109,7 @@ export interface TrainingPreview {
   errors: string[];
   flops: number;
   effectiveCompute: number;
+  projectedCapability: number;
   projectedScore: number;
   fit: ArchFit | null;
   utilization: number;
@@ -141,6 +152,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
       errors,
       flops: 0,
       effectiveCompute: 0,
+      projectedCapability: 0,
       projectedScore: 0,
       fit: null,
       utilization: 0,
@@ -156,8 +168,9 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
 
   const flops = trainingFlops(arch, spec.paramsB, spec.tokensB);
   const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, state.staff.research);
-  const projectedScore = capabilityScore(eff);
-  const tier = tierForScore(content, projectedScore);
+  const projectedCapability = capabilityIndex(eff);
+  const projectedScore = suiteScore(projectedCapability, state.suite.mid);
+  const tier = tierForCapability(content, projectedCapability);
   const requirements = requirementsFor(state, content, tier);
   const speedFactor = powerSpeedFactor(content, requirements.find((r) => r.track === 'power')!.gap);
   const flopsPerWeek =
@@ -171,6 +184,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     errors,
     flops,
     effectiveCompute: eff,
+    projectedCapability,
     projectedScore,
     fit: archFit(chip, arch),
     utilization: utilization(chip, arch, spec.chipCount),

@@ -14,7 +14,7 @@ interface Store {
   clearError: () => void;
 }
 
-const SAVE_KEY = 'stm.save.v3';
+const SAVE_KEY = 'stm.save.v4';
 const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
 const post = (msg: ToWorker) => worker.postMessage(msg);
 
@@ -47,6 +47,6 @@ export function boot(): void {
   } catch {
     saved = null;
   }
-  if (saved && saved.version === 3) post({ type: 'load', state: saved });
+  if (saved && saved.version === 4) post({ type: 'load', state: saved });
   else useStore.getState().newGame();
 }

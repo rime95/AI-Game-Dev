@@ -5,7 +5,9 @@ import {
   createGame,
   licenseUpkeep,
   previewTraining,
-  tierForScore,
+  capabilityForScore,
+  tierForCapability,
+  TUNING,
   type Command,
   type GameState,
   type TrainingSpec,
@@ -47,11 +49,12 @@ function readyForTier2Run(seed = 1): GameState {
 }
 
 describe('License to Scale', () => {
-  it('maps eval scores to tiers', () => {
-    expect(tierForScore(content, 10)).toBe(1);
-    expect(tierForScore(content, 30)).toBe(2);
-    expect(tierForScore(content, 59.9)).toBe(3);
-    expect(tierForScore(content, 90)).toBe(5);
+  it('maps capability to tiers (shown here as Suite v1 scores)', () => {
+    const tierAt = (v1Score: number) => tierForCapability(content, capabilityForScore(v1Score, TUNING.capabilityMid));
+    expect(tierAt(10)).toBe(1);
+    expect(tierAt(31)).toBe(2);
+    expect(tierAt(59)).toBe(3);
+    expect(tierAt(90)).toBe(5);
   });
 
   it('shows the checklist and risks before a run, without blocking it', () => {
@@ -66,12 +69,12 @@ describe('License to Scale', () => {
 
   it('upgrades take time, cost upkeep, raise the power cap and clear the gap', () => {
     let s = run(createGame(content, 2), [{ type: 'upgradeLicense', track: 'power' }]);
-    expect(s.cash).toBe(8_000_000 - 2_000_000);
+    expect(s.cash).toBe(8_000_000 - 600_000);
     expect(applyCommand(s, content, { type: 'upgradeLicense', track: 'power' }).error).toMatch(/underway/);
     s = advance(s, 4);
     expect(s.license.power.level).toBe(2);
     expect(s.powerCapMW).toBe(20);
-    expect(licenseUpkeep(s, content)).toBe(20_000);
+    expect(licenseUpkeep(s, content)).toBe(10_000);
     s = run(s, [
       { type: 'rentChips', chipId: 'kite-k1', count: 256 },
       { type: 'buyData', billions: 400 },

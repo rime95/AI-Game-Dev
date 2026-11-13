@@ -26,12 +26,15 @@ import {
   marketSize,
   ownedPowerMW,
   previewTraining,
+  scoreNow,
   servingCapacityTokens,
 } from './selectors';
+import { capabilityForScore } from './formulas';
 
 export function createGame(content: Content, seed: number): GameState {
   const state: GameState = {
-    version: 3,
+    version: 4,
+    suite: { version: 1, mid: TUNING.capabilityMid, startedWeek: 0 },
     seed,
     rng: seed | 0,
     week: 0,
@@ -62,6 +65,7 @@ export function createGame(content: Content, seed: number): GameState {
   for (const r of content.rivals) {
     state.rivals.push({
       id: r.id,
+      capability: capabilityForScore(r.startScore, TUNING.capabilityMid),
       score: r.startScore,
       version: 1,
       nextReleaseWeek: randInt(state, 3, r.releaseEveryWeeks),
@@ -157,6 +161,7 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
         flopsTotal: preview.flops,
         flopsDone: 0,
         startedWeek: state.week,
+        projectedCapability: preview.projectedCapability,
         projectedScore: preview.projectedScore,
         tier: preview.tier,
         gaps: Object.fromEntries(preview.requirements.map((r) => [r.track, r.gap])) as Record<TrackId, number>,
@@ -252,12 +257,17 @@ function advanceWeek(state: GameState, content: Content): void {
         paramsB: run.spec.paramsB,
         tokensB: run.spec.tokensB,
         precision: run.spec.precision,
-        score: round1(run.projectedScore),
+        capability: run.projectedCapability,
+        score: round1(scoreNow(state, run.projectedCapability)),
         releasedWeek: state.week + 1,
       });
       const live = liveModel(state);
-      if (!live || run.projectedScore > live.score) state.liveModelId = id;
-      log(state, 'good', `${run.spec.name} released: scores ${round1(run.projectedScore)} on the frontier eval.`);
+      if (!live || run.projectedCapability > live.capability) state.liveModelId = id;
+      log(
+        state,
+        'good',
+        `${run.spec.name} released: scores ${round1(scoreNow(state, run.projectedCapability))} on Suite v${state.suite.version}.`,
+      );
       rollLicenseConsequences(state, content, run.tier, run.gaps, run.spec.name);
       state.training = null;
     }
@@ -337,7 +347,8 @@ function advanceWeek(state: GameState, content: Content): void {
     const def = content.rivals.find((r) => r.id === rival.id);
     if (!def) continue;
     rival.version += 1;
-    rival.score = round1(rival.score + (100 - rival.score) * def.releaseGain * (0.7 + rand(state) * 0.6));
+    rival.capability += def.capabilityGain * (0.7 + rand(state) * 0.6);
+    rival.score = round1(scoreNow(state, rival.capability));
     rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(def.releaseEveryWeeks * 0.7), Math.ceil(def.releaseEveryWeeks * 1.3));
     const modelName = `${def.modelPrefix} ${rival.version}`;
     log(state, 'rival', `${def.name} released ${modelName} (${rival.score}).`);
@@ -346,6 +357,9 @@ function advanceWeek(state: GameState, content: Content): void {
       if (ev) state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
     }
   }
+
+  // 5b. A saturated eval suite retires; everyone is re-scored on a harder one
+  retireSaturatedSuite(state);
 
   // 6. Random events
   if (!state.pendingEvent && rand(state) < TUNING.randomEventChance) {
@@ -391,16 +405,35 @@ function advanceWeek(state: GameState, content: Content): void {
 export function targetUsers(state: GameState, content: Content): number {
   const live = liveModel(state);
   if (!live) return 0;
-  const pull = (score: number, price: number) =>
-    Math.exp(score / TUNING.scoreSoftness) * Math.pow(price / TUNING.referencePrice, -TUNING.priceElasticity);
+  // Pull uses capability (not suite score), so retiring a suite doesn't reshuffle the market.
+  const pull = (capability: number, price: number) =>
+    Math.exp((capability - state.suite.mid) / TUNING.capabilitySoftness) *
+    Math.pow(price / TUNING.referencePrice, -TUNING.priceElasticity);
   const boost = state.modifiers.reduce((b, m) => b * m.shareBoost, 1);
-  const ours = pull(live.score, state.apiPrice) * Math.sqrt(state.reputation / 50) * boost;
+  const ours = pull(live.capability, state.apiPrice) * Math.sqrt(state.reputation / 50) * boost;
   let total = ours;
   for (const r of state.rivals) {
     const def = content.rivals.find((d) => d.id === r.id);
-    if (def) total += pull(r.score, def.apiPrice);
+    if (def) total += pull(r.capability, def.apiPrice);
   }
   return marketSize(state.week) * (ours / total);
+}
+
+/** When any model hits the saturation score, replace the suite with a harder one and re-score everyone. */
+function retireSaturatedSuite(state: GameState): void {
+  const top = Math.max(...state.models.map((m) => m.score), ...state.rivals.map((r) => r.score));
+  if (top < TUNING.suiteSaturationScore) return;
+  const old = state.suite.version;
+  state.suite = { version: old + 1, mid: state.suite.mid + TUNING.suiteStep, startedWeek: state.week + 1 };
+  for (const m of state.models) m.score = round1(scoreNow(state, m.capability));
+  for (const r of state.rivals) r.score = round1(scoreNow(state, r.capability));
+  if (state.training) state.training.projectedScore = scoreNow(state, state.training.projectedCapability);
+  const newTop = Math.max(...state.models.map((m) => m.score), ...state.rivals.map((r) => r.score));
+  log(
+    state,
+    'rival',
+    `Suite v${old} is saturated (top score ${round1(top)}). Suite v${old + 1} replaces it: the best model now scores ${round1(newTop)}.`,
+  );
 }
 
 /** A model shipped without the License to Scale requirements can trigger consequences per missing track. */
@@ -412,7 +445,7 @@ function rollLicenseConsequences(state: GameState, content: Content, tier: numbe
     log(state, 'bad', `Safety incident: ${name} was jailbroken into harmful output. Reputation −${4 * gaps.safety}, users −${10 * gaps.safety}%.`);
   }
   if (gaps.compliance > 0 && rand(state) < chance(gaps.compliance)) {
-    const fine = 2_000_000 * tier * gaps.compliance;
+    const fine = 1_000_000 * tier * gaps.compliance;
     state.cash -= fine;
     log(state, 'bad', `Regulators fined us ${formatM(fine)} for launching ${name} without the required filings.`);
   }

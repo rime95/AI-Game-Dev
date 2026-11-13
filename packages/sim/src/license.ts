@@ -12,9 +12,10 @@ export function initialLicense(): Record<TrackId, LicenseTrackState> {
   };
 }
 
-export function tierForScore(content: Content, score: number): number {
+/** Tiers are set on capability (not suite score), so retiring an eval suite never lowers a tier. */
+export function tierForCapability(content: Content, capability: number): number {
   let tier = 1;
-  for (const t of content.license.tiers) if (score >= t.minScore) tier = Math.max(tier, t.tier);
+  for (const t of content.license.tiers) if (capability >= t.minCapability) tier = Math.max(tier, t.tier);
   return tier;
 }
 

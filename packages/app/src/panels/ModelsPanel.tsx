@@ -141,7 +141,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
       <div className="card" style={{ ['--c' as string]: LAYER.models }}>
         <div className="row between">
           <h3>Preview</h3>
-          <Stat k="Projected score" v={preview.projectedScore.toFixed(1)} c={LAYER.models} />
+          <Stat k={`Projected · Suite v${game.suite.version}`} v={preview.projectedScore.toFixed(1)} c={LAYER.models} />
         </div>
         {preview.fit && (
           <>

@@ -1,12 +1,13 @@
 import { content, type TrackId } from '@stm/content';
 import {
-  bestScore,
   levelDef,
   licenseRevenue,
   licenseUpkeep,
   nextUpgrade,
   requirementsFor,
-  tierForScore,
+  bestCapability,
+  scoreNow,
+  tierForCapability,
   tierName,
   trackDef,
   TRACK_IDS,
@@ -26,7 +27,13 @@ export const TRACK_COLOR: Record<TrackId, string> = {
 
 /** The tier the player is working toward: one above their best model. */
 export function nextTier(game: GameState): number {
-  return Math.min(5, tierForScore(content, bestScore(game)) + 1);
+  return Math.min(5, tierForCapability(content, bestCapability(game)) + 1);
+}
+
+/** A tier's threshold expressed as a score on the current eval suite. */
+function tierScoreNow(game: GameState, tier: number): string {
+  const t = content.license.tiers.find((x) => x.tier === tier);
+  return t ? scoreNow(game, t.minCapability).toFixed(0) : '?';
 }
 
 export function LicensePanel({ game }: { game: GameState }) {
@@ -48,7 +55,7 @@ export function LicensePanel({ game }: { game: GameState }) {
         <div className="row between">
           <h3>Next goal: {tierName(content, target)}</h3>
           <span className="small muted">
-            {met}/4 met · from score {content.license.tiers.find((t) => t.tier === target)?.minScore}
+            {met}/4 met · from score {tierScoreNow(game, target)} on Suite v{game.suite.version}
           </span>
         </div>
         <div className="chips">
@@ -74,13 +81,13 @@ export function LicensePanel({ game }: { game: GameState }) {
             {content.license.tiers.map((t) => (
               <tr key={t.tier} className={t.tier === target ? 'you' : undefined}>
                 <td>{t.name}</td>
-                <td className="muted">score {t.minScore}+</td>
+                <td className="muted">{t.tier === 1 ? 'any score' : `score ${tierScoreNow(game, t.tier)}+ on Suite v${game.suite.version}`}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="small muted">
-          A run's tier comes from its projected score. Each missing level adds {pct(content.license.riskPerGap)} risk on its
+          A run's tier comes from its capability, so a new eval suite never lowers it (the score thresholds above just shift). Each missing level adds {pct(content.license.riskPerGap)} risk on its
           track (power instead slows training by {pct(content.license.powerSlowdownPerGap)}).
         </div>
       </div>
