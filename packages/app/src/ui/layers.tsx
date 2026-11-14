@@ -15,6 +15,7 @@ export const LAYER = {
 export const TAB_META: Record<Tab, { label: string; color: string; icon: string }> = {
   overview: { label: 'Company', color: LAYER.trust, icon: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6' },
   hq: { label: 'HQ', color: LAYER.gold, icon: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01' },
+  sites: { label: 'Sites', color: LAYER.compute, icon: 'M3 20h18M5 20V10h6v10M13 20V6h6v14M7 13h2M7 16h2M15 9h2M15 12h2M15 15h2' },
   compute: { label: 'Compute', color: LAYER.compute, icon: 'M4 5h16v5H4zM4 14h16v5H4zM8 7.5h.01M8 16.5h.01' },
   silicon: { label: 'Silicon', color: LAYER.silicon, icon: 'M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4' },
   license: { label: 'License', color: LAYER.trust, icon: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-5' },

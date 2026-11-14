@@ -282,7 +282,7 @@ function ghostFor(
   return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `${t.name} · ${money(t.cost)}` };
 }
 
-function Ghost({
+export function Ghost({
   x,
   y,
   w,
@@ -578,7 +578,7 @@ export function useDeskSummary(game: GameState) {
 }
 
 /** Heat overlay (decoration only): cool blue when cooling has headroom, red when it can't keep up. */
-function heatTint(itKW: number, coolingKW: number): string {
+export function heatTint(itKW: number, coolingKW: number): string {
   if (itKW <= 0) return '#dfe3ea';
   const r = Math.min(1.3, itKW / Math.max(1, coolingKW));
   const t = Math.max(0, Math.min(1, (r - 0.4) / 0.9));
@@ -590,7 +590,7 @@ function heatTint(itKW: number, coolingKW: number): string {
  * A rack, cooling unit or power unit. Rack lights (world-and-facilities §6): violet = training,
  * blue = serving, dark = idle or unpowered, blinking red = throttled.
  */
-function EquipmentPiece({
+export function EquipmentPiece({
   eq,
   game,
   servers,

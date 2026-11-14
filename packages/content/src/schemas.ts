@@ -292,7 +292,44 @@ export const HqSchema = z.object({
   equipment: z.array(EquipmentSchema),
 });
 
+export const ClimateSchema = z.enum(['cold', 'temperate', 'hot']);
+export const WaterSchema = z.enum(['plentiful', 'limited', 'scarce']);
+
+/** A place we can build a data center campus (world-and-facilities §2.2). */
+export const SiteLocationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  region: z.string(),
+  lon: z.number(),
+  lat: z.number(),
+  climate: ClimateSchema,
+  water: WaterSchema,
+  powerPricePerMWh: z.number().positive(),
+  buildCost: z.number().positive(),
+  buildWeeks: z.number().int().positive(),
+  blurb: z.string(),
+});
+export type SiteLocation = z.infer<typeof SiteLocationSchema>;
+
+const ClimateEffect = z.object({ label: z.string(), coolingMult: z.number().positive(), pueDelta: z.number() });
+const WaterRule = z.object({ label: z.string(), envLevel: z.number().int().positive() });
+
+export const SitesSchema = z.object({
+  requiresPowerLevel: z.number().int().positive(),
+  startHalls: z.number().int().positive(),
+  maxHalls: z.number().int().positive(),
+  siteUpkeepPerWeek: z.number().nonnegative(),
+  hall: z.object({ w: z.number().int().positive(), h: z.number().int().positive(), cost: z.number(), weeks: z.number().int().positive(), upkeepPerWeek: z.number() }),
+  opsCenter: z.object({ cost: z.number(), upkeepPerWeek: z.number(), failureMult: z.number().positive() }),
+  unattendedFailureMult: z.number().positive(),
+  climates: z.object({ cold: ClimateEffect, temperate: ClimateEffect, hot: ClimateEffect }),
+  water: z.object({ plentiful: WaterRule, limited: WaterRule, scarce: WaterRule }),
+  locations: z.array(SiteLocationSchema).min(1),
+});
+export type Sites = z.infer<typeof SitesSchema>;
+
 export const ContentSchema = z.object({
+  sites: SitesSchema,
   hq: HqSchema,
   chips: z.array(ChipSchema).min(1),
   clients: z.array(ClientSectorSchema).min(1),

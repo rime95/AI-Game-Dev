@@ -15,6 +15,7 @@ import {
   rackUnits,
   serverLayout,
   stageDef,
+  siteError,
   labSeating,
   moveCheck,
   freeChips,
@@ -102,7 +103,34 @@ function furnish(s: GameState): GameState {
   }
   while (deskStats(s, content).crowding > 1 && place('deskPod'));
   while (deskStats(s, content).breakCoverage < 1 && place('breakRoom'));
-  return buildServers(s);
+  return buildSites(buildServers(s));
+}
+
+/** Open data center campuses when colocation fees pile up; fill halls, add halls and ops centers. */
+function buildSites(s: GameState): GameState {
+  const try_ = (cmd: Command) => {
+    const r = applyCommand(s, content, cmd);
+    if (!r.error) s = r.state;
+    return !r.error;
+  };
+  const colo = serverLayout(s, content).colo;
+  const building = s.sites.some((x) => x.status === 'building' || x.halls.some((h) => h.status === 'building'));
+  if (colo > 2000 && !building && s.cash > 300_000_000) {
+    const site = s.sites.find((x) => x.status === 'online' && x.halls.length < content.sites.maxHalls);
+    if (site) try_({ type: 'addHall', siteId: site.id });
+    else {
+      const loc = [...content.sites.locations].sort((a, b) => a.buildCost - b.buildCost).find((l) => !siteError(s, content, l.id));
+      if (loc) try_({ type: 'buildSite', locationId: loc.id });
+    }
+  }
+  for (const site of s.sites) {
+    if (site.status !== 'online') continue;
+    if (!site.opsCenter && s.cash > 50_000_000) try_({ type: 'buildOpsCenter', siteId: site.id });
+    for (const hall of site.halls)
+      if (hall.status === 'online' && hall.equipment.length === 0 && s.cash > 100_000_000)
+        try_({ type: 'fillHall', hallId: hall.id, coolingId: s.license.power.level >= 2 ? 'coolLiquid' : 'coolAir' });
+  }
+  return s;
 }
 
 /** Rack owned chips at HQ (saves colocation fees): server room, racks, then enough power and cooling. */
@@ -252,6 +280,7 @@ function play(seed: number) {
     best: bestScore(s).toFixed(1),
     topRival: top.toFixed(1),
     rank: 1 + s.rivals.filter((r) => r.score > bestScore(s)).length,
+    sites: `${s.sites.length} campuses, ${s.sites.reduce((n, x) => n + x.halls.length, 0)} halls, colo ${serverLayout(s, content).colo}`,
     hq: `${s.hq.stage} ${deskStats(s, content).headcount}/${deskStats(s, content).capacity} morale ${s.hq.morale.toFixed(0)}`,
     milestones: milestones.join(', '),
   };

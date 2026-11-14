@@ -71,23 +71,31 @@ export interface RackLoad {
 }
 
 export interface ServerRoomState {
+  /** HQ server room id, or data hall id. */
   roomId: string;
+  /** Set for data halls. */
+  siteId: string | null;
   racks: RackLoad[];
   /** Heat from powered chips, kW. */
   itKW: number;
+  /** Cooling after the climate bonus, kW. */
   coolingKW: number;
   powerKW: number;
   /** Share of full speed the room's chips run at: min(1, cooling ÷ heat). */
   throttle: number;
   pue: number;
+  powerPricePerMWh: number;
 }
 
 export interface ChipPlacement {
   owned: number;
-  /** Owned chips racked and powered at HQ. */
+  /** Owned chips racked and powered (HQ or data halls). */
   hq: number;
   /** Those chips' throttle-weighted count. */
   hqEffective: number;
+  /** Racked in data halls at sites with / without an operations center. */
+  attended: number;
+  unattended: number;
   colo: number;
 }
 
@@ -100,6 +108,18 @@ export interface ServerLayout {
   colo: number;
 }
 
+interface Space {
+  id: string;
+  siteId: string | null;
+  attended: boolean;
+  units: { e: PlacedEquipment; def: Equipment }[];
+  coolingMult: number;
+  pueDelta: number;
+  powerPrice: number;
+  /** HQ rooms share the building's power limit; data halls only have site power. */
+  hq: boolean;
+}
+
 /** Where every owned chip lives and how fast it runs. Derived from layout and fleet; never stored. */
 export function serverLayout(state: GameState, content: Content): ServerLayout {
   const stage = stageDef(content, state.hq.stage);
@@ -107,15 +127,49 @@ export function serverLayout(state: GameState, content: Content): ServerLayout {
   for (const f of state.fleet) if (f.owned) remaining.set(f.chipId, (remaining.get(f.chipId) ?? 0) + f.count);
   const chips = new Map<string, Chip | undefined>([...remaining.keys()].map((id) => [id, getChip(content, id, state)]));
   const byChip: Record<string, ChipPlacement> = {};
-  for (const [id, n] of remaining) byChip[id] = { owned: n, hq: 0, hqEffective: 0, colo: 0 };
+  for (const [id, n] of remaining) byChip[id] = { owned: n, hq: 0, hqEffective: 0, attended: 0, unattended: 0, colo: 0 };
+
+  const withDefs = (list: PlacedEquipment[]) =>
+    list.map((e) => ({ e, def: equipmentDef(content, e.equipId) })).filter((u): u is { e: PlacedEquipment; def: Equipment } => !!u.def);
+  const spaces: Space[] = [];
+  for (const room of state.hq.rooms) {
+    if (templateDef(content, room.templateId)?.kind !== 'server') continue;
+    spaces.push({
+      id: room.id,
+      siteId: null,
+      attended: false,
+      units: withDefs(state.hq.equipment.filter((e) => e.roomId === room.id)),
+      coolingMult: 1,
+      pueDelta: 0,
+      powerPrice: TUNING.powerPricePerMWh,
+      hq: true,
+    });
+  }
+  for (const site of state.sites ?? []) {
+    if (site.status !== 'online') continue;
+    const loc = content.sites.locations.find((l) => l.id === site.locationId);
+    const climate = loc ? content.sites.climates[loc.climate] : { coolingMult: 1, pueDelta: 0 };
+    for (const hall of site.halls) {
+      if (hall.status !== 'online') continue;
+      spaces.push({
+        id: hall.id,
+        siteId: site.id,
+        attended: site.opsCenter,
+        units: withDefs(hall.equipment),
+        coolingMult: climate.coolingMult,
+        pueDelta: climate.pueDelta,
+        powerPrice: loc?.powerPricePerMWh ?? TUNING.powerPricePerMWh,
+        hq: false,
+      });
+    }
+  }
 
   let buildingLeft = stage.maxServerKW;
   const rooms: ServerRoomState[] = [];
-  for (const room of state.hq.rooms) {
-    if (templateDef(content, room.templateId)?.kind !== 'server') continue;
-    const units = state.hq.equipment.filter((e) => e.roomId === room.id).map((e) => ({ e, def: equipmentDef(content, e.equipId)! })).filter((u) => u.def);
+  for (const space of spaces) {
+    const { units } = space;
     const powerKW = units.reduce((n, u) => n + u.def.powerKW, 0);
-    const coolingKW = units.reduce((n, u) => n + u.def.coolingKW, 0);
+    const coolingKW = units.reduce((n, u) => n + u.def.coolingKW, 0) * space.coolingMult;
     let roomLeft = powerKW;
     const racks: RackLoad[] = [];
     for (const { e, def } of units) {
@@ -127,26 +181,34 @@ export function serverLayout(state: GameState, content: Content): ServerLayout {
         continue;
       }
       const kwEach = chip.watts / 1000;
-      const n = Math.min(def.chips, remaining.get(chipId)!, Math.floor(Math.min(roomLeft, buildingLeft) / kwEach + 1e-9));
+      const budget = space.hq ? Math.min(roomLeft, buildingLeft) : roomLeft;
+      const n = Math.min(def.chips, remaining.get(chipId)!, Math.floor(budget / kwEach + 1e-9));
       if (n <= 0) {
         racks.push({ equipmentId: e.id, chipId: null, count: 0, powered: false });
         continue;
       }
       remaining.set(chipId, remaining.get(chipId)! - n);
       roomLeft -= n * kwEach;
-      buildingLeft -= n * kwEach;
+      if (space.hq) buildingLeft -= n * kwEach;
       racks.push({ equipmentId: e.id, chipId, count: n, powered: true });
     }
     const itKW = racks.reduce((kw, r) => kw + (r.chipId ? (r.count * (chips.get(r.chipId)?.watts ?? 0)) / 1000 : 0), 0);
     const throttle = itKW > 0 ? Math.min(1, coolingKW / itKW) : 1;
     const coolers = units.filter((u) => u.def.coolingKW > 0);
-    const pue = coolingKW > 0 ? coolers.reduce((p, u) => p + (u.def.pue ?? TUNING.pue) * u.def.coolingKW, 0) / coolingKW : TUNING.pue;
+    const rawCool = coolers.reduce((n, u) => n + u.def.coolingKW, 0);
+    const basePue = rawCool > 0 ? coolers.reduce((p, u) => p + (u.def.pue ?? TUNING.pue) * u.def.coolingKW, 0) / rawCool : TUNING.pue;
+    const pue = Math.max(1.02, basePue + space.pueDelta);
     for (const r of racks) {
       if (!r.chipId) continue;
-      byChip[r.chipId].hq += r.count;
-      byChip[r.chipId].hqEffective += r.count * throttle;
+      const p = byChip[r.chipId];
+      p.hq += r.count;
+      p.hqEffective += r.count * throttle;
+      if (space.siteId) {
+        if (space.attended) p.attended += r.count;
+        else p.unattended += r.count;
+      }
     }
-    rooms.push({ roomId: room.id, racks, itKW, coolingKW, powerKW, throttle, pue });
+    rooms.push({ roomId: space.id, siteId: space.siteId, racks, itKW, coolingKW, powerKW, throttle, pue, powerPricePerMWh: space.powerPrice });
   }
   let colo = 0;
   for (const [id, n] of remaining) {
@@ -168,7 +230,7 @@ export function chipEfficiency(state: GameState, content: Content, chipId: strin
 export function ownedChipCosts(state: GameState, content: Content, layout = serverLayout(state, content)): { power: number; colocation: number } {
   const perKWWeek = (168 * TUNING.powerPricePerMWh) / 1000;
   let power = 0;
-  for (const room of layout.rooms) power += room.itKW * room.pue * perKWWeek;
+  for (const room of layout.rooms) power += (room.itKW * room.pue * 168 * room.powerPricePerMWh) / 1000;
   let colocation = 0;
   for (const [id, p] of Object.entries(layout.byChip)) {
     const chip = getChip(content, id, state);
@@ -180,7 +242,8 @@ export function ownedChipCosts(state: GameState, content: Content, layout = serv
 }
 
 export function equipmentUpkeep(state: GameState, content: Content): number {
-  return state.hq.equipment.reduce((n, e) => n + (equipmentDef(content, e.equipId)?.upkeepPerWeek ?? 0), 0);
+  const all = [...state.hq.equipment, ...(state.sites ?? []).flatMap((s) => s.halls.flatMap((h) => h.equipment))];
+  return all.reduce((n, e) => n + (equipmentDef(content, e.equipId)?.upkeepPerWeek ?? 0), 0);
 }
 
 /** First free spot for equipment inside any server room (balance bot, tests). */

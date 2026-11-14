@@ -3,6 +3,7 @@ import type { GameState, ReleasedModel, TrainingSpec } from './types';
 import { TUNING } from './tuning';
 import { effectiveStaff } from './hq';
 import { chipEfficiency, serverLayout } from './servers';
+import { siteFailureFactor } from './sites';
 import {
   archFit,
   capabilityIndex,
@@ -211,7 +212,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     tier,
     requirements,
     speedFactor,
-    incidents: incidentRates(state, chip, spec.chipCount, spec.paramsB, spec.precision),
+    incidents: incidentRates(state, chip, spec.chipCount, spec.paramsB, spec.precision, siteFailureFactor(state, content, chip.id)),
   };
 }
 

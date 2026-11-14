@@ -19,6 +19,8 @@ import { money } from '../format';
 import { LAYER } from '../ui/layers';
 import { Diorama } from './Diorama';
 import { HqView } from './HqView';
+import { WorldMap } from './WorldMap';
+import { SiteView } from './SiteView';
 import { Blueprint } from './blueprint/Blueprint';
 import { WaferReveal } from './blueprint/WaferReveal';
 
@@ -51,7 +53,15 @@ export function World({ game }: { game: GameState }) {
 
   return (
     <>
-      {view === 'hq' ? <HqView game={game} /> : <Diorama game={game} />}
+      {view === 'hq' ? (
+        <HqView game={game} />
+      ) : view === 'campus' ? (
+        <Diorama game={game} />
+      ) : view === 'map' ? (
+        <WorldMap game={game} />
+      ) : (
+        <SiteView game={game} />
+      )}
       <WaferReveal game={game} />
       <div className="world-top">
         <div className="view-switch" role="tablist" aria-label="World view">
@@ -60,6 +70,9 @@ export function World({ game }: { game: GameState }) {
           </button>
           <button role="tab" aria-selected={view === 'campus'} onClick={() => setView('campus')}>
             Campus
+          </button>
+          <button role="tab" aria-selected={view === 'map' || view === 'site'} onClick={() => setView('map')}>
+            World map
           </button>
         </div>
         {view === 'hq' && <HqBanner game={game} />}

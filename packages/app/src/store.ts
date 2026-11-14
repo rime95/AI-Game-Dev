@@ -14,9 +14,9 @@ import {
   type Settings,
 } from './saves';
 
-export type Tab = 'overview' | 'hq' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
+export type Tab = 'overview' | 'hq' | 'sites' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
 export type Screen = 'menu' | 'game';
-export type WorldView = 'hq' | 'campus';
+export type WorldView = 'hq' | 'campus' | 'map' | 'site';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {
@@ -42,6 +42,9 @@ interface Store {
   modelDraft: TrainingSpec | null;
   /** A freshly taped-out chip whose wafer reveal is playing. */
   reveal: string | null;
+  /** Data center campus and hall shown in the site view (hall null = campus exterior). */
+  siteId: string | null;
+  hallId: string | null;
   pauseOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
@@ -62,6 +65,8 @@ interface Store {
   setChipDraft: (d: ChipDesign) => void;
   setModelDraft: (d: TrainingSpec) => void;
   closeReveal: () => void;
+  openSite: (siteId: string, hallId?: string | null) => void;
+  openHall: (hallId: string | null) => void;
   setPauseOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
@@ -84,6 +89,8 @@ export const useStore = create<Store>((set, get) => ({
   chipDraft: null,
   modelDraft: null,
   reveal: null,
+  siteId: null,
+  hallId: null,
   pauseOpen: false,
   saves: [],
   settings: loadSettings(),
@@ -91,7 +98,7 @@ export const useStore = create<Store>((set, get) => ({
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -101,7 +108,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -129,7 +136,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setTab: (tab) => set({ tab }),
-  setWorldView: (worldView) => set({ worldView, build: worldView === 'hq' ? get().build : null }),
+  setWorldView: (worldView) => set({ worldView, build: null, selectedRoom: null }),
   startBuild: (templateId, kind = 'room') => set({ build: { kind, templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
   rotateBuild: () => {
     const b = get().build;
@@ -141,6 +148,8 @@ export const useStore = create<Store>((set, get) => ({
   setChipDraft: (chipDraft) => set({ chipDraft }),
   setModelDraft: (modelDraft) => set({ modelDraft }),
   closeReveal: () => set({ reveal: null }),
+  openSite: (siteId, hallId = null) => set({ worldView: 'site', siteId, hallId, build: null, selectedRoom: null }),
+  openHall: (hallId) => set({ hallId, build: null, selectedRoom: null }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };

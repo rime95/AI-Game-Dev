@@ -134,6 +134,8 @@ export interface WeekReport {
   facilities: number;
   /** Rack space rented for owned chips we have no room for. */
   colocation: number;
+  /** Data center campuses: land, halls and ops centers. */
+  sites: number;
   power: number;
   licenseUpkeep: number;
   licenseRevenue: number;
@@ -234,6 +236,26 @@ export interface PlacedEquipment {
   spent: number;
 }
 
+/** A data hall: a 20×12 grid of racks, cooling and power units inside a campus. */
+export interface Hall {
+  id: string;
+  status: 'building' | 'online';
+  weeksLeft: number;
+  equipment: PlacedEquipment[];
+}
+
+/** A data center campus (sites track). */
+export interface Site {
+  id: string;
+  locationId: string;
+  name: string;
+  status: 'building' | 'online';
+  weeksLeft: number;
+  totalWeeks: number;
+  halls: Hall[];
+  opsCenter: boolean;
+}
+
 export interface HqState {
   /** HQ stage id (garage, office, ...). */
   stage: string;
@@ -252,7 +274,8 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 14;
+  version: 15;
+  sites: Site[];
   companyName: string;
   hq: HqState;
   consumer: ConsumerApp;
@@ -333,8 +356,13 @@ export type Command =
   | { type: 'demolishRoom'; roomId: string }
   | { type: 'upgradeRoom'; roomId: string }
   | { type: 'moveHq' }
-  | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number; floor?: number }
+  | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number; floor?: number; hallId?: string }
   | { type: 'demolishEquipment'; equipmentId: string }
+  | { type: 'buildSite'; locationId: string }
+  | { type: 'addHall'; siteId: string }
+  | { type: 'buildOpsCenter'; siteId: string }
+  | { type: 'fillHall'; hallId: string; coolingId: string }
+  | { type: 'clearHall'; hallId: string }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

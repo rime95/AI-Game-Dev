@@ -15,7 +15,7 @@ export interface FundingCheck {
 export function weeklyNet(state: GameState): number {
   const lw = state.lastWeek;
   if (!lw) return 0;
-  return lw.revenue + lw.licenseRevenue - lw.salaries - lw.rent - lw.power - lw.licenseUpkeep - (lw.facilities ?? 0) - (lw.colocation ?? 0);
+  return lw.revenue + lw.licenseRevenue - lw.salaries - lw.rent - lw.power - lw.licenseUpkeep - (lw.facilities ?? 0) - (lw.colocation ?? 0) - (lw.sites ?? 0);
 }
 
 export function fundingCheck(state: GameState, content: Content): FundingCheck {

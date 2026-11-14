@@ -1,0 +1,29 @@
+{
+  "requiresPowerLevel": 3,
+  "startHalls": 2,
+  "maxHalls": 6,
+  "siteUpkeepPerWeek": 100000,
+  "hall": { "w": 20, "h": 12, "cost": 15000000, "weeks": 6, "upkeepPerWeek": 20000 },
+  "opsCenter": { "cost": 5000000, "upkeepPerWeek": 40000, "failureMult": 0.75 },
+  "unattendedFailureMult": 1.25,
+  "climates": {
+    "cold": { "label": "Cold", "coolingMult": 1.25, "pueDelta": -0.08 },
+    "temperate": { "label": "Temperate", "coolingMult": 1, "pueDelta": 0 },
+    "hot": { "label": "Hot", "coolingMult": 0.85, "pueDelta": 0.1 }
+  },
+  "water": {
+    "plentiful": { "label": "Plentiful", "envLevel": 1 },
+    "limited": { "label": "Limited", "envLevel": 2 },
+    "scarce": { "label": "Scarce", "envLevel": 3 }
+  },
+  "locations": [
+    { "id": "cascadia", "name": "Cascadia", "region": "Pacific Northwest", "lon": -121, "lat": 46, "climate": "temperate", "water": "plentiful", "powerPricePerMWh": 55, "buildCost": 60000000, "buildWeeks": 14, "blurb": "Hydro power, mild weather, close to home." },
+    { "id": "plains", "name": "Red River Plains", "region": "Texas", "lon": -98, "lat": 32, "climate": "hot", "water": "scarce", "powerPricePerMWh": 45, "buildCost": 50000000, "buildWeeks": 12, "blurb": "Cheap wind and gas, lots of land, very little water." },
+    { "id": "mesa", "name": "Sun Mesa", "region": "Arizona", "lon": -112, "lat": 33, "climate": "hot", "water": "scarce", "powerPricePerMWh": 50, "buildCost": 45000000, "buildWeeks": 12, "blurb": "Solar-rich desert. Cooling works hard here." },
+    { "id": "laurentia", "name": "Laurentia", "region": "Quebec", "lon": -72, "lat": 49, "climate": "cold", "water": "plentiful", "powerPricePerMWh": 40, "buildCost": 75000000, "buildWeeks": 16, "blurb": "Cold air and cheap hydro. Far from everything." },
+    { "id": "fjord", "name": "Fjordline", "region": "Nordics", "lon": 15, "lat": 64, "climate": "cold", "water": "plentiful", "powerPricePerMWh": 45, "buildCost": 80000000, "buildWeeks": 16, "blurb": "Free cooling most of the year, renewable grid." },
+    { "id": "emerald", "name": "Emerald Bay", "region": "Ireland", "lon": -7, "lat": 53, "climate": "temperate", "water": "limited", "powerPricePerMWh": 110, "buildCost": 70000000, "buildWeeks": 14, "blurb": "Good connectivity to Europe; power is pricey." },
+    { "id": "basalt", "name": "Basalt Fields", "region": "Iceland", "lon": -21, "lat": 64, "climate": "cold", "water": "plentiful", "powerPricePerMWh": 35, "buildCost": 100000000, "buildWeeks": 18, "blurb": "Geothermal power and arctic air. Expensive to build." },
+    { "id": "strait", "name": "Strait Harbour", "region": "Singapore", "lon": 104, "lat": 1.3, "climate": "hot", "water": "limited", "powerPricePerMWh": 140, "buildCost": 90000000, "buildWeeks": 14, "blurb": "Close to Asian users. Hot, humid and costly." }
+  ]
+}

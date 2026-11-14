@@ -4,6 +4,7 @@ import { TUNING } from './tuning';
 import { pickWeighted, rand, randInt } from './rng';
 import { clusterFlopsPerSecond, powerDrawMW } from './formulas';
 import { equipmentDef, equipmentPlacement, ownedChipCosts } from './servers';
+import { fillPlan, findHall, hallPlacementError, locationDef, siteError, sitesUpkeep, tickSites } from './sites';
 import { bugChance, deriveChip, previewChip, RESPIN_COST_SHARE, RESPIN_TIME_SHARE } from './chipDesign';
 import {
   initialLicense,
@@ -64,7 +65,8 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 14,
+    version: 15,
+    sites: [],
     companyName: companyName.trim() || 'Your lab',
     hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
@@ -326,6 +328,14 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const def = equipmentDef(content, cmd.equipId);
       if (!def) return fail('Unknown equipment.');
       const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
+      if (cmd.hallId) {
+        const err = hallPlacementError(state, content, cmd.hallId, def.id, cmd.x, cmd.y, rot);
+        if (err) return fail(err);
+        if (state.cash < def.cost) return fail('Not enough cash.');
+        state.cash -= def.cost;
+        findHall(state, cmd.hallId)!.hall.equipment.push({ id: `eq-${state.nextId++}`, equipId: def.id, roomId: cmd.hallId, x: cmd.x, y: cmd.y, rot, spent: def.cost });
+        return { state };
+      }
       const { error, roomId } = equipmentPlacement(state, content, def.id, cmd.x, cmd.y, rot, cmd.floor ?? 0);
       if (error || !roomId) return fail(error ?? 'Equipment goes inside a server room.');
       if (state.cash < def.cost) return fail('Not enough cash.');
@@ -336,9 +346,87 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
 
     case 'demolishEquipment': {
       const eq = state.hq.equipment.find((e) => e.id === cmd.equipmentId);
-      if (!eq) return fail('Unknown equipment.');
-      state.cash += eq.spent * TUNING.demolishRefund;
-      state.hq.equipment = state.hq.equipment.filter((e) => e !== eq);
+      if (eq) {
+        state.cash += eq.spent * TUNING.demolishRefund;
+        state.hq.equipment = state.hq.equipment.filter((e) => e !== eq);
+        return { state };
+      }
+      for (const site of state.sites)
+        for (const hall of site.halls) {
+          const he = hall.equipment.find((e) => e.id === cmd.equipmentId);
+          if (!he) continue;
+          state.cash += he.spent * TUNING.demolishRefund;
+          hall.equipment = hall.equipment.filter((e) => e !== he);
+          return { state };
+        }
+      return fail('Unknown equipment.');
+    }
+
+    case 'buildSite': {
+      const loc = locationDef(content, cmd.locationId);
+      const err = siteError(state, content, cmd.locationId);
+      if (err || !loc) return fail(err ?? 'Unknown location.');
+      if (state.cash < loc.buildCost) return fail('Not enough cash.');
+      state.cash -= loc.buildCost;
+      const id = `site-${state.nextId++}`;
+      const halls = Array.from({ length: content.sites.startHalls }, () => ({
+        id: `hall-${state.nextId++}`,
+        status: 'building' as const,
+        weeksLeft: loc.buildWeeks,
+        equipment: [],
+      }));
+      state.sites.push({ id, locationId: loc.id, name: loc.name, status: 'building', weeksLeft: loc.buildWeeks, totalWeeks: loc.buildWeeks, halls, opsCenter: false });
+      log(state, 'good', `Breaking ground on our ${state.sites.length === 1 ? 'first' : 'next'} data center campus at ${loc.name} (${loc.region}): ${loc.buildWeeks} weeks.`);
+      return { state };
+    }
+
+    case 'addHall': {
+      const site = state.sites.find((s) => s.id === cmd.siteId);
+      if (!site) return fail('Unknown site.');
+      if (site.halls.length >= content.sites.maxHalls) return fail(`${site.name} has room for ${content.sites.maxHalls} halls.`);
+      const hall = content.sites.hall;
+      if (state.cash < hall.cost) return fail('Not enough cash.');
+      state.cash -= hall.cost;
+      site.halls.push({ id: `hall-${state.nextId++}`, status: 'building', weeksLeft: site.status === 'online' ? hall.weeks : Math.max(hall.weeks, site.weeksLeft), equipment: [] });
+      log(state, 'info', `Building a new data hall at ${site.name} (${hall.weeks} weeks).`);
+      return { state };
+    }
+
+    case 'buildOpsCenter': {
+      const site = state.sites.find((s) => s.id === cmd.siteId);
+      if (!site) return fail('Unknown site.');
+      if (site.opsCenter) return fail('This campus already has an operations center.');
+      const ops = content.sites.opsCenter;
+      if (state.cash < ops.cost) return fail('Not enough cash.');
+      state.cash -= ops.cost;
+      site.opsCenter = true;
+      log(state, 'info', `${site.name} has an operations center: technicians on site, fewer hardware failures.`);
+      return { state };
+    }
+
+    case 'fillHall': {
+      const found = findHall(state, cmd.hallId);
+      if (!found) return fail('Unknown data hall.');
+      const cool = equipmentDef(content, cmd.coolingId);
+      if (!cool || cool.kind !== 'cooling') return fail('Pick a cooling type.');
+      let placed = 0;
+      for (const p of fillPlan(state, content, cmd.hallId, cool.id)) {
+        if (hallPlacementError(state, content, cmd.hallId, p.equipId, p.x, p.y, p.rot)) continue;
+        const def = equipmentDef(content, p.equipId)!;
+        if (state.cash < def.cost) break;
+        state.cash -= def.cost;
+        found.hall.equipment.push({ ...p, id: `eq-${state.nextId++}`, roomId: cmd.hallId, spent: def.cost });
+        placed++;
+      }
+      if (!placed) return fail(found.hall.status === 'online' && found.site.status === 'online' ? 'Nothing fits (or not enough cash).' : 'That hall is still under construction.');
+      return { state };
+    }
+
+    case 'clearHall': {
+      const found = findHall(state, cmd.hallId);
+      if (!found) return fail('Unknown data hall.');
+      state.cash += found.hall.equipment.reduce((n, e) => n + e.spent, 0) * TUNING.demolishRefund;
+      found.hall.equipment = [];
       return { state };
     }
 
@@ -604,10 +692,12 @@ function advanceWeek(state: GameState, content: Content): void {
   const licenseIncome = licenseRevenue(state, content);
   const fac = facilitiesCost(state, content);
   const facilities = fac.rent + fac.upkeep;
-  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities - colocation;
+  const siteCosts = sitesUpkeep(state, content);
+  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities - colocation - siteCosts;
 
-  // 3b. HQ: morale drifts, move-in ends
+  // 3b. HQ: morale drifts, move-in ends; sites: construction
   tickHq(state, content);
+  for (const line of tickSites(state, content)) log(state, 'good', line);
 
   // 4. Users move toward the market share our model + price earn
   const target = targetUsers(state, content);
@@ -694,6 +784,7 @@ function advanceWeek(state: GameState, content: Content): void {
     rent,
     facilities,
     colocation,
+    sites: siteCosts,
     power,
     licenseUpkeep: upkeep,
     licenseRevenue: licenseIncome,

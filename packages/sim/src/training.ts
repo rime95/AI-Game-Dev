@@ -5,6 +5,7 @@ import { clusterFlopsPerSecond } from './formulas';
 import { getArch, getChip } from './selectors';
 import { effectiveStaff } from './hq';
 import { chipEfficiency } from './servers';
+import { siteFailureFactor } from './sites';
 
 export interface IncidentRates {
   hardware: number;
@@ -19,6 +20,8 @@ export function incidentRates(
   chipCount: number,
   paramsB: number,
   precision: Precision,
+  /** Hardware failure multiplier from where the chips are hosted (sites with or without an ops center). */
+  siteFactor = 1,
 ): IncidentRates {
   const doublings = Math.max(0, Math.log2(Math.max(1, chipCount) / 1024));
   const custom = !!chip && state.customChips.some((c) => c.id === chip.id);
@@ -26,7 +29,8 @@ export function incidentRates(
     TUNING.hardwareFailureBase *
     (1 + TUNING.hardwareFailurePerDoubling * doublings) *
     (custom ? TUNING.customChipFailureMult : 1) *
-    Math.pow(TUNING.hardwareFailureOpsFactor, effectiveStaff(state, 'ops'));
+    Math.pow(TUNING.hardwareFailureOpsFactor, effectiveStaff(state, 'ops')) *
+    siteFactor;
   const precisionRisk = precision === 'fp4' ? 2.5 : precision === 'fp8' ? 1.5 : 1;
   const sizeRisk = 1 + Math.max(0, Math.log10(paramsB / 100));
   return {
@@ -37,7 +41,14 @@ export function incidentRates(
 }
 
 export function runIncidentRates(state: GameState, content: Content, run: TrainingRun): IncidentRates {
-  return incidentRates(state, getChip(content, run.spec.chipId, state), run.spec.chipCount, run.spec.paramsB, run.spec.precision);
+  return incidentRates(
+    state,
+    getChip(content, run.spec.chipId, state),
+    run.spec.chipCount,
+    run.spec.paramsB,
+    run.spec.precision,
+    siteFailureFactor(state, content, run.spec.chipId),
+  );
 }
 
 /** FLOPs the run completes in one week at its current speed. */
