@@ -1,6 +1,6 @@
-import { dateForWeek, type GameState } from '@stm/sim';
+import type { GameState } from '@stm/sim';
+import { turnLabel } from '../ui/TimeControls';
 import { useStore } from '../store';
-import { dateLabel } from '../format';
 import { LAYER } from '../ui/layers';
 
 /** Transition moments (world-and-facilities §2.3): a news card over a short construction timelapse. */
@@ -24,7 +24,7 @@ export function MilestoneCard({ game }: { game: GameState }) {
       <div className="milestone-card" style={{ ['--c' as string]: color }}>
         <div className="ms-mast">
           <span>THE {game.companyName.toUpperCase()} GAZETTE</span>
-          <span>{dateLabel(dateForWeek(m.week))}</span>
+          <span>{turnLabel(game, m.week)}</span>
         </div>
         {built ? (
           <div className="timelapse" aria-hidden="true">

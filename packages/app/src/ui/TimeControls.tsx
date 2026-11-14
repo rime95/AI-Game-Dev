@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { dateForWeek, type GameState } from '@stm/sim';
+import { dateFor, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { clockHold, TICK_MS } from '../time';
 import { dateLabel } from '../format';
@@ -15,6 +15,7 @@ function useHold(): string | null {
       milestoneOpen: !!s.milestone && s.settings.pauseOnMilestones,
       revealOpen: !!s.reveal,
       memorialOpen: s.memorialOpen,
+      reviewOpen: !!s.review,
     }),
   );
 }
@@ -52,6 +53,12 @@ export function useClock() {
   }, []);
 }
 
+/** "March 1991" in the founding era, "Jan 5, 2026" in the AI era. */
+export function turnLabel(game: Pick<GameState, 'era' | 'founding'>, week: number): string {
+  const d = dateFor(game, week);
+  return game.era === 'founding' ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : dateLabel(d);
+}
+
 let remembered: Exclude<Speed, 0> = 1;
 function lastSpeed(current: Speed): Speed {
   if (current) remembered = current;
@@ -77,10 +84,10 @@ export function TimeControls({ game }: { game: GameState }) {
     <div className="clock">
       <div className="clock-date" title={hold && speed ? `Held: ${hold}` : undefined}>
         <span className="k">
-          Week {game.week}
+          {game.era === 'founding' ? `Month ${game.week + 1}` : `Week ${game.week}`}
           {speed > 0 && hold ? <span className="held"> · held</span> : null}
         </span>
-        <span className="v">{dateLabel(dateForWeek(game.week))}</span>
+        <span className="v">{turnLabel(game, game.week)}</span>
         <span className={`clock-progress${running ? ` run s${speed}` : ''}`} key={`${game.week}-${speed}-${running}`} aria-hidden="true" />
       </div>
       <div className="speeds" role="group" aria-label="Game speed">

@@ -3,7 +3,7 @@ import type { GameState } from './types';
 import { autoFurnish, initialHq, refreshHq } from './hq';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -54,6 +54,8 @@ const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
   14: (s) => ({ ...s, version: 15, sites: [], lastWeek: s.lastWeek ? { ...s.lastWeek, sites: 0 } : null }),
   // v16: our own fab.
   15: (s) => ({ ...s, version: 16, fab: null, lastWeek: s.lastWeek ? { ...s.lastWeek, fabCosts: 0, fabSales: 0 } : null }),
+  // v17: eras. Every older save is an AI-era company with no founding chapter behind it.
+  16: (s) => ({ ...s, version: 17, era: 'ai', founding: null }),
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };

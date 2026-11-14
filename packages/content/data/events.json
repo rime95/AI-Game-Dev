@@ -374,5 +374,166 @@
         }
       }
     ]
+  },
+  {
+    "id": "f-big-order",
+    "deck": "board",
+    "trigger": "founding",
+    "speaker": "A phone call",
+    "title": "A big customer wants a rush job",
+    "body": "A toy maker wants a custom version of our last chip by the holidays. They pay well, but it pulls us off our current project.",
+    "choices": [
+      {
+        "id": "take",
+        "label": "Take the job",
+        "detail": "Good money now. Our current chip slips a month.",
+        "effects": {
+          "cash": 40000,
+          "projectMonths": 1
+        }
+      },
+      {
+        "id": "pass",
+        "label": "Politely decline",
+        "detail": "Stay focused on our own chip.",
+        "effects": {
+          "trust": -2
+        }
+      }
+    ]
+  },
+  {
+    "id": "f-foundry-delay",
+    "deck": "supply",
+    "trigger": "founding",
+    "requiresProject": true,
+    "speaker": "The foundry",
+    "title": "The foundry is running late",
+    "body": "Our chip factory partner is behind schedule. Paying for a priority slot would keep us on track.",
+    "choices": [
+      {
+        "id": "pay",
+        "label": "Pay for a priority slot",
+        "detail": "Costs 5K, no delay.",
+        "effects": {
+          "cash": -15000
+        }
+      },
+      {
+        "id": "wait",
+        "label": "Wait our turn",
+        "detail": "The chip ships a month later.",
+        "effects": {
+          "projectMonths": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "f-magazine",
+    "deck": "press",
+    "trigger": "founding",
+    "speaker": "A magazine editor",
+    "title": "A magazine wants to profile us",
+    "body": "Bytewise Monthly wants to write about the garage startup making chips. It would eat a week of our time.",
+    "choices": [
+      {
+        "id": "yes",
+        "label": "Do the interview",
+        "detail": "Customers get to know us. Small hit to the current chip.",
+        "effects": {
+          "trust": 5,
+          "projectQuality": 0.95
+        }
+      },
+      {
+        "id": "no",
+        "label": "Keep our heads down",
+        "detail": "Back to work.",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "f-trade-show",
+    "deck": "press",
+    "trigger": "founding",
+    "speaker": "The trade show",
+    "title": "A booth at the electronics show",
+    "body": "There is one booth left at this year's big electronics show. It is not cheap.",
+    "choices": [
+      {
+        "id": "book",
+        "label": "Book the booth",
+        "detail": "$20K. Customers and reviewers will notice us.",
+        "effects": {
+          "cash": -20000,
+          "trust": 8
+        }
+      },
+      {
+        "id": "skip",
+        "label": "Skip it this year",
+        "detail": "Save the money.",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "f-breakthrough",
+    "deck": "talent",
+    "trigger": "founding",
+    "requiresProject": true,
+    "speaker": "Late at night",
+    "title": "A clever idea at 2 a.m.",
+    "body": "A shortcut in the design could make this chip noticeably better, if it works.",
+    "choices": [
+      {
+        "id": "try",
+        "label": "Try the new idea",
+        "detail": "Better chip, but it may cost a month.",
+        "effects": {
+          "projectQuality": 1.15,
+          "projectMonths": 1
+        }
+      },
+      {
+        "id": "safe",
+        "label": "Stick to the plan",
+        "detail": "Ship on time.",
+        "effects": {
+          "researchPoints": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "f-poach",
+    "deck": "talent",
+    "trigger": "founding",
+    "speaker": "Brightline Micro",
+    "title": "A rival is courting our engineer",
+    "body": "Brightline Micro offered one of our designers a big raise.",
+    "choices": [
+      {
+        "id": "match",
+        "label": "Match the offer",
+        "detail": "$12K bonus, and the team feels valued.",
+        "effects": {
+          "cash": -12000,
+          "morale": 6
+        }
+      },
+      {
+        "id": "let",
+        "label": "Wish them well",
+        "detail": "Morale dips and we may lose them.",
+        "effects": {
+          "morale": -8,
+          "riskChance": 0.5,
+          "riskReputation": -1
+        }
+      }
+    ]
   }
 ]

@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { fundingCheck, type GameState } from '@stm/sim';
+import { fundingCheck, moveCheck, researchError, type GameState } from '@stm/sim';
 import type { Tab } from './time';
 
 export interface NextStep {
@@ -12,6 +12,40 @@ export interface NextStep {
   sub?: string;
   /** Step number on the first-hour path, for the "3 of 9" counter. */
   n: number;
+  /** How many steps the path has. */
+  of?: number;
+}
+
+export const FOUNDING_STEPS = 8;
+
+/** The founding years: from a first chip in the garage to beating the industry's best. */
+function foundingStep(game: GameState): NextStep {
+  const f = game.founding!;
+  const step = (key: string, text: string, tab: NextStep['tab'], n: number): NextStep => ({ key, text, tab, n, of: FOUNDING_STEPS });
+  if (f.chapterDone) return step('chapter', 'The 1990s are over: continue into the AI era', 'overview', 0);
+  if (!f.chips.length && !f.project) return step('first-chip', 'Design your first chip', 'chip', 1);
+  if (!f.chips.length && f.project)
+    return step('wait', `${f.project.name} is being designed: ${f.project.monthsLeft} month${f.project.monthsLeft === 1 ? '' : 's'} to go`, 'chip', 2);
+  if (!f.unlocked.length) {
+    const cheapest = content.founding.research.find((r) => !researchError(game, content, r.id));
+    if (cheapest) return step('research', `Spend your research points: ${cheapest.name}`, 'research', 3);
+    if (!f.project) return step('second-chip', 'Design another chip: every review earns research points', 'chip', 3);
+  }
+  if (game.hq.stage === 'garage') {
+    if (!moveCheck(game, content).error) return step('office', 'Move out of the garage into an office', 'hq', 4);
+    if (!f.project) return step('more-chips', `Keep shipping chips to afford an office (${f.chips.length} of 3)`, 'chip', 4);
+    return step('more-chips', `Ship 3 chips to afford an office (${f.chips.length} of 3)`, 'chip', 4);
+  }
+  if (game.staff.hardwareEng + game.staff.product < 2) return step('hire', 'Hire your first chip designer', 'team', 5);
+  if (new Set(f.chips.map((c) => c.marketId)).size < 2) return step('market', 'Sell a chip to a second market', 'chip', 6);
+  const best = Math.max(0, ...f.chips.map((c) => c.score));
+  if (best < 8) return step('eight', 'Make a chip that reviews 8 or better', 'chip', 7);
+  const leader = [...f.rivals].sort((a, b) => b.score - a.score)[0];
+  if (leader && leader.score >= (f.chips.at(-1)?.score ?? 0)) {
+    const name = content.founding.rivals.find((r) => r.id === leader.id)?.name ?? 'the leader';
+    return step('lead', `Beat ${name}'s latest chip (${leader.score.toFixed(1)})`, 'rivals', 8);
+  }
+  return step('grow', 'You lead the industry. Keep growing until the decade ends', 'overview', 0);
 }
 
 export const GUIDE_STEPS = 9;
@@ -23,6 +57,7 @@ const hasRoom = (game: GameState, templateId: string) => game.hq.rooms.some((r) 
  * "Ways to win" goals take over and this returns a pointer to them.
  */
 export function nextStep(game: GameState): NextStep {
+  if (game.era === 'founding' && game.founding) return foundingStep(game);
   if (fundingCheck(game, content).canRaise)
     return { key: `raise-${game.roundsRaised}`, text: 'Investors are calling: raise your next funding round', tab: 'overview', sub: 'summary', n: 0 };
   if (!game.fleet.length) return { key: 'rent', text: 'Rent your first chips', tab: 'compute', sub: 'market', n: 1 };

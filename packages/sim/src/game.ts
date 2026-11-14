@@ -35,6 +35,7 @@ import {
   servingCapacityTokens,
 } from './selectors';
 import { capabilityForScore } from './formulas';
+import { buyResearch, newFoundingState, startProject, tickFounding } from './founding';
 import { fundingCheck } from './funding';
 import { isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
 import type { Integration, TrainingRun, VictoryKind } from './types';
@@ -57,6 +58,8 @@ import {
   lowerName,
   missingRoomFor,
   moveCheck,
+  moveCost,
+  roomCost,
   placementError,
   refreshHq,
   templateDef,
@@ -66,7 +69,9 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 16,
+    version: 17,
+    era: 'ai',
+    founding: null,
     sites: [],
     fab: null,
     companyName: companyName.trim() || 'Your lab',
@@ -128,6 +133,55 @@ export function createGame(content: Content, seed: number, companyName = 'Your l
   return state;
 }
 
+/**
+ * A new company in the founding era: January 1991, the founder alone in a garage with a desk,
+ * a workbench and some savings. One turn is one month.
+ */
+export function createFoundingGame(content: Content, seed: number, companyName = 'Your company'): GameState {
+  const state = createGame(content, seed, companyName);
+  const fd = content.founding;
+  state.era = 'founding';
+  state.founding = newFoundingState(content, state);
+  state.cash = fd.startCash;
+  state.reputation = TUNING.foundingStartTrust;
+  state.staff = { research: 0, modelEng: 0, hardwareEng: 1, product: 0, ops: 0 };
+  const bench = content.hq.rooms.find((r) => r.id === 'workbench');
+  if (bench) state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: bench.id, x: 2, y: 0, rot: 0, floor: 0, tier: 1, spent: 0 });
+  state.log = [];
+  log(state, 'info', `January ${fd.startYear}. ${state.companyName} is you, a garage, a workbench and $${Math.round(fd.startCash / 1000)}K of savings. Design your first chip.`);
+  state.history = [{ week: 0, cash: state.cash, users: 0, bestScore: 0 }];
+  refreshHq(state, content);
+  return state;
+}
+
+/**
+ * The jump from the founding chapter to the AI era: the company keeps its name, people, HQ and
+ * money, raises a round to get into AI, and meets rivals that keep pace with it.
+ */
+function startAiEra(prev: GameState, content: Content): GameState {
+  const ai = createGame(content, prev.seed, prev.companyName);
+  const trust = prev.founding?.trust ?? 40;
+  ai.rng = prev.rng;
+  ai.founding = prev.founding;
+  ai.hq = prev.hq;
+  ai.nextId = Math.max(ai.nextId, prev.nextId);
+  ai.staff = { research: 1, modelEng: 1, hardwareEng: prev.staff.hardwareEng, product: Math.max(1, prev.staff.product), ops: prev.staff.ops };
+  ai.cash = prev.cash + TUNING.startCash;
+  ai.reputation = clampRep(40 + (trust - 30) / 2);
+  ai.lastEventWeek = 0;
+  content.rivals.forEach((r, i) => {
+    const rival = ai.rivals.find((x) => x.id === r.id);
+    if (!rival) return;
+    const score = 20 + (TUNING.aiRivalPace[i] ?? 0) * 8;
+    rival.capability = capabilityForScore(score, TUNING.capabilityMid);
+    rival.score = round1(score);
+    rival.nextReleaseWeek = randInt(ai, 8, r.releaseEveryWeeks * 3);
+  });
+  ai.log = [...prev.log.map((l) => ({ ...l, week: 0 })).slice(-30)];
+  log(ai, 'good', `Years later, ${ai.companyName} raises $${Math.round(TUNING.startCash / 1e6)}M to build artificial intelligence on the chips it knows so well.`);
+  return ai;
+}
+
 /** Apply one player command. Never mutates the input state. */
 export function applyCommand(prev: GameState, content: Content, cmd: Command): CommandResult {
   const res = runCommand(prev, content, cmd);
@@ -144,7 +198,59 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
   const state = structuredClone(prev);
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
+  // The founding era has its own monthly loop and commands.
+  if (state.era === 'founding') {
+    switch (cmd.type) {
+      case 'advanceWeek':
+      case 'advanceMonth':
+        if (state.pendingEvent) return fail('Decide on the open event first.');
+        tickFounding(state, content);
+        return { state };
+      case 'startProject': {
+        const err = startProject(state, content, cmd.name, cmd.typeId, cmd.marketId, cmd.genId);
+        return err ? fail(err) : { state };
+      }
+      case 'buyResearch': {
+        const err = buyResearch(state, content, cmd.researchId);
+        return err ? fail(err) : { state };
+      }
+      case 'startAiEra':
+        if (!state.founding?.chapterDone) return fail('Finish the founding chapter first.');
+        if (state.pendingEvent) return fail('Decide on the open event first.');
+        return { state: startAiEra(state, content) };
+      case 'hire': {
+        if (cmd.discipline !== 'hardwareEng' && cmd.discipline !== 'product') return fail('In the 1990s we hire chip designers and salespeople.');
+        if (content.hq.stages.findIndex((s) => s.id === state.hq.stage) < 1) return fail('Move into an office before hiring: the garage only fits you.');
+        if (state.cash < TUNING.foundingHireCost) return fail('Not enough cash.');
+        state.cash -= TUNING.foundingHireCost;
+        state.staff[cmd.discipline] += 1;
+        log(state, 'good', `Hired a ${cmd.discipline === 'hardwareEng' ? 'chip designer' : 'salesperson'}. Welcome aboard!`);
+        return { state };
+      }
+      case 'placeRoom':
+        if (!content.founding.rooms.includes(cmd.templateId)) return fail('That kind of room comes later in the company\'s story.');
+        break;
+      case 'demolishRoom':
+      case 'upgradeRoom':
+      case 'moveHq':
+      case 'resolveEvent':
+        break;
+      default:
+        return fail('That isn\'t possible yet in the founding years.');
+    }
+  }
+
   switch (cmd.type) {
+    case 'advanceMonth': {
+      if (state.pendingEvent) return fail('Decide on the open event first.');
+      for (let i = 0; i < 4 && !state.pendingEvent && state.status === 'playing'; i++) advanceWeek(state, content);
+      return { state };
+    }
+    case 'startProject':
+    case 'buyResearch':
+    case 'startAiEra':
+      return fail('That belongs to the founding years.');
+
     case 'releaseCheckpoint': {
       const run = state.training;
       if (!run) return fail('No training run in progress.');
@@ -308,9 +414,10 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const floor = cmd.floor ?? 0;
       const err = placementError(state, content, t.id, cmd.x, cmd.y, rot, floor);
       if (err) return fail(err);
-      if (state.cash < t.cost) return fail('Not enough cash.');
-      state.cash -= t.cost;
-      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: t.cost });
+      const cost = roomCost(state, t);
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: cost });
       return { state };
     }
 
@@ -510,7 +617,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
       const t = room && templateDef(content, room.templateId);
       if (!room || !t) return fail('Unknown room.');
-      const cost = upgradeCost(t, room.tier);
+      const cost = upgradeCost(t, room.tier, state);
       if (cost === null) return fail(`The ${t.name.toLowerCase()} is fully upgraded.`);
       if (state.cash < cost) return fail('Not enough cash.');
       state.cash -= cost;
@@ -523,7 +630,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
     case 'moveHq': {
       const { stage, error } = moveCheck(state, content);
       if (error || !stage) return fail(error ?? 'Nowhere to move.');
-      state.cash -= stage.moveCost;
+      state.cash -= moveCost(state, stage);
       state.hq.stage = stage.id;
       state.hq.moveInWeeks = TUNING.moveInWeeks;
       // Rooms move with us at the same spots: every stage is at least as big as the one before.
@@ -818,17 +925,30 @@ function advanceWeek(state: GameState, content: Content): void {
     const def = content.rivals.find((r) => r.id === rival.id);
     if (!def) continue;
     rival.version += 1;
-    // Labs that fall behind the leader scale harder (they're well funded too).
-    const leader = Math.max(bestCapability(state), ...state.rivals.map((r) => r.capability));
-    const catchUp = 1 + TUNING.rivalCatchUp * Math.max(0, leader - rival.capability);
-    rival.capability += def.capabilityGain * catchUp * (0.7 + rand(state) * 0.6);
+    const paced = !!state.founding;
+    if (paced) {
+      // Rivals aim a set distance from our best model, so the race stays close however fast we build.
+      const i = content.rivals.indexOf(def);
+      const anchor = Math.max(bestCapability(state), capabilityForScore(20, state.suite.mid));
+      const target = anchor + (TUNING.aiRivalPace[i] ?? 0);
+      rival.capability += TUNING.rivalPaceCatchUp * Math.max(0, target - rival.capability) + 0.05;
+    } else {
+      // Labs that fall behind the leader scale harder (they're well funded too).
+      const leader = Math.max(bestCapability(state), ...state.rivals.map((r) => r.capability));
+      const catchUp = 1 + TUNING.rivalCatchUp * Math.max(0, leader - rival.capability);
+      rival.capability += def.capabilityGain * catchUp * (0.7 + rand(state) * 0.6);
+    }
     rival.score = round1(scoreNow(state, rival.capability));
-    rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(def.releaseEveryWeeks * 0.7), Math.ceil(def.releaseEveryWeeks * 1.3));
+    const every = def.releaseEveryWeeks * (paced ? 3 : 1);
+    rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(every * 0.7), Math.ceil(every * 1.3));
     const modelName = `${def.modelPrefix} ${rival.version}`;
     log(state, 'rival', `${def.name} released ${modelName} (smarts ${rival.score}).`);
-    if (!state.pendingEvent && rand(state) < TUNING.rivalPressEventChance) {
+    if (!state.pendingEvent && eventReady(state) && rand(state) < (paced ? 0.35 : TUNING.rivalPressEventChance)) {
       const ev = pickWeighted(state, content.events.filter((e) => e.trigger === 'rivalRelease'));
-      if (ev) state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
+      if (ev) {
+        state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
+        state.lastEventWeek = state.week;
+      }
     }
   }
 
@@ -836,10 +956,13 @@ function advanceWeek(state: GameState, content: Content): void {
   retireSaturatedSuite(state);
 
   // 6. Random events
-  if (!state.pendingEvent && rand(state) < TUNING.randomEventChance) {
+  if (!state.pendingEvent && eventReady(state) && rand(state) < TUNING.randomEventChance) {
     const pool = content.events.filter((e) => e.trigger === 'random' && (!e.requiresLiveModel || state.liveModelId));
     const ev = pickWeighted(state, pool);
-    if (ev) state.pendingEvent = instantiate(ev, {});
+    if (ev) {
+      state.pendingEvent = instantiate(ev, {});
+      state.lastEventWeek = state.week;
+    }
   }
 
   // 7. Modifiers tick down
@@ -1080,6 +1203,16 @@ function applyEffects(state: GameState, content: Content, e: Effects, fabLineId?
     if (e.runCostPerChip) state.cash -= e.runCostPerChip * run.spec.chipCount;
     if (e.runScandalChance) run.scandalChance = Math.max(run.scandalChance, e.runScandalChance);
   }
+  const f = state.founding;
+  if (f && state.era === 'founding') {
+    if (f.project && e.projectMonths) {
+      f.project.monthsLeft = Math.max(1, f.project.monthsLeft + e.projectMonths);
+      f.project.totalMonths = Math.max(1, f.project.totalMonths + e.projectMonths);
+    }
+    if (f.project && e.projectQuality) f.project.qualityMult *= e.projectQuality;
+    if (e.trust) f.trust = clampRep(f.trust + e.trust);
+    if (e.researchPoints) f.researchPoints += e.researchPoints;
+  }
   if (e.cash) state.cash += e.cash;
   if (e.reputation) state.reputation = clampRep(state.reputation + e.reputation);
   if (e.morale) state.hq.morale = Math.max(0, Math.min(100, state.hq.morale + e.morale));
@@ -1115,6 +1248,11 @@ function log(state: GameState, kind: LogKind, text: string): void {
 }
 
 const clampRep = (r: number) => Math.max(0, Math.min(100, r));
+
+/** Companies from the founding era get a breather between press and random events. */
+function eventReady(state: GameState): boolean {
+  return !state.founding || state.week - (state.lastEventWeek ?? -999) >= TUNING.eventCooldownWeeks;
+}
 
 /** How far reputation recovers on its own: a base, plus each Safety and Compliance level above 1. */
 export function reputationCeiling(state: GameState): number {

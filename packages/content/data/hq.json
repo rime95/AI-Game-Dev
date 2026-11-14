@@ -4,8 +4,8 @@
       "id": "garage",
       "name": "Garage",
       "blurb": "A folding table, a box fan and a dream. Room for a handful of people.",
-      "w": 6,
-      "h": 4,
+      "w": 8,
+      "h": 6,
       "rentPerWeek": 0,
       "moveCost": 0,
       "maxRacks": 1,
@@ -22,7 +22,8 @@
       "requiresRounds": 1,
       "orCash": 20000000,
       "maxRacks": 8,
-      "maxServerKW": 250
+      "maxServerKW": 250,
+      "founding": { "moveCost": 100000, "rentPerMonth": 4000, "chipsShipped": 3, "orCash": 1500000 }
     },
     {
       "id": "hqBuilding",
@@ -65,6 +66,24 @@
     }
   ],
   "rooms": [
+    {
+      "id": "workbench",
+      "name": "Workbench",
+      "blurb": "A soldering iron, an oscilloscope and two stools. Chip designers do their best work here.",
+      "kind": "lab",
+      "w": 3,
+      "h": 2,
+      "cost": 30000,
+      "upkeepPerWeek": 300,
+      "seats": {
+        "discipline": "hardwareEng",
+        "count": 2
+      },
+      "tierEffect": [
+        1,
+        1.15
+      ]
+    },
     {
       "id": "deskPod",
       "name": "Desk pod",

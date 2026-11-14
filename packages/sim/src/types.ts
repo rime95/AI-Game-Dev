@@ -1,4 +1,81 @@
-import type { AcquisitionGains, Deck, Discipline, Effects, Precision, TrackId } from '@stm/content';
+import type { AcquisitionGains, Deck, Discipline, Effects, FitLevel, Precision, TrackId } from '@stm/content';
+
+/** Which chapter of the company's story we're in. */
+export type Era = 'founding' | 'ai';
+
+/** A chip being designed in the founding era. */
+export interface FoundingProject {
+  name: string;
+  typeId: string;
+  marketId: string;
+  genId: string;
+  monthsLeft: number;
+  totalMonths: number;
+  design: number;
+  polish: number;
+  /** Event effects on quality (1 = none). */
+  qualityMult: number;
+  startedMonth: number;
+}
+
+export interface FoundingReview {
+  reviewerId: string;
+  score: number;
+  quote: string;
+}
+
+/** A chip we released in the founding era, and how it is selling. */
+export interface FoundingChip {
+  id: string;
+  name: string;
+  typeId: string;
+  marketId: string;
+  genId: string;
+  month: number;
+  quality: number;
+  /** Average review score, 1–10. */
+  score: number;
+  reviews: FoundingReview[];
+  launchSales: number;
+  monthsOnSale: number;
+  totalSales: number;
+}
+
+export interface FoundingRival {
+  id: string;
+  quality: number;
+  /** Review score of their latest chip. */
+  score: number;
+  chips: number;
+  lastChip: string;
+  nextReleaseMonth: number;
+}
+
+export interface FoundingReport {
+  sales: number;
+  salaries: number;
+  rent: number;
+  upkeep: number;
+  projectCost: number;
+}
+
+export interface FoundingState {
+  startYear: number;
+  project: FoundingProject | null;
+  chips: FoundingChip[];
+  researchPoints: number;
+  /** Research node ids bought. */
+  unlocked: string[];
+  /** What we've learned about chip type × market pairs, keyed "type:market". */
+  fitKnown: Record<string, FitLevel>;
+  /** How much customers trust us, 0–100. */
+  trust: number;
+  rivals: FoundingRival[];
+  lastEventMonth: number;
+  report: FoundingReport | null;
+  /** The founding chapter has reached its end year. */
+  chapterDone: boolean;
+}
 
 export interface FleetEntry {
   id: string;
@@ -319,7 +396,13 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 16;
+  version: 17;
+  /** Founding era (1991–98, monthly turns) or the AI era (weekly sim). */
+  era: Era;
+  /** The founding chapter, kept after the jump to the AI era for the company history. */
+  founding: FoundingState | null;
+  /** Last week a random or rival press event fired (AI-era pacing for founded companies). */
+  lastEventWeek?: number;
   fab: Fab | null;
   sites: Site[];
   companyName: string;
@@ -415,7 +498,11 @@ export type Command =
   | { type: 'retoolFabLine'; lineId: string; nodeId: string }
   | { type: 'setFabLineChip'; lineId: string; chipId: string }
   | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell'; fleetQuota?: number }
-  | { type: 'resolveEvent'; choiceId: string };
+  | { type: 'resolveEvent'; choiceId: string }
+  | { type: 'advanceMonth' }
+  | { type: 'startProject'; name: string; typeId: string; marketId: string; genId: string }
+  | { type: 'buyResearch'; researchId: string }
+  | { type: 'startAiEra' };
 
 export interface CommandResult {
   state: GameState;

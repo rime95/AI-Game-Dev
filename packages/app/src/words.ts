@@ -41,6 +41,7 @@ export const ADVISORS = {
   policy: { name: 'Grace', role: 'Policy' },
   fab: { name: 'Kenji', role: 'Factory manager' },
   office: { name: 'Lou', role: 'Office manager' },
+  mentor: { name: 'Ruth', role: 'Retired engineer next door' },
 } as const;
 
 export type AdvisorKey = keyof typeof ADVISORS;

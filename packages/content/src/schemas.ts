@@ -98,6 +98,16 @@ export const EffectsSchema = z.object({
   fabHbmMult: z.number().positive().optional(),
   /** How long the yield, speed or HBM multiplier lasts. */
   fabWeeks: z.number().int().positive().optional(),
+
+  // Founding-era effects, applied to the chip project in progress and the company:
+  /** Months added to (+) or taken off (−) the current chip project. */
+  projectMonths: z.number().int().optional(),
+  /** Multiplies the current project's quality. */
+  projectQuality: z.number().positive().optional(),
+  /** Customer trust points (0–100). */
+  trust: z.number().optional(),
+  /** Research points. */
+  researchPoints: z.number().optional(),
 });
 export type Effects = z.infer<typeof EffectsSchema>;
 
@@ -107,7 +117,9 @@ export type Deck = z.infer<typeof DeckSchema>;
 export const EventSchema = z.object({
   id: z.string(),
   deck: DeckSchema,
-  trigger: z.enum(['rivalRelease', 'random', 'training', 'fab']),
+  trigger: z.enum(['rivalRelease', 'random', 'training', 'fab', 'founding']),
+  /** Founding events: only while a chip project is in progress. */
+  requiresProject: z.boolean().default(false),
   /** For fab incidents: which kind. */
   fabIncident: z.enum(['cleanroom', 'litho', 'hbm']).optional(),
   /** For training incidents: which risk this event represents. */
@@ -270,6 +282,15 @@ export const HqStageSchema = z.object({
   /** Server room limits from the building's power and cooling (world-and-facilities §2.5). */
   maxRacks: z.number().int().nonnegative(),
   maxServerKW: z.number().nonnegative(),
+  /** Founding-era terms (1990s money): move cost, monthly rent, and what unlocks the move. */
+  founding: z
+    .object({
+      moveCost: z.number().nonnegative(),
+      rentPerMonth: z.number().nonnegative(),
+      chipsShipped: z.number().int().nonnegative(),
+      orCash: z.number().nonnegative(),
+    })
+    .optional(),
 });
 export type HqStage = z.infer<typeof HqStageSchema>;
 
@@ -373,7 +394,82 @@ export const FabSchema = z.object({
 });
 export type FabRules = z.infer<typeof FabSchema>;
 
+/** The founding era (1991–1998): a chip startup in a garage. */
+const Fit = z.enum(['great', 'ok', 'poor']);
+export type FitLevel = z.infer<typeof Fit>;
+export const FoundingSchema = z.object({
+  startYear: z.number().int(),
+  endYear: z.number().int(),
+  startCash: z.number().positive(),
+  /** Rooms that exist in the 1990s. */
+  rooms: z.array(z.string()),
+  types: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        blurb: z.string(),
+        /** Base project length in months. */
+        months: z.number().int().positive(),
+        /** Share of quality that comes from design work (the rest is polish). */
+        design: z.number().min(0).max(1),
+        unlocked: z.boolean().default(false),
+      }),
+    )
+    .min(1),
+  markets: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        blurb: z.string(),
+        /** Launch-month sales of a perfect chip in the first year, in dollars. */
+        monthlySales: z.number().positive(),
+        /** Yearly growth of the market. */
+        growth: z.number(),
+        unlocked: z.boolean().default(false),
+      }),
+    )
+    .min(1),
+  fit: z.record(z.string(), z.record(z.string(), Fit)),
+  generations: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        year: z.number().int(),
+        quality: z.number().positive(),
+        devCost: z.number().nonnegative(),
+        unlocked: z.boolean().default(false),
+      }),
+    )
+    .min(1),
+  research: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      blurb: z.string(),
+      cost: z.number().int().positive(),
+      year: z.number().int().optional(),
+      unlocks: z.object({ type: z.string().optional(), market: z.string().optional(), generation: z.string().optional() }).optional(),
+      boost: z.object({ design: z.number().optional(), polish: z.number().optional(), sales: z.number().optional() }).optional(),
+    }),
+  ),
+  rivals: z.array(z.object({ id: z.string(), name: z.string(), personality: z.string(), pace: z.number() })).min(1),
+  reviewers: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        quotes: z.object({ low: z.array(z.string()).min(1), mid: z.array(z.string()).min(1), high: z.array(z.string()).min(1) }),
+      }),
+    )
+    .min(1),
+});
+export type Founding = z.infer<typeof FoundingSchema>;
+
 export const ContentSchema = z.object({
+  founding: FoundingSchema,
   fab: FabSchema,
   sites: SitesSchema,
   hq: HqSchema,

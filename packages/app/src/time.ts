@@ -13,7 +13,9 @@ export type Tab =
   | 'products'
   | 'team'
   | 'deals'
-  | 'rivals';
+  | 'rivals'
+  | 'chip'
+  | 'research';
 export type WorldView = 'hq' | 'campus' | 'map' | 'site' | 'fab';
 
 /**
@@ -25,6 +27,8 @@ export function viewForTab(tab: Tab, game: GameState | null, current: WorldView,
     case 'overview':
     case 'hq':
     case 'team':
+    case 'chip':
+    case 'research':
       return 'hq';
     case 'sites':
       return siteId && game?.sites.some((s) => s.id === siteId) ? 'site' : 'map';
@@ -37,8 +41,8 @@ export function viewForTab(tab: Tab, game: GameState | null, current: WorldView,
   }
 }
 
-/** Milliseconds between weeks at each speed. */
-export const TICK_MS: Record<Exclude<Speed, 0>, number> = { 1: 3000, 2: 1500, 4: 750 };
+/** Milliseconds between turns (one month) at each speed. */
+export const TICK_MS: Record<Exclude<Speed, 0>, number> = { 1: 4000, 2: 2000, 4: 1000 };
 
 export interface ClockBlockers {
   game: GameState | null;
@@ -47,6 +51,7 @@ export interface ClockBlockers {
   milestoneOpen: boolean;
   revealOpen: boolean;
   memorialOpen: boolean;
+  reviewOpen?: boolean;
 }
 
 /** Why the clock is held right now, or null when it may run. */
@@ -58,6 +63,7 @@ export function clockHold(b: ClockBlockers): string | null {
   if (b.milestoneOpen) return 'news';
   if (b.revealOpen) return 'tape-out';
   if (b.memorialOpen) return 'memorial';
+  if (b.reviewOpen) return 'reviews';
   if (b.building) return 'building';
   return null;
 }

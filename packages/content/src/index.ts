@@ -11,8 +11,9 @@ import clients from '../data/clients.json';
 import hq from '../data/hq.json';
 import sites from '../data/sites.json';
 import fab from '../data/fab.json';
+import founding from '../data/founding.json';
 
 export * from './schemas';
 
 /** All game content, validated at load. Throws with a readable path if data is malformed. */
-export const content: Content = ContentSchema.parse({ hq, sites, fab, chips, clients, nodes, license, funding, startups, archs, rivals, events });
+export const content: Content = ContentSchema.parse({ founding, hq, sites, fab, chips, clients, nodes, license, funding, startups, archs, rivals, events });

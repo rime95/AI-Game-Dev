@@ -56,12 +56,13 @@ export function runFlopsPerWeek(state: GameState, content: Content, run: Trainin
   const arch = getArch(content, run.spec.archId);
   const chip = getChip(content, run.spec.chipId, state);
   if (!arch || !chip) return 0;
-  return (
+  const rate =
     clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount, fabricHalfChips(state)) *
     TUNING.secondsPerWeek *
     run.speedFactor *
-    chipEfficiency(state, content, chip.id)
-  );
+    chipEfficiency(state, content, chip.id);
+  // Companies from the founding era: every run takes a couple of months at least.
+  return state.founding ? Math.min(rate, run.flopsTotal / TUNING.minTrainingWeeks) : rate;
 }
 
 export function runProgress(run: TrainingRun): number {

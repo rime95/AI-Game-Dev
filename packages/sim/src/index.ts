@@ -14,4 +14,5 @@ export * from './sites';
 export * from './fab';
 export { TUNING } from './tuning';
 export * from './migrate';
-export { createGame, applyCommand, targetUsers, DISCIPLINE_LABEL, reputationCeiling } from './game';
+export { createGame, createFoundingGame, applyCommand, targetUsers, DISCIPLINE_LABEL, reputationCeiling } from './game';
+export * from './founding';

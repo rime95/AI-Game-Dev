@@ -18,6 +18,7 @@ interface Nudge {
 }
 
 export function nudgesFor(game: GameState): Nudge[] {
+  if (game.era === 'founding') return foundingNudges(game);
   const out: Nudge[] = [];
   const desks = deskStats(game, content);
   const layout = serverLayout(game, content);
@@ -206,4 +207,20 @@ export function AlertFlag({ game }: { game: GameState }) {
       </button>
     </div>
   );
+}
+
+/** The founding years: a few gentle notes. */
+function foundingNudges(game: GameState): Nudge[] {
+  const out: Nudge[] = [];
+  const f = game.founding!;
+  const desks = deskStats(game, content);
+  if (desks.crowding > 1)
+    out.push({ key: 'crowded', text: `Out of desks: ${desks.headcount} people, ${desks.capacity} seats. Everyone is slower.`, tab: 'hq', view: 'hq', tone: 'bad' });
+  if (game.cash < 0) out.push({ key: `broke-${game.week}`, text: 'We are out of cash. Ship a chip soon or the company folds.', tab: 'chip', tone: 'bad' });
+  if (!f.project && f.chips.length > 0) out.push({ key: `idle-${f.chips.length}`, text: 'Nobody is designing a chip right now.', tab: 'chip', tone: 'info' });
+  if (f.researchPoints >= 8 && f.unlocked.length < content.founding.research.length)
+    out.push({ key: `rp-${f.unlocked.length}`, text: `${f.researchPoints} research points to spend.`, tab: 'research', tone: 'info' });
+  if (game.hq.stage === 'garage' && !moveCheck(game, content).error)
+    out.push({ key: 'office', text: 'We can afford an office now. More room, and we can start hiring.', tab: 'hq', view: 'hq', tone: 'info' });
+  return out;
 }

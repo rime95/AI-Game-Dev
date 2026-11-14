@@ -27,6 +27,12 @@ export function dateForWeek(week: number): Date {
   return new Date(START_DATE_UTC + week * 7 * 86_400_000);
 }
 
+/** The calendar date of a turn: months from 1991 in the founding era, weeks from 2026 in the AI era. */
+export function dateFor(state: Pick<GameState, 'era' | 'founding'>, week: number): Date {
+  if (state.era === 'founding') return new Date(Date.UTC(state.founding?.startYear ?? 1991, week, 1));
+  return dateForWeek(week);
+}
+
 /** Vendor chips plus the player's own taped-out designs. */
 export function allChips(state: GameState | undefined, content: Content): Chip[] {
   return state ? [...content.chips, ...state.customChips] : content.chips;
@@ -202,7 +208,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     TUNING.secondsPerWeek *
     speedFactor *
     chipEfficiency(state, content, chip.id);
-  const weeks = Math.max(1, Math.ceil(flops / flopsPerWeek));
+  const weeks = Math.max(state.founding ? TUNING.minTrainingWeeks : 1, Math.ceil(flops / flopsPerWeek));
   const ownedShare = Math.min(1, totalChips(state, chip.id) > 0 ? ownedCount(state, chip.id) / totalChips(state, chip.id) : 0);
   const weeklyChipCost =
     spec.chipCount * (ownedShare * (chip.watts / 1e6) * TUNING.pue * 168 * TUNING.powerPricePerMWh + (1 - ownedShare) * chip.rentPerWeekUsd);

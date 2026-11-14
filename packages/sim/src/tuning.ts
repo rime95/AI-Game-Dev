@@ -146,4 +146,34 @@ export const TUNING = {
   rivalPressEventChance: 0.6,
   bankruptAfterNegativeWeeks: 4,
   logLimit: 200,
+
+  // Founding era (1991–98): monthly turns, 1990s money.
+  /** Room build and upkeep costs are scaled by this in the founding era. */
+  foundingCostScale: 0.25,
+  foundingSalaryPerMonth: 4000,
+  foundingHireCost: 5000,
+  /** What a chip of average quality looks like at the start; it rises every month. */
+  foundingBarStart: 5,
+  foundingBarGrowth: 0.022,
+  /** Design + polish points a month from one fully productive designer. */
+  foundingPointsPerPerson: 5,
+  foundingTeamExponent: 0.65,
+  foundingFitQuality: { great: 1.3, ok: 1, poor: 0.65 },
+  foundingFitSales: { great: 1.2, ok: 1, poor: 0.6 },
+  /** Monthly sales keep this share of the previous month's; a chip sells for this many months. */
+  foundingSalesDecay: 0.85,
+  foundingSalesMonths: 12,
+  foundingStartTrust: 30,
+  foundingEventCooldown: 3,
+  foundingEventChance: 0.25,
+  foundingBankruptMonths: 3,
+  /** Rivals close this share of the gap to their pace target each release, plus a little drift. */
+  rivalPaceCatchUp: 0.4,
+  rivalPaceDrift: 0.02,
+
+  // AI era, for companies that grew up in the founding era.
+  eventCooldownWeeks: 8,
+  minTrainingWeeks: 8,
+  /** Rival capability targets: our best plus this offset per rival, in order of rivals.json. */
+  aiRivalPace: [0.5, 0.2, -0.3, -0.7],
 } as const;
