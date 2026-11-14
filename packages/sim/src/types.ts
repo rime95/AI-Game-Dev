@@ -216,6 +216,8 @@ export interface PlacedRoom {
   y: number;
   /** Rotation in 90° steps (0–3). */
   rot: number;
+  /** Floor index (multi-floor HQs). */
+  floor: number;
   tier: number;
   /** Cash put into the room so far (build + upgrades); demolishing refunds part of it. */
   spent: number;
@@ -243,12 +245,14 @@ export interface HqState {
   moveInWeeks: number;
   /** Cached: crowding × morale × move-in. Refreshed after every command and week. */
   productivity: number;
-  /** Cached: researchers seated in labs × lab multipliers × productivity. */
-  research: number;
+  /** Cached: specialist work per discipline (seated × room multiplier × productivity). */
+  effective: Record<Discipline, number>;
+  /** Cached: staff seated in their specialist rooms. */
+  seated: Record<Discipline, number>;
 }
 
 export interface GameState {
-  version: 12;
+  version: 13;
   companyName: string;
   hq: HqState;
   consumer: ConsumerApp;
@@ -323,11 +327,11 @@ export type Command =
   | { type: 'setSubPrice'; price: number }
   | { type: 'acceptOffer'; offerId: string }
   | { type: 'declineOffer'; offerId: string }
-  | { type: 'placeRoom'; templateId: string; x: number; y: number; rot: number }
+  | { type: 'placeRoom'; templateId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'demolishRoom'; roomId: string }
   | { type: 'upgradeRoom'; roomId: string }
   | { type: 'moveHq' }
-  | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number }
+  | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'demolishEquipment'; equipmentId: string }
   | { type: 'resolveEvent'; choiceId: string };
 

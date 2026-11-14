@@ -3,7 +3,7 @@ import type { GameState } from './types';
 import { autoFurnish, initialHq, refreshHq } from './hq';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -31,6 +31,23 @@ const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
     hq: { ...s.hq, equipment: [] },
     lastWeek: s.lastWeek ? { ...s.lastWeek, colocation: 0 } : null,
   }),
+  // v13: floors and specialist rooms. The interim one-floor HQ building becomes three floors, so its
+  // layout is refunded and rebuilt; everyone else keeps their rooms. Ops, product and hardware staff
+  // now need their own rooms, which are set up free of charge where they fit.
+  12: (s, content) => {
+    const hq = { ...s.hq, rooms: s.hq.rooms.map((r: AnySave) => ({ ...r, floor: 0 })) };
+    delete hq.research;
+    const next: AnySave = { ...s, version: 13, hq };
+    if (hq.stage === 'hqBuilding') {
+      const spent = [...hq.rooms, ...hq.equipment].reduce((n: number, x: AnySave) => n + (x.spent ?? 0), 0);
+      next.cash += spent;
+      hq.rooms = [];
+      hq.equipment = [];
+    }
+    autoFurnish(next as GameState, content);
+    refreshHq(next as GameState, content);
+    return next;
+  },
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };

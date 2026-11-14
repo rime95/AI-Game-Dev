@@ -64,7 +64,10 @@ export function HqView({ game }: { game: GameState }) {
 function CameraRig({ w, h }: { w: number; h: number }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
-  const controls = useThree((s) => s.controls) as unknown as { target: { set: (x: number, y: number, z: number) => void }; update: () => void } | null;
+  const controls = useThree((s) => s.controls) as unknown as {
+    target: { set: (x: number, y: number, z: number) => void };
+    update: () => void;
+  } | null;
   useEffect(() => {
     // Fit the whole floor in view, then let the player pan and zoom.
     const span = w + h;
@@ -85,16 +88,14 @@ interface Person {
   discipline: Discipline;
 }
 
-/** Who sits where: researchers in labs, everyone else at desks, a few on a break, the rest standing. */
+/** Who sits where: specialists in their rooms, everyone else at desks, a few on a break, the rest standing. */
 function seatPeople(game: GameState) {
-  const people: Person[] = [];
-  for (const d of DISCIPLINES) for (let i = 0; i < game.staff[d]; i++) people.push({ key: `${d}${i}`, discipline: d });
-  const researchers = people.filter((p) => p.discipline === 'research');
-  const others = people.filter((p) => p.discipline !== 'research');
+  const pool: Record<Discipline, Person[]> = { research: [], modelEng: [], hardwareEng: [], product: [], ops: [] };
+  for (const d of DISCIPLINES) for (let i = 0; i < game.staff[d]; i++) pool[d].push({ key: `${d}${i}`, discipline: d });
 
   const byRoom = new Map<string, Person[]>();
-  for (const lab of labSeating(game, content)) byRoom.set(lab.roomId, researchers.splice(0, lab.seated));
-  const deskQueue = [...others, ...researchers];
+  for (const lab of labSeating(game, content)) byRoom.set(lab.roomId, pool[lab.discipline].splice(0, lab.seated));
+  const deskQueue = DISCIPLINES.flatMap((d) => pool[d]);
   const pods = game.hq.rooms.filter((r) => templateDef(content, r.templateId)?.kind === 'desks');
   for (const pod of pods) byRoom.set(pod.id, deskQueue.splice(0, templateDef(content, pod.templateId)!.desks));
 
@@ -118,7 +119,7 @@ function seatPeople(game: GameState) {
 
 function freeTiles(game: GameState, w: number, h: number): { x: number; y: number }[] {
   const used = new Set<string>();
-  for (const r of game.hq.rooms) {
+  for (const r of game.hq.rooms.filter((room) => (room.floor ?? 0) === 0)) {
     const rect = roomRect(content, r);
     for (let x = rect.x; x < rect.x + rect.w; x++) for (let y = rect.y; y < rect.y + rect.h; y++) used.add(`${x},${y}`);
   }
@@ -135,6 +136,10 @@ function Hq({ game }: { game: GameState }) {
   const selected = useStore((s) => s.selectedRoom);
   const selectRoom = useStore((s) => s.selectRoom);
   const send = useStore((s) => s.send);
+  const floor = Math.min(
+    useStore((s) => s.floor),
+    stage.floors - 1,
+  );
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
   const [hoverRoom, setHoverRoom] = useState<string | null>(null);
   const lowMorale = game.hq.morale < 40;
@@ -145,8 +150,10 @@ function Hq({ game }: { game: GameState }) {
   // Tile under the pointer, from a point on the floor plane.
   const toTile = (e: ThreeEvent<PointerEvent>) => ({ x: Math.floor(e.point.x + w / 2), y: Math.floor(e.point.z + h / 2) });
 
-  const ghost = build && hoverTile ? ghostFor(game, build.kind, build.templateId, build.rot, hoverTile) : null;
+  const ghost = build && hoverTile ? ghostFor(game, build.kind, build.templateId, build.rot, hoverTile, floor) : null;
   const servers = useMemo(() => serverLayout(game, content), [game]);
+  const rooms = game.hq.rooms.filter((r) => (r.floor ?? 0) === floor);
+  const roomIds = new Set(rooms.map((r) => r.id));
 
   return (
     <group>
@@ -169,8 +176,8 @@ function Hq({ game }: { game: GameState }) {
             if (ghost.ok)
               send(
                 build!.kind === 'room'
-                  ? { type: 'placeRoom', templateId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot }
-                  : { type: 'placeEquipment', equipId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot },
+                  ? { type: 'placeRoom', templateId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot, floor }
+                  : { type: 'placeEquipment', equipId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot, floor },
               );
           } else if (!build) selectRoom(null);
         }}
@@ -182,7 +189,7 @@ function Hq({ game }: { game: GameState }) {
       <GridLines w={w} h={h} strong={!!build} />
       <Walls w={w} h={h} look={look} garage={stage.id === 'garage'} />
 
-      {game.hq.rooms.map((room) => (
+      {rooms.map((room) => (
         <Room
           key={room.id}
           room={room}
@@ -201,26 +208,40 @@ function Hq({ game }: { game: GameState }) {
         />
       ))}
 
-      {game.hq.equipment.map((eq) => (
-        <EquipmentPiece
-          key={eq.id}
-          eq={eq}
-          game={game}
-          servers={servers}
-          stageW={w}
-          stageH={h}
-          selected={selected === eq.id}
-          interactive={!build}
-          onSelect={selectRoom}
-        />
-      ))}
+      {game.hq.equipment
+        .filter((eq) => roomIds.has(eq.roomId))
+        .map((eq) => (
+          <EquipmentPiece
+            key={eq.id}
+            eq={eq}
+            game={game}
+            servers={servers}
+            stageW={w}
+            stageH={h}
+            selected={selected === eq.id}
+            interactive={!build}
+            onSelect={selectRoom}
+          />
+        ))}
 
-      {standing.map((p, i) => {
-        const spot = standSpots[Math.floor(i / 2) % Math.max(1, standSpots.length)];
-        const x = (spot?.x ?? i % w) - w / 2 + (i % 2 ? 0.7 : 0.3);
-        const z = (spot?.y ?? 0) - h / 2 + (i % 2 ? 0.65 : 0.35);
-        return <Figure key={p.key} position={[x, 0, z]} face={i * 1.7} color={DISCIPLINE_COLOR[p.discipline]} sit={false} slump={lowMorale} crowded cloud={lowMorale && i % 3 === 0} />;
-      })}
+      {floor === 0 &&
+        standing.map((p, i) => {
+          const spot = standSpots[Math.floor(i / 2) % Math.max(1, standSpots.length)];
+          const x = (spot?.x ?? i % w) - w / 2 + (i % 2 ? 0.7 : 0.3);
+          const z = (spot?.y ?? 0) - h / 2 + (i % 2 ? 0.65 : 0.35);
+          return (
+            <Figure
+              key={p.key}
+              position={[x, 0, z]}
+              face={i * 1.7}
+              color={DISCIPLINE_COLOR[p.discipline]}
+              sit={false}
+              slump={lowMorale}
+              crowded
+              cloud={lowMorale && i % 3 === 0}
+            />
+          );
+        })}
 
       {ghost && <Ghost {...ghost} stageW={w} stageH={h} />}
     </group>
@@ -236,10 +257,18 @@ function roomLabel(game: GameState, room: PlacedRoom): string {
     return `${t.name} · ${lab?.seated ?? 0}/${lab?.seats ?? 0} seated${tier}`;
   }
   if (t.kind === 'desks') return `${t.name} · ${t.desks} desks`;
+  if (t.kind === 'server' || t.kind === 'special') return t.name;
   return `${t.name} · serves ${Math.round(t.serves * t.tierEffect[room.tier - 1])}${tier}`;
 }
 
-function ghostFor(game: GameState, kind: 'room' | 'equipment', templateId: string, rot: number, tile: { x: number; y: number }) {
+function ghostFor(
+  game: GameState,
+  kind: 'room' | 'equipment',
+  templateId: string,
+  rot: number,
+  tile: { x: number; y: number },
+  floor: number,
+) {
   const t = kind === 'room' ? templateDef(content, templateId) : equipmentDef(content, templateId);
   if (!t) return null;
   const f = footprint(t, rot);
@@ -247,12 +276,31 @@ function ghostFor(game: GameState, kind: 'room' | 'equipment', templateId: strin
   const x = tile.x - Math.floor((f.w - 1) / 2);
   const y = tile.y - Math.floor((f.h - 1) / 2);
   const err =
-    (kind === 'room' ? placementError(game, content, templateId, x, y, rot) : equipmentPlacement(game, content, templateId, x, y, rot).error) ??
-    (game.cash < t.cost ? 'Not enough cash.' : null);
+    (kind === 'room'
+      ? placementError(game, content, templateId, x, y, rot, floor)
+      : equipmentPlacement(game, content, templateId, x, y, rot, floor).error) ?? (game.cash < t.cost ? 'Not enough cash.' : null);
   return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `${t.name} · ${money(t.cost)}` };
 }
 
-function Ghost({ x, y, w, h, ok, text, stageW, stageH }: { x: number; y: number; w: number; h: number; ok: boolean; text: string; stageW: number; stageH: number }) {
+function Ghost({
+  x,
+  y,
+  w,
+  h,
+  ok,
+  text,
+  stageW,
+  stageH,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  ok: boolean;
+  text: string;
+  stageW: number;
+  stageH: number;
+}) {
   const color = ok ? '#2f8a4c' : '#c2413b';
   const cx = x + w / 2 - stageW / 2;
   const cz = y + h / 2 - stageH / 2;
@@ -362,7 +410,21 @@ interface RoomProps {
   onSelect: (id: string) => void;
 }
 
-function Room({ room, stageW, stageH, people, training, lowMorale, selected, hovered, interactive, label, heat, onHover, onSelect }: RoomProps) {
+function Room({
+  room,
+  stageW,
+  stageH,
+  people,
+  training,
+  lowMorale,
+  selected,
+  hovered,
+  interactive,
+  label,
+  heat,
+  onHover,
+  onSelect,
+}: RoomProps) {
   const t = templateDef(content, room.templateId)!;
   const rect = roomRect(content, room);
   const art = useMemo(() => roomArt(t, room.tier), [t, room.tier]);
@@ -427,7 +489,13 @@ function Room({ room, stageW, stageH, people, training, lowMorale, selected, hov
             </mesh>
           ))}
           {people.slice(0, seats.length).map((person, i) => (
-            <SeatedFigure key={person.key} seat={seats[i]} color={DISCIPLINE_COLOR[person.discipline]} slump={lowMorale} cloud={lowMorale && i % 3 === 0} />
+            <SeatedFigure
+              key={person.key}
+              seat={seats[i]}
+              color={DISCIPLINE_COLOR[person.discipline]}
+              slump={lowMorale}
+              cloud={lowMorale && i % 3 === 0}
+            />
           ))}
         </group>
       </group>
@@ -559,7 +627,11 @@ function EquipmentPiece({
   }
   useFrame(({ clock }) => {
     if (!light.current) return;
-    light.current.emissiveIntensity = throttled ? 0.3 + 0.7 * (Math.sin(clock.elapsedTime * 6) > 0 ? 1 : 0) : lightColor === '#2b2e36' ? 0 : 0.8;
+    light.current.emissiveIntensity = throttled
+      ? 0.3 + 0.7 * (Math.sin(clock.elapsedTime * 6) > 0 ? 1 : 0)
+      : lightColor === '#2b2e36'
+        ? 0
+        : 0.8;
   });
   if (!def) return null;
   const r = equipmentRect(content, eq);
@@ -582,7 +654,12 @@ function EquipmentPiece({
         {[0.2, 0.4, 0.6, 0.8].map((y) => (
           <mesh key={y} position={[r.w / 2 - 0.08, y, 0]}>
             <boxGeometry args={[0.02, 0.06, r.h - 0.4]} />
-            <meshStandardMaterial ref={y === 0.2 ? light : undefined} color={throttled ? '#c2413b' : lightColor} emissive={throttled ? '#c2413b' : lightColor} emissiveIntensity={0.8} />
+            <meshStandardMaterial
+              ref={y === 0.2 ? light : undefined}
+              color={throttled ? '#c2413b' : lightColor}
+              emissive={throttled ? '#c2413b' : lightColor}
+              emissiveIntensity={0.8}
+            />
           </mesh>
         ))}
       </group>

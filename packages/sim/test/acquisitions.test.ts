@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { content } from '@stm/content';
+import { seated } from './helpers';
 import { applyCommand, availableDeals, createGame, previewTraining, type GameState } from '../src';
 
 function step(s: GameState, weeks = 1): GameState {
@@ -60,7 +61,7 @@ describe('acquisitions', () => {
   it('culture clash can cost half the acquired team; ops engineers reduce the risk', () => {
     const base = createGame(content, 1);
     const risky = availableDeals(base, content).find((d) => d.id === 'gradient-garage')!;
-    const withOps = availableDeals({ ...base, staff: { ...base.staff, ops: 6 } }, content).find((d) => d.id === 'gradient-garage')!;
+    const withOps = availableDeals(seated(base, { ops: 6 }), content).find((d) => d.id === 'gradient-garage')!;
     expect(withOps.clashChance).toBeLessThan(risky.clashChance);
     let clashes = 0;
     for (let seed = 1; seed <= 20; seed++) {

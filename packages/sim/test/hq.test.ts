@@ -58,7 +58,7 @@ describe('HQ grid and rooms', () => {
     // Seven researchers, six seats: one works at a desk without the bonus.
     s = { ...s, staff: { ...s.staff, research: 7 } };
     s = act(s, { type: 'upgradeRoom', roomId: s.hq.rooms[1].id });
-    expect(s.hq.research).toBeCloseTo(6 * 1.1 * s.hq.productivity);
+    expect(s.hq.effective.research).toBeCloseTo(6 * 1.1 * s.hq.productivity);
   });
 
   it('gives labs next to a break room a small bonus', () => {
@@ -67,7 +67,7 @@ describe('HQ grid and rooms', () => {
     const lab = act(office, { type: 'placeRoom', templateId: 'researchLab', x: 4, y: 4, rot: 0 });
     const near = act(lab, { type: 'placeRoom', templateId: 'breakRoom', x: 8, y: 4, rot: 0 });
     const far = act(lab, { type: 'placeRoom', templateId: 'breakRoom', x: 10, y: 8, rot: 0 });
-    const perSeat = (s: GameState) => s.hq.research / s.hq.productivity;
+    const perSeat = (s: GameState) => s.hq.effective.research / s.hq.productivity;
     expect(perSeat(near)).toBeCloseTo(1.05);
     expect(perSeat(far)).toBeCloseTo(1);
   });

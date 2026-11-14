@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { content } from '@stm/content';
 import {
   deskStats,
@@ -51,6 +51,7 @@ export function World({ game }: { game: GameState }) {
         </div>
         {view === 'hq' && <HqBanner game={game} />}
       </div>
+      {view === 'hq' && <FloorTabs game={game} />}
       {view === 'hq' && (
         <>
           <BuildBar game={game} />
@@ -95,6 +96,8 @@ function BuildBar({ game }: { game: GameState }) {
   const cancelBuild = useStore((s) => s.cancelBuild);
   const rotateBuild = useStore((s) => s.rotateBuild);
   const hasServerRoom = game.hq.rooms.some((r) => templateDef(content, r.templateId)?.kind === 'server');
+  const [cat, setCat] = useState<Category>('people');
+  const stageIndex = content.hq.stages.findIndex((s) => s.id === game.hq.stage);
   const item = (id: string, kind: 'room' | 'equipment', name: string, meta: string, cost: number, blurb: string, locked?: string) => (
     <button
       key={id}
@@ -110,8 +113,27 @@ function BuildBar({ game }: { game: GameState }) {
   );
   return (
     <div className="build-bar">
-      {content.hq.rooms.map((t) => item(t.id, 'room', t.name, `${t.w}×${t.h}`, t.cost, t.blurb))}
-      {hasServerRoom && (
+      <div className="build-cats" role="tablist" aria-label="Build category">
+        {CATEGORIES.map((c) => (
+          <button key={c.id} role="tab" aria-selected={cat === c.id} onClick={() => setCat(c.id)}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {content.hq.rooms
+        .filter((t) => categoryOf(t.id, t.kind) === cat)
+        .map((t) =>
+          item(
+            t.id,
+            'room',
+            t.name,
+            `${t.w}×${t.h}`,
+            t.cost,
+            t.blurb,
+            stageIndex < t.minStage ? `Needs the ${content.hq.stages[t.minStage].name.toLowerCase()}` : undefined,
+          ),
+        )}
+      {cat === 'servers' && hasServerRoom && (
         <>
           <span className="build-sep" aria-hidden="true" />
           {content.hq.equipment.map((e) =>
@@ -136,9 +158,54 @@ function BuildBar({ game }: { game: GameState }) {
         </div>
       ) : (
         <span className="small muted build-help">
-          {hasServerRoom ? 'Pick something to build · click a room or rack to manage it' : 'Pick a room to build · click a room to manage it'}
+          {hasServerRoom
+            ? 'Pick something to build · click a room or rack to manage it'
+            : 'Pick a room to build · click a room to manage it'}
         </span>
       )}
+    </div>
+  );
+}
+
+type Category = 'people' | 'comfort' | 'office' | 'servers';
+const CATEGORIES: { id: Category; label: string }[] = [
+  { id: 'people', label: 'Work' },
+  { id: 'comfort', label: 'Comfort' },
+  { id: 'office', label: 'Office' },
+  { id: 'servers', label: 'Servers' },
+];
+function categoryOf(id: string, kind: string): Category {
+  if (kind === 'break') return 'comfort';
+  if (kind === 'server') return 'servers';
+  if (kind === 'special') return 'office';
+  return 'people';
+}
+
+const DISCIPLINE_WORK: Record<string, { who: string; effect: (n: number) => string }> = {
+  research: { who: 'researchers', effect: (n) => `+${(n * TUNING.researcherComputeBonus * 100).toFixed(1)}% effective compute` },
+  hardwareEng: { who: 'hardware engineers', effect: (n) => `${n.toFixed(1)} engineers' worth of tape-out skill` },
+  ops: { who: 'ops engineers', effect: (n) => `${n.toFixed(1)} engineers' worth of reliability` },
+  product: { who: 'product managers', effect: (n) => `${n.toFixed(1)} PMs' worth of conversion and accounts` },
+  modelEng: { who: 'model engineers', effect: (n) => `${n.toFixed(1)} engineers` },
+};
+
+/** Floor tabs for multi-floor HQs (world-and-facilities §3). */
+function FloorTabs({ game }: { game: GameState }) {
+  const stage = stageDef(content, game.hq.stage);
+  const floor = useStore((s) => s.floor);
+  const setFloor = useStore((s) => s.setFloor);
+  if (stage.floors <= 1) return null;
+  return (
+    <div className="floor-tabs" role="tablist" aria-label="Floor">
+      {Array.from({ length: stage.floors }, (_, i) => {
+        const rooms = game.hq.rooms.filter((r) => (r.floor ?? 0) === i).length;
+        return (
+          <button key={i} role="tab" aria-selected={Math.min(floor, stage.floors - 1) === i} onClick={() => setFloor(i)}>
+            {stage.floorNames?.[i] ?? `Floor ${i + 1}`}
+            <span className="muted"> · {rooms}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -177,7 +244,10 @@ function EquipmentCard({ game, id }: { game: GameState; id: string }) {
     );
   }
   return (
-    <div className="room-card card" style={{ ['--c' as string]: def.kind === 'cooling' ? LAYER.env : def.kind === 'power' ? LAYER.power : LAYER.compute }}>
+    <div
+      className="room-card card"
+      style={{ ['--c' as string]: def.kind === 'cooling' ? LAYER.env : def.kind === 'power' ? LAYER.power : LAYER.compute }}
+    >
       <div className="row between">
         <h3>{def.name}</h3>
         <button className="btn" aria-label="Close" onClick={() => selectRoom(null)}>
@@ -220,8 +290,16 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
 
   let effect: string;
   if (t.kind === 'lab' && lab) {
-    const bonus = lab.seated * mult * p * TUNING.researcherComputeBonus;
-    effect = `${lab.seated}/${lab.seats} researchers seated · +${(bonus * 100).toFixed(1)}% effective compute (${lab.seated} × ${(TUNING.researcherComputeBonus * 100).toFixed(0)}% × ${mult.toFixed(2)} room × ${p.toFixed(2)} productivity)`;
+    const work = DISCIPLINE_WORK[lab.discipline];
+    const n = lab.seated * mult * p;
+    effect = `${lab.seated}/${lab.seats} ${work.who} seated · ${work.effect(n)} (${lab.seated} × ${mult.toFixed(2)} room × ${p.toFixed(2)} productivity)`;
+  } else if (t.kind === 'special') {
+    const r = t.requiredFor;
+    effect = r?.track
+      ? `Unlocks ${r.track[0].toUpperCase() + r.track.slice(1)} level ${r.level} and up in License to Scale.`
+      : r?.fundingRound !== undefined
+        ? `${content.funding[r.fundingRound]?.name ?? 'Later'} investors and up want to meet here.`
+        : t.blurb;
   } else if (t.kind === 'desks') {
     effect = `${t.desks} desks.`;
   } else if (t.kind === 'server') {
@@ -240,7 +318,8 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
     <div
       className="room-card card"
       style={{
-        ['--c' as string]: t.kind === 'lab' ? LAYER.models : t.kind === 'break' ? LAYER.gold : t.kind === 'server' ? LAYER.compute : LAYER.trust,
+        ['--c' as string]:
+          t.kind === 'lab' ? LAYER.models : t.kind === 'break' ? LAYER.gold : t.kind === 'server' ? LAYER.compute : LAYER.trust,
       }}
     >
       <div className="row between">

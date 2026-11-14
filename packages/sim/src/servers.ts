@@ -36,6 +36,7 @@ export function equipmentPlacement(
   x: number,
   y: number,
   rot: number,
+  floor = 0,
 ): { error: string | null; roomId: string | null } {
   const def = equipmentDef(content, equipId);
   if (!def) return { error: 'Unknown equipment.', roomId: null };
@@ -43,9 +44,13 @@ export function equipmentPlacement(
   if (state.license.power.level < def.requiresPowerLevel)
     return { error: `${def.name} needs Power license level ${def.requiresPowerLevel}.`, roomId: null };
   const r = { x, y, ...footprint(def, rot) };
-  const room = state.hq.rooms.find((rm) => templateDef(content, rm.templateId)?.kind === 'server' && inside(r, roomRect(content, rm)));
+  const room = state.hq.rooms.find(
+    (rm) => (rm.floor ?? 0) === floor && templateDef(content, rm.templateId)?.kind === 'server' && inside(r, roomRect(content, rm)),
+  );
   if (!room) return { error: 'Equipment goes inside a server room.', roomId: null };
-  if (state.hq.equipment.some((e) => overlaps(r, equipmentRect(content, e)))) return { error: 'Something is already there.', roomId: room.id };
+  const sameFloor = new Set(state.hq.rooms.filter((rm) => (rm.floor ?? 0) === floor).map((rm) => rm.id));
+  if (state.hq.equipment.some((e) => sameFloor.has(e.roomId) && overlaps(r, equipmentRect(content, e))))
+    return { error: 'Something is already there.', roomId: room.id };
   if (def.chips > 0) {
     const stage = stageDef(content, state.hq.stage);
     if (rackUnits(state, content) >= stage.maxRacks)
@@ -179,10 +184,16 @@ export function equipmentUpkeep(state: GameState, content: Content): number {
 }
 
 /** First free spot for equipment inside any server room (balance bot, tests). */
-export function findEquipmentSpot(state: GameState, content: Content, equipId: string): { x: number; y: number; rot: number } | null {
+export function findEquipmentSpot(
+  state: GameState,
+  content: Content,
+  equipId: string,
+): { x: number; y: number; rot: number; floor: number } | null {
   const stage = stageDef(content, state.hq.stage);
-  for (const rot of [0, 1])
-    for (let y = 0; y < stage.h; y++)
-      for (let x = 0; x < stage.w; x++) if (!equipmentPlacement(state, content, equipId, x, y, rot).error) return { x, y, rot };
+  for (let floor = 0; floor < stage.floors; floor++)
+    for (const rot of [0, 1])
+      for (let y = 0; y < stage.h; y++)
+        for (let x = 0; x < stage.w; x++)
+          if (!equipmentPlacement(state, content, equipId, x, y, rot, floor).error) return { x, y, rot, floor };
   return null;
 }

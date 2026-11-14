@@ -30,7 +30,7 @@ describe('save migrations', () => {
     expect(res.state.hq.stage).toBe('office');
     const labSeats = res.state.hq.rooms.filter((r) => r.templateId === 'researchLab').length * 6;
     expect(labSeats).toBeGreaterThanOrEqual(8);
-    expect(res.state.hq.research).toBeGreaterThan(7);
+    expect(res.state.hq.effective.research).toBeGreaterThan(7);
     expect(applyCommand(res.state, content, { type: 'advanceWeek' }).error).toBeUndefined();
   });
 

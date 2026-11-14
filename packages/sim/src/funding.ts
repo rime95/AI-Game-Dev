@@ -27,5 +27,11 @@ export function fundingCheck(state: GameState, content: Content): FundingCheck {
     { label: `A Tier ${round.minTier}+ model released`, ok: tier >= round.minTier },
   ];
   if (round.requiresProfit) checks.push({ label: 'Profitable last week', ok: weeklyNet(state) > 0 });
+  // Rooms investors expect to see (the boardroom from Series B).
+  for (const t of content.hq.rooms) {
+    const at = t.requiredFor?.fundingRound;
+    if (at !== undefined && state.roundsRaised >= at)
+      checks.push({ label: `A ${t.name.toLowerCase()} at HQ`, ok: state.hq.rooms.some((r) => r.templateId === t.id) });
+  }
   return { round, checks, canRaise: checks.every((c) => c.ok), equitySold: state.ownership * round.equity };
 }

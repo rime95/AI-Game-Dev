@@ -89,7 +89,17 @@ function furnish(s: GameState): GameState {
     s = res.state;
     return true;
   };
-  while (labSeating(s, content).reduce((n, l) => n + l.seats, 0) < s.staff.research && place('researchLab'));
+  // Rooms that unlock funding rounds and license levels.
+  const has = (id: string) => s.hq.rooms.some((r) => r.templateId === id);
+  if (s.roundsRaised >= 1 && !has('boardroom')) place('boardroom');
+  if (s.hq.stage !== 'garage' && s.cash > 5_000_000) {
+    if (!has('legalOffice')) place('legalOffice');
+    if (!has('secureVault')) place('secureVault');
+  }
+  for (const t of content.hq.rooms.filter((r) => r.seats)) {
+    const d = t.seats!.discipline;
+    while (labSeating(s, content, d).reduce((n, l) => n + l.seats, 0) < s.staff[d] && place(t.id));
+  }
   while (deskStats(s, content).crowding > 1 && place('deskPod'));
   while (deskStats(s, content).breakCoverage < 1 && place('breakRoom'));
   return buildServers(s);
@@ -209,7 +219,10 @@ function play(seed: number) {
     // Products: launch the app once there's a decent model, sign every enterprise deal we qualify for.
     if (!s.consumer.launched && s.liveModelId && s.cash > 15_000_000) s = act(s, { type: 'launchConsumerApp' });
     for (const o of [...s.offers]) {
-      if (s.contracts.length >= contractCapacity(s) && s.cash > 2_000_000) s = act(s, { type: 'hire', discipline: 'product' });
+      if (s.contracts.length >= contractCapacity(s) && s.cash > 2_000_000) {
+        const hired = furnish(act(s, { type: 'hire', discipline: 'product' }));
+        if (contractCapacity(hired) > contractCapacity(s)) s = hired; // only hire if they get a seat
+      }
       if (offerCheck(s, content, o).canAccept) s = act(s, { type: 'acceptOffer', offerId: o.id });
     }
 

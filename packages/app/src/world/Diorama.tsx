@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
 import type { MeshStandardMaterial } from 'three';
 import { content } from '@stm/content';
-import { allChips, freeChips, marketSize, ownedPowerMW, totalUsers, requirementsFor, tierName, type GameState } from '@stm/sim';
+import { allChips, freeChips, marketSize, ownedPowerMW, totalUsers, requirementsFor, stageDef, tierName, type GameState } from '@stm/sim';
 import { useStore, type Tab } from '../store';
 import { LAYER } from '../ui/layers';
 import { nextTier, TRACK_COLOR } from '../panels/LicensePanel';
@@ -32,9 +32,18 @@ export function Diorama({ game }: { game: GameState }) {
         <MapControls enableRotate={false} minZoom={14} maxZoom={90} screenSpacePanning />
       </Canvas>
       <div className="world-legend" aria-hidden="true" style={{ top: 60 }}>
-        <span><i style={{ background: LAYER.models }} />Training</span>
-        <span><i style={{ background: LAYER.compute }} />Serving</span>
-        <span><i style={{ background: '#55575f' }} />Idle</span>
+        <span>
+          <i style={{ background: LAYER.models }} />
+          Training
+        </span>
+        <span>
+          <i style={{ background: LAYER.compute }} />
+          Serving
+        </span>
+        <span>
+          <i style={{ background: '#55575f' }} />
+          Idle
+        </span>
       </div>
       <div className="world-hint">Drag to pan · scroll to zoom · click a building</div>
     </>
@@ -67,7 +76,21 @@ function Campus({ game }: { game: GameState }) {
         <meshStandardMaterial color="#efe8da" />
       </mesh>
 
-      <Building tab="overview" setTab={setTab} label="HQ" position={[-7, 0, -3.5]} size={[3.4, 2.6, 3.2]} color={LAYER.trust} />
+      {/* HQ grows with the HQ track (world-and-facilities §2.1) */}
+      <Building
+        tab="hq"
+        setTab={setTab}
+        label={stageDef(content, game.hq.stage).name}
+        position={[-7, 0, -3.5]}
+        size={HQ_SIZE[game.hq.stage] ?? [3.4, 2.6, 3.2]}
+        color={LAYER.gold}
+      />
+      {game.hq.stage === 'hqCampus' && (
+        <>
+          <Building tab="hq" setTab={setTab} label="Annex" position={[-7, 0, -6.3]} size={[3, 2.4, 1.6]} color={LAYER.gold} />
+          <GarageMemorial onClick={() => setTab('hq')} />
+        </>
+      )}
       <Building
         tab="models"
         setTab={setTab}
@@ -83,7 +106,14 @@ function Campus({ game }: { game: GameState }) {
         color={LAYER.models}
         pulse={!!game.training || !!game.agi}
       />
-      <Building tab="compute" setTab={setTab} label={`Data hall · ${total} chips`} position={[1, 0, -3.6]} size={[8, 1.4, 3.6]} color={LAYER.compute} />
+      <Building
+        tab="compute"
+        setTab={setTab}
+        label={`Data hall · ${total} chips`}
+        position={[1, 0, -3.6]}
+        size={[8, 1.4, 3.6]}
+        color={LAYER.compute}
+      />
       <RackYard total={total} training={training} serving={serving} />
       <Building
         tab="compute"
@@ -387,6 +417,49 @@ function Skyline({ share, onClick }: { share: number; onClick: () => void }) {
           }}
         >
           City · {(share * 100).toFixed(1)}% of users
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+const HQ_SIZE: Record<string, [number, number, number]> = {
+  garage: [1.8, 1, 1.6],
+  office: [3.4, 1.6, 3.2],
+  hqBuilding: [3.4, 3, 3.2],
+  hqCampus: [3.4, 3.4, 3.2],
+};
+
+/** The original garage, kept on the campus as a landmark: where it all began. */
+function GarageMemorial({ onClick }: { onClick: () => void }) {
+  return (
+    <group
+      position={[-9.9, 0, 0.2]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.3, 0.8, 1.1]} />
+        <meshStandardMaterial color="#cfc9bd" />
+      </mesh>
+      <mesh position={[0, 0.88, 0]} rotation={[0, 0, 0]} castShadow>
+        <boxGeometry args={[1.4, 0.16, 1.2]} />
+        <meshStandardMaterial color="#9e978a" />
+      </mesh>
+      {/* Roll-up door and a gold plaque */}
+      <mesh position={[0.66, 0.32, 0]}>
+        <boxGeometry args={[0.02, 0.55, 0.8]} />
+        <meshStandardMaterial color="#b9b2a4" />
+      </mesh>
+      <mesh position={[0.4, 0.06, 0.75]}>
+        <boxGeometry args={[0.5, 0.12, 0.2]} />
+        <meshStandardMaterial color={LAYER.gold} emissive={LAYER.gold} emissiveIntensity={0.4} />
+      </mesh>
+      <Html position={[0, 1.6, 0]} center zIndexRange={[5, 0]}>
+        <div className="world-tag" style={{ borderColor: LAYER.gold }}>
+          The garage · where it began
         </div>
       </Html>
     </group>

@@ -1,6 +1,6 @@
 import type { Chip, Content, ProcessNode } from '@stm/content';
 import type { ChipDesign, DieSplit, GameState } from './types';
-import { effectiveStaff } from './hq';
+import { effectiveStaff, seatedStaff } from './hq';
 
 /** mm² of die area each HBM stack's interface (PHY + controller) needs. */
 export const MM2_PER_HBM_STACK = 25;
@@ -78,8 +78,10 @@ export function previewChip(state: GameState, content: Content, design: ChipDesi
 
   if (!design.name.trim()) errors.push('Name the chip.');
   if (state.week < node.availableFromWeek) errors.push(`${node.name} opens at the foundry in week ${node.availableFromWeek}.`);
-  if (state.staff.hardwareEng < node.minHardwareEng)
-    errors.push(`${node.name} needs at least ${node.minHardwareEng} hardware engineer${node.minHardwareEng > 1 ? 's' : ''}. Hire in Team.`);
+  if (seatedStaff(state, 'hardwareEng') < node.minHardwareEng)
+    errors.push(
+      `${node.name} needs at least ${node.minHardwareEng} hardware engineer${node.minHardwareEng > 1 ? 's' : ''} seated in a hardware lab. Hire in Team, build labs in HQ.`,
+    );
   if (state.chipProject) errors.push('A tape-out is already in progress.');
   if (node.tapeoutCost > state.cash) errors.push('Not enough cash for the tape-out.');
   const s = normalizeSplit(design.split);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { content } from '@stm/content';
+import { seated } from './helpers';
 import {
   applyCommand,
   capabilityForScore,
@@ -22,7 +23,7 @@ function step(s: GameState, weeks = 1): GameState {
 
 /** A lab with a competitive (tier 2) model and lots of serving capacity. */
 function servingLab(seed = 1): GameState {
-  const s = createGame(content, seed);
+  const s = seated(createGame(content, seed));
   s.models.push({
     id: 'm1',
     name: 'Mid',
@@ -77,7 +78,7 @@ describe('consumer app', () => {
     const s = applyCommand(servingLab(), content, { type: 'launchConsumerApp' }).state;
     const cheap = { ...s, consumer: { ...s.consumer, subPrice: 10 } };
     expect(consumerTarget(cheap, content)).toBeGreaterThan(consumerTarget(s, content));
-    expect(conversion({ ...s, staff: { ...s.staff, product: 5 } })).toBeGreaterThan(conversion(s));
+    expect(conversion(seated(s, { product: 5 }))).toBeGreaterThan(conversion(s));
   });
 });
 
@@ -87,7 +88,7 @@ describe('enterprise', () => {
     expect(offerCheck(s, content, offer()).canAccept).toBe(true);
     expect(offerCheck(s, content, offer({ minTier: 3 })).canAccept).toBe(false);
     expect(offerCheck(s, content, offer({ minCompliance: 3 })).canAccept).toBe(false);
-    const noPm = { ...s, staff: { ...s.staff, product: 0 } };
+    const noPm = seated(s, { product: 0 });
     expect(offerCheck(noPm, content, offer()).checks.find((c) => c.label.startsWith('Account'))!.ok).toBe(false);
   });
 

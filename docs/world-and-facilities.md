@@ -187,9 +187,9 @@ Unchanged: rented cloud chips, training math, eval suites, products, acquisition
 The simulation stays authoritative and testable. The layout is game state, and the 3D view only renders it.
 
 ## 11. Build order (each step playable)
-1. ✅ **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move. *Interim:* the HQ building exists as one big 32×26 floor (Series B, $60M) until step 3 adds floors.
+1. ✅ **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move.
 2. ✅ **HQ server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay, building power/cooling limit. Limits: garage 1 rack / 40 kW, office 8 / 250 kW, HQ building 24 / 1 MW. Liquid cooling needs Power level 2, immersion Power level 3.
-3. **HQ building and HQ campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings, garage memorial.
+3. ✅ **HQ building and HQ campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings, garage memorial. Built as: HQ building = 3 floors of 20×14 (Series B, $60M); HQ campus = main building + annex, 6 floors of 20×14 (Series C, $250M). Hardware lab, ops room and product studio can go in the garage; cafeteria, boardroom, legal office and vault need the office or bigger. Acquired companies already show on the campus overview; the garage memorial appears there once you reach the HQ campus.
 4. **Exploded chip card** and model layer stack in Blueprint mode.
 5. **Data center campuses (sites track):** site construction, location stats, hall interiors, operations center, world map.
 6. **Fab:** lines, nodes, yield, HBM and packaging bottlenecks, selling surplus chips.

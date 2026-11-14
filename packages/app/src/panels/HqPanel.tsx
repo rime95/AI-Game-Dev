@@ -19,6 +19,13 @@ import { money, pct } from '../format';
 import { LAYER } from '../ui/layers';
 import { Advisor, Bar, Stat } from './Panel';
 
+const SPECIALISTS = [
+  { id: 'research', label: 'Researchers', room: 'research lab' },
+  { id: 'hardwareEng', label: 'Hardware engineers', room: 'hardware lab' },
+  { id: 'ops', label: 'Ops engineers', room: 'ops room' },
+  { id: 'product', label: 'Product managers', room: 'product studio' },
+] as const;
+
 export function HqPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const startBuild = useStore((s) => s.startBuild);
@@ -28,7 +35,7 @@ export function HqPanel({ game }: { game: GameState }) {
   const target = moraleTarget(game, content);
   const move = moveCheck(game, content);
   const fac = facilitiesCost(game, content);
-  const labs = labSeating(game, content);
+  const labs = labSeating(game, content, 'research');
   const labSeats = labs.reduce((n, l) => n + l.seats, 0);
   const seatedResearch = labs.reduce((n, l) => n + l.seated, 0);
   const servers = serverLayout(game, content);
@@ -67,7 +74,11 @@ export function HqPanel({ game }: { game: GameState }) {
             <Stat k="Move-in" v={`${TUNING.moveInWeeks} wk at ×${TUNING.moveInProductivity}`} />
           </div>
           <div className="small muted">Your rooms come with you at the same spots.</div>
-          {move.error && <div className="small" style={{ color: 'var(--bad)' }}>{move.error}</div>}
+          {move.error && (
+            <div className="small" style={{ color: 'var(--bad)' }}>
+              {move.error}
+            </div>
+          )}
           <button className="btn primary" disabled={!!move.error} onClick={() => send({ type: 'moveHq' })}>
             Move to the {lowerName(move.stage.name)}
           </button>
@@ -82,8 +93,7 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
         <Bar value={d.capacity ? d.headcount / d.capacity : 1} color={d.crowding > 1 ? '#c2413b' : LAYER.gold} />
         <div className="small muted">
-          Seats = {d.desks} desks + {d.specialistSeated} researchers seated in labs. Above 100% crowding, everyone works at 1 ÷
-          crowding².
+          Seats = {d.desks} desks + {d.specialistSeated} researchers seated in labs. Above 100% crowding, everyone works at 1 ÷ crowding².
         </div>
         <div className="grid2">
           <Stat k="Crowding" v={`×${p.crowding.toFixed(2)}`} />
@@ -91,7 +101,9 @@ export function HqPanel({ game }: { game: GameState }) {
           <Stat k="Move-in" v={`×${p.moveIn.toFixed(2)}`} />
           <Stat k="Productivity" v={`×${p.total.toFixed(2)}`} c={LAYER.gold} />
         </div>
-        <div className="small muted">Productivity scales research, cluster size per model engineer, tape-out skill, ops and product work.</div>
+        <div className="small muted">
+          Productivity scales research, cluster size per model engineer, tape-out skill, ops and product work.
+        </div>
       </div>
 
       <div className="card">
@@ -102,16 +114,31 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
         <Bar value={game.hq.morale / 100} color={LAYER.gold} />
         <div className="small muted">
-          Break space covers {pct(d.breakCoverage)} of staff ({Math.round(d.breakServes)} served). Crowding costs 2 points a week. Releases lift it,
-          incidents dent it.
+          Break space covers {pct(d.breakCoverage)} of staff ({Math.round(d.breakServes)} served). Crowding costs 2 points a week. Releases
+          lift it, incidents dent it.
         </div>
       </div>
 
       <div className="card">
-        <h3>Research labs</h3>
-        <div className="small">
-          {seatedResearch} of {game.staff.research} researchers seated ({labSeats} lab seats). Unseated researchers add nothing to training.
+        <h3>Specialist rooms</h3>
+        <div className="small muted">
+          Specialists only do their specialist work while seated in their room. Without one they still fill a desk.
         </div>
+        {SPECIALISTS.map((s) => (
+          <div
+            className="row between small"
+            key={s.id}
+            style={{ color: game.hq.seated[s.id] < game.staff[s.id] ? 'var(--bad)' : undefined }}
+          >
+            <span>
+              {s.label} · {s.room}
+            </span>
+            <span>
+              {game.hq.seated[s.id]} / {game.staff[s.id]} seated
+              {s.id === 'research' ? ` (${labSeats} seats)` : ''}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="card" style={{ ['--c' as string]: LAYER.compute }}>
@@ -131,7 +158,8 @@ export function HqPanel({ game }: { game: GameState }) {
         <div className="small muted">
           Owned chips rack here first: each rack holds 32 of one chip type, power units switch racks on, and if heat exceeds cooling every
           chip in the room slows to cooling ÷ heat. Chips without a powered rack go to colocation at {money(TUNING.colocationPerChipWeek)}
-          /chip/week. The {lowerName(stage.name)} can supply {stage.maxServerKW} kW and {stage.maxRacks} rack{stage.maxRacks > 1 ? 's' : ''}.
+          /chip/week. The {lowerName(stage.name)} can supply {stage.maxServerKW} kW and {stage.maxRacks} rack{stage.maxRacks > 1 ? 's' : ''}
+          .
         </div>
       </div>
 
@@ -174,7 +202,11 @@ export function HqPanel({ game }: { game: GameState }) {
 }
 
 function hint(game: GameState, crowding: number, seatedResearch: number, coverage: number): string {
-  if (crowding > 1) return `We're ${Math.round((crowding - 1) * 100)}% over capacity and everyone is slower for it. Add desk pods, or move somewhere bigger.`;
+  if (crowding > 1)
+    return `We're ${Math.round((crowding - 1) * 100)}% over capacity and everyone is slower for it. Add desk pods, or move somewhere bigger.`;
+  const unseated = SPECIALISTS.find((s) => s.id !== 'research' && game.hq.seated[s.id] < game.staff[s.id]);
+  if (game.staff.research <= seatedResearch && unseated)
+    return `${game.staff[unseated.id] - game.hq.seated[unseated.id]} ${unseated.label.toLowerCase()} have no ${unseated.room}, so they can't do their real job. Build one.`;
   if (game.staff.research > seatedResearch)
     return `${game.staff.research - seatedResearch} researcher${game.staff.research - seatedResearch > 1 ? 's have' : ' has'} no lab seat, so they don't boost training. Build a research lab.`;
   if (coverage < 1) return 'People need somewhere to take a breather. A break room lifts morale, and morale lifts productivity.';

@@ -219,7 +219,7 @@ export const RoomTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
   blurb: z.string(),
-  kind: z.enum(['desks', 'lab', 'break', 'server']),
+  kind: z.enum(['desks', 'lab', 'break', 'server', 'special']),
   /** Footprint in tiles before rotation. */
   w: z.number().int().positive(),
   h: z.number().int().positive(),
@@ -233,6 +233,12 @@ export const RoomTemplateSchema = z.object({
   serves: z.number().int().nonnegative().default(0),
   /** Effect multiplier per tier (index 0 = tier 1). Upgrading to tier n costs cost × (n − 1). */
   tierEffect: z.array(z.number().positive()).min(1),
+  /** Something this room unlocks: a License to Scale level, or a funding round (index into funding). */
+  requiredFor: z
+    .object({ track: TrackIdSchema.optional(), level: z.number().int().positive().optional(), fundingRound: z.number().int().nonnegative().optional() })
+    .optional(),
+  /** First HQ stage (index) where it can be built. */
+  minStage: z.number().int().nonnegative().default(0),
 });
 export type RoomTemplate = z.infer<typeof RoomTemplateSchema>;
 
@@ -248,6 +254,9 @@ export const HqStageSchema = z.object({
   /** Unlocked by closing this many funding rounds, or by holding this much cash. */
   requiresRounds: z.number().int().nonnegative().default(0),
   orCash: z.number().nonnegative().optional(),
+  /** Floors (each w×h). Campus floors can be named by building. */
+  floors: z.number().int().positive().default(1),
+  floorNames: z.array(z.string()).optional(),
   /** Server room limits from the building's power and cooling (world-and-facilities §2.5). */
   maxRacks: z.number().int().nonnegative(),
   maxServerKW: z.number().nonnegative(),

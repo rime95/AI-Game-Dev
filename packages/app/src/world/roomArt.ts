@@ -67,22 +67,29 @@ export function roomArt(t: RoomTemplate, tier: number): RoomArt {
     case 'lab': {
       const props: Prop[] = [];
       const seats: Seat[] = [];
+      const perBench = Math.ceil((t.seats?.count ?? 2) / 2);
+      const spacing = (t.w - 0.6) / perBench;
+      const us = Array.from({ length: perBench }, (_, i) => 0.3 + spacing * (i + 0.5));
       for (const [bv, sv, face] of [
         [0.45, 1.05, 0],
-        [2.55, 1.95, Math.PI],
+        [t.h - 0.45, t.h - 1.05, Math.PI],
       ] as const) {
         props.push({ u: t.w / 2, v: bv, size: [t.w - 0.5, 0.38, 0.55], color: DESK });
-        for (const u of [0.95, 2.0, 3.05]) {
+        for (const u of us) {
           props.push({ u, v: bv + (face === 0 ? 0.12 : -0.12), size: [0.5, 0.3, 0.05], y: 0.38, color: SCREEN, glow: 0.25, trainingGlow: true });
           props.push({ u, v: sv, size: [0.34, 0.22, 0.34], color: DARK });
           seats.push({ u, v: sv, face, sit: true });
         }
       }
-      // Whiteboard and, from tier 2, a GPU test bench in the corner.
-      props.push({ u: 0.12, v: t.h / 2, size: [0.06, 0.7, 1.2], y: 0.25, color: '#ffffff' });
-      if (tier >= 2) props.push({ u: t.w - 0.3, v: t.h / 2, size: [0.35, 0.7, 0.5], color: LAYER.models, glow: 0.4, trainingGlow: true });
-      if (tier >= 3) props.push(...plant(0.3, 0.3));
-      return { color: LAYER.models, floor: '#e9e2f2', props, seats };
+      const d = t.seats?.discipline ?? 'research';
+      const color = DISCIPLINE_COLOR[d];
+      // Whiteboard and, from tier 2, a piece of gear in the corner (GPU bench, scope, status wall...).
+      props.push({ u: 0.12, v: t.h / 2, size: [0.06, 0.7, Math.min(1.2, t.h - 1.6)], y: 0.25, color: '#ffffff' });
+      if (tier >= 2) props.push({ u: t.w - 0.3, v: t.h / 2, size: [0.35, 0.7, 0.5], color, glow: 0.4, trainingGlow: d === 'research' });
+      if (tier >= 3) props.push(...plant(0.3, t.h / 2));
+      const floor = { research: '#e9e2f2', hardwareEng: '#dcefec', ops: '#e3e6eb', product: '#f6e3de', modelEng: '#e1e9f7' }[d];
+      for (const p of props) if (p.trainingGlow && d !== 'research') p.trainingGlow = false;
+      return { color, floor, props, seats };
     }
     case 'break': {
       const props: Prop[] = [
@@ -105,6 +112,34 @@ export function roomArt(t: RoomTemplate, tier: number): RoomArt {
         { u: 1.3, v: 0.55, face: 0, sit: false },
       ];
       return { color: LAYER.gold, floor: '#f3ead2', props, seats };
+    }
+    case 'special': {
+      // Boardroom: long table; legal office: desk and files; vault: a safe door.
+      if (t.id === 'boardroom') {
+        const props: Prop[] = [{ u: t.w / 2, v: t.h / 2, size: [t.w - 1, 0.36, 1], color: WOOD }];
+        for (const u of [0.9, 1.5, 2.1]) for (const v of [0.75, 2.25]) props.push({ u, v, size: [0.3, 0.22, 0.3], color: DARK });
+        return { color: LAYER.gold, floor: '#efe6d3', props, seats: [] };
+      }
+      if (t.id === 'secureVault')
+        return {
+          color: LAYER.trust,
+          floor: '#d9dde4',
+          props: [
+            { u: 1, v: 0.25, size: [1.2, 0.9, 0.2], color: '#7b8494' },
+            { u: 1, v: 0.37, size: [0.4, 0.4, 0.05], y: 0.25, color: LAYER.gold, glow: 0.4 },
+          ],
+          seats: [],
+        };
+      return {
+        color: LAYER.trust,
+        floor: '#e6e2da',
+        props: [
+          { u: 1, v: 0.7, size: [1.2, 0.36, 0.6], color: DESK },
+          { u: 0.25, v: 1.6, size: [0.35, 0.8, 0.5], color: '#a39a8a' },
+          { u: 1, v: 0.7, size: [0.3, 0.06, 0.4], y: 0.36, color: '#ffffff' },
+        ],
+        seats: [],
+      };
     }
     case 'server':
       // Raised floor; racks, cooling and power units are placed by the player.

@@ -35,6 +35,8 @@ interface Store {
   worldView: WorldView;
   build: BuildState | null;
   selectedRoom: string | null;
+  /** HQ floor shown and built on. */
+  floor: number;
   pauseOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
@@ -51,6 +53,7 @@ interface Store {
   rotateBuild: () => void;
   cancelBuild: () => void;
   selectRoom: (id: string | null) => void;
+  setFloor: (floor: number) => void;
   setPauseOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
@@ -69,6 +72,7 @@ export const useStore = create<Store>((set, get) => ({
   worldView: 'hq',
   build: null,
   selectedRoom: null,
+  floor: 0,
   pauseOpen: false,
   saves: [],
   settings: loadSettings(),
@@ -76,7 +80,7 @@ export const useStore = create<Store>((set, get) => ({
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq' });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0 });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -86,7 +90,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq' });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0 });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -122,6 +126,7 @@ export const useStore = create<Store>((set, get) => ({
   },
   cancelBuild: () => set({ build: null }),
   selectRoom: (selectedRoom) => set({ selectedRoom }),
+  setFloor: (floor) => set({ floor, selectedRoom: null }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };

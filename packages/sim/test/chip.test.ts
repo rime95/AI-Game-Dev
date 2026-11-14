@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { content } from '@stm/content';
+import { seated } from './helpers';
 import {
   applyCommand,
   archFit,
@@ -72,8 +73,9 @@ describe('chip design', () => {
     s = run(s, [
       { type: 'hire', discipline: 'hardwareEng' },
       { type: 'hire', discipline: 'hardwareEng' },
-      { type: 'startTapeout', design: balanced },
     ]);
+    s = seated(s); // engineers need a hardware lab
+    s = run(s, [{ type: 'startTapeout', design: balanced }]);
     expect(s.cash).toBeLessThanOrEqual(100_000_000 - n7.tapeoutCost);
     for (let i = 0; i < 30 && s.customChips.length === 0; i++) {
       if (s.pendingEvent) s = run(s, [{ type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id }]);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { content } from '@stm/content';
+import { seated } from './helpers';
 import {
   applyCommand,
   createGame,
@@ -60,7 +61,7 @@ describe('training risk', () => {
     expect(incidentRates(s, k1, 65536, 7, 'fp16').hardware).toBeGreaterThan(small.hardware);
     expect(incidentRates(s, k1, 256, 7, 'fp4').lossSpike).toBeGreaterThan(small.lossSpike);
     expect(incidentRates(s, k1, 256, 2000, 'fp16').lossSpike).toBeGreaterThan(small.lossSpike);
-    const withOps = { ...s, staff: { ...s.staff, ops: 5 } };
+    const withOps = seated(s, { ops: 5 });
     expect(incidentRates(withOps, k1, 256, 7, 'fp16').hardware).toBeLessThan(small.hardware);
     expect(previewTraining(startLongRun(1), content, { ...longRun, chipCount: 0 }).incidents.hardware).toBe(0);
   });

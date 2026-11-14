@@ -1,4 +1,4 @@
-import type { Content, HqStage, RoomTemplate } from '@stm/content';
+import type { Content, Discipline, HqStage, RoomTemplate, TrackId } from '@stm/content';
 import type { GameState, HqState, PlacedRoom } from './types';
 import { TUNING } from './tuning';
 import { equipmentUpkeep } from './servers';
@@ -57,14 +57,18 @@ export function placementError(
   x: number,
   y: number,
   rot: number,
+  floor = 0,
 ): string | null {
   const t = templateDef(content, templateId);
   if (!t) return 'Unknown room.';
-  if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(rot)) return 'Rooms snap to whole tiles.';
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(rot) || !Number.isInteger(floor)) return 'Rooms snap to whole tiles.';
   const stage = stageDef(content, state.hq.stage);
+  const stageIndex = content.hq.stages.indexOf(stage);
+  if (stageIndex < t.minStage) return `A ${t.name.toLowerCase()} needs at least the ${lowerName(content.hq.stages[t.minStage].name)}.`;
+  if (floor < 0 || floor >= stage.floors) return 'There is no such floor.';
   const r = { x, y, ...footprint(t, rot) };
   if (r.x < 0 || r.y < 0 || r.x + r.w > stage.w || r.y + r.h > stage.h) return `It doesn't fit inside the ${lowerName(stage.name)}.`;
-  if (state.hq.rooms.some((o) => overlaps(r, roomRect(content, o)))) return 'Something is already there.';
+  if (state.hq.rooms.some((o) => (o.floor ?? 0) === floor && overlaps(r, roomRect(content, o)))) return 'Something is already there.';
   return null;
 }
 
@@ -73,12 +77,13 @@ export function findSpot(
   state: GameState,
   content: Content,
   templateId: string,
-): { x: number; y: number; rot: number } | null {
+): { x: number; y: number; rot: number; floor: number } | null {
   const stage = stageDef(content, state.hq.stage);
-  for (const rot of [0, 1])
-    for (let y = 0; y < stage.h; y++)
-      for (let x = 0; x < stage.w; x++)
-        if (!placementError(state, content, templateId, x, y, rot)) return { x, y, rot };
+  for (let floor = 0; floor < stage.floors; floor++)
+    for (const rot of [0, 1])
+      for (let y = 0; y < stage.h; y++)
+        for (let x = 0; x < stage.w; x++)
+          if (!placementError(state, content, templateId, x, y, rot, floor)) return { x, y, rot, floor };
   return null;
 }
 
@@ -95,7 +100,11 @@ export function roomMultiplier(state: GameState, content: Content, room: PlacedR
   if (t.kind === 'lab') {
     const me = roomRect(content, room);
     adjacentBreak = state.hq.rooms.some(
-      (o) => o.id !== room.id && templateDef(content, o.templateId)?.kind === 'break' && adjacent(me, roomRect(content, o)),
+      (o) =>
+        o.id !== room.id &&
+        (o.floor ?? 0) === (room.floor ?? 0) &&
+        templateDef(content, o.templateId)?.kind === 'break' &&
+        adjacent(me, roomRect(content, o)),
     );
     if (adjacentBreak) mult *= 1 + TUNING.labNextToBreakBonus;
   }
@@ -104,25 +113,37 @@ export function roomMultiplier(state: GameState, content: Content, room: PlacedR
 
 export interface LabSeating {
   roomId: string;
+  discipline: Discipline;
   seats: number;
   seated: number;
   mult: number;
   adjacentBreak: boolean;
 }
 
-/** Fill research labs with researchers, best labs first. */
-export function labSeating(state: GameState, content: Content): LabSeating[] {
+/** Fill specialist rooms with their staff, best rooms first. Without `discipline`, every specialist room. */
+export function labSeating(state: GameState, content: Content, discipline?: Discipline): LabSeating[] {
   const labs = state.hq.rooms
     .map((room) => ({ room, t: templateDef(content, room.templateId) }))
-    .filter((x) => x.t?.kind === 'lab' && x.t.seats?.discipline === 'research')
-    .map(({ room, t }) => ({ roomId: room.id, seats: t!.seats!.count, seated: 0, ...roomMultiplier(state, content, room) }))
+    .filter((x) => x.t?.seats && (!discipline || x.t.seats.discipline === discipline))
+    .map(({ room, t }) => ({
+      roomId: room.id,
+      discipline: t!.seats!.discipline,
+      seats: t!.seats!.count,
+      seated: 0,
+      ...roomMultiplier(state, content, room),
+    }))
     .sort((a, b) => b.mult - a.mult);
-  let left = state.staff.research;
+  const left = { ...state.staff };
   for (const lab of labs) {
-    lab.seated = Math.min(lab.seats, left);
-    left -= lab.seated;
+    lab.seated = Math.min(lab.seats, left[lab.discipline]);
+    left[lab.discipline] -= lab.seated;
   }
   return labs;
+}
+
+/** Disciplines that only do specialist work while seated in their room. */
+export function seatedDisciplines(content: Content): Set<Discipline> {
+  return new Set(content.hq.rooms.flatMap((r) => (r.seats ? [r.seats.discipline] : [])));
 }
 
 export interface DeskStats {
@@ -191,16 +212,49 @@ export function productivity(state: GameState, content: Content): Productivity {
   return { crowding, morale, moveIn, total: crowding * morale * moveIn };
 }
 
-/** Recompute the cached figures other systems read (state.hq.productivity, state.hq.research). */
+/** Recompute the cached figures other systems read (state.hq.productivity, state.hq.effective, state.hq.seated). */
 export function refreshHq(state: GameState, content: Content): void {
   const p = productivity(state, content).total;
   state.hq.productivity = p;
-  state.hq.research = labSeating(state, content).reduce((n, l) => n + l.seated * l.mult, 0) * p;
+  const seatedOnly = seatedDisciplines(content);
+  const labs = labSeating(state, content);
+  const effective = {} as Record<Discipline, number>;
+  const seated = {} as Record<Discipline, number>;
+  for (const d of Object.keys(state.staff) as Discipline[]) {
+    const mine = labs.filter((l) => l.discipline === d);
+    seated[d] = seatedOnly.has(d) ? mine.reduce((n, l) => n + l.seated, 0) : state.staff[d];
+    effective[d] = (seatedOnly.has(d) ? mine.reduce((n, l) => n + l.seated * l.mult, 0) : state.staff[d]) * p;
+  }
+  state.hq.effective = effective;
+  state.hq.seated = seated;
 }
 
-/** Staff of a discipline doing specialist work, scaled by productivity. */
-export function effectiveStaff(state: GameState, discipline: keyof GameState['staff']): number {
-  return discipline === 'research' ? state.hq.research : state.staff[discipline] * state.hq.productivity;
+/** Staff of a discipline doing specialist work (seated in their room, if they need one), scaled by productivity. */
+export function effectiveStaff(state: GameState, discipline: Discipline): number {
+  return state.hq.effective?.[discipline] ?? state.staff[discipline] * state.hq.productivity;
+}
+
+/** Staff of a discipline sitting in their specialist room (headcount, not scaled). */
+export function seatedStaff(state: GameState, discipline: Discipline): number {
+  return state.hq.seated?.[discipline] ?? state.staff[discipline];
+}
+
+/** The room a License to Scale level or funding round still needs, if any. */
+export function missingRoomFor(
+  state: GameState,
+  content: Content,
+  need: { track: TrackId; level: number } | { fundingRound: number },
+): RoomTemplate | null {
+  for (const t of content.hq.rooms) {
+    const r = t.requiredFor;
+    if (!r) continue;
+    const applies =
+      'track' in need
+        ? r.track === need.track && r.level !== undefined && need.level >= r.level
+        : r.fundingRound !== undefined && need.fundingRound >= r.fundingRound;
+    if (applies && !state.hq.rooms.some((room) => room.templateId === t.id)) return t;
+  }
+  return null;
 }
 
 export function facilitiesCost(state: GameState, content: Content): { rent: number; upkeep: number } {
@@ -250,11 +304,12 @@ export function initialHq(content: Content): HqState {
   return {
     stage: content.hq.stages[0].id,
     equipment: [],
-    rooms: pod ? [{ id: 'room-0', templateId: pod.id, x: 0, y: 0, rot: 0, tier: 1, spent: 0 }] : [],
+    rooms: pod ? [{ id: 'room-0', templateId: pod.id, x: 0, y: 0, rot: 0, floor: 0, tier: 1, spent: 0 }] : [],
     morale: TUNING.startMorale,
     moveInWeeks: 0,
     productivity: 1,
-    research: 0,
+    effective: { research: 0, modelEng: 0, hardwareEng: 0, product: 0, ops: 0 },
+    seated: { research: 0, modelEng: 0, hardwareEng: 0, product: 0, ops: 0 },
   };
 }
 
@@ -269,10 +324,12 @@ export function autoFurnish(state: GameState, content: Content): void {
     state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId, ...spot, tier: 1, spent: 0 });
     return true;
   };
-  const lab = content.hq.rooms.find((r) => r.kind === 'lab' && r.seats?.discipline === 'research');
   const pod = content.hq.rooms.find((r) => r.kind === 'desks');
   const brk = content.hq.rooms.find((r) => r.kind === 'break');
-  if (lab) while (labSeating(state, content).reduce((n, l) => n + l.seats, 0) < state.staff.research && place(lab.id));
+  for (const lab of content.hq.rooms.filter((r) => r.seats)) {
+    const d = lab.seats!.discipline;
+    while (labSeating(state, content, d).reduce((n, l) => n + l.seats, 0) < state.staff[d] && place(lab.id));
+  }
   if (pod) while (deskStats(state, content).crowding > 1 && place(pod.id));
   if (brk) while (deskStats(state, content).breakCoverage < 1 && place(brk.id));
 }

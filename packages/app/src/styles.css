@@ -227,6 +227,25 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; font-weight: 600; 
 .build-item[aria-pressed='true'] { background: var(--ink); color: #fff; border-color: transparent; }
 .build-item[aria-pressed='true'] .meta { color: rgb(255 255 255 / 0.75); }
 .build-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.build-cats { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--surface-2); margin-right: 4px; }
+.build-cats button { border: 0; background: transparent; padding: 5px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.build-cats button[aria-selected='true'] { background: var(--ink); color: #fff; }
+.floor-tabs {
+  position: absolute;
+  left: 12px;
+  top: 56px;
+  max-width: calc(100% - 24px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgb(255 253 248 / 0.92);
+  border: 1px solid var(--line);
+}
+.floor-tabs button { border: 0; background: transparent; padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--ink-2); cursor: pointer; text-align: left; }
+.floor-tabs button[aria-selected='true'] { background: var(--ink); color: #fff; }
+.floor-tabs button[aria-selected='true'] .muted { color: rgb(255 255 255 / 0.7); }
 .build-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .build-help { display: flex; align-items: center; gap: 8px; padding: 0 6px; }
 .room-card {

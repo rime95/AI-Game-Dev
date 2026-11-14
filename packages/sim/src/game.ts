@@ -53,6 +53,7 @@ import {
   footprint,
   initialHq,
   lowerName,
+  missingRoomFor,
   moveCheck,
   placementError,
   refreshHq,
@@ -63,7 +64,7 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 12,
+    version: 13,
     companyName: companyName.trim() || 'Your lab',
     hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
@@ -299,11 +300,12 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const t = templateDef(content, cmd.templateId);
       if (!t) return fail('Unknown room.');
       const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
-      const err = placementError(state, content, t.id, cmd.x, cmd.y, rot);
+      const floor = cmd.floor ?? 0;
+      const err = placementError(state, content, t.id, cmd.x, cmd.y, rot, floor);
       if (err) return fail(err);
       if (state.cash < t.cost) return fail('Not enough cash.');
       state.cash -= t.cost;
-      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, tier: 1, spent: t.cost });
+      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: t.cost });
       return { state };
     }
 
@@ -323,7 +325,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const def = equipmentDef(content, cmd.equipId);
       if (!def) return fail('Unknown equipment.');
       const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
-      const { error, roomId } = equipmentPlacement(state, content, def.id, cmd.x, cmd.y, rot);
+      const { error, roomId } = equipmentPlacement(state, content, def.id, cmd.x, cmd.y, rot, cmd.floor ?? 0);
       if (error || !roomId) return fail(error ?? 'Equipment goes inside a server room.');
       if (state.cash < def.cost) return fail('Not enough cash.');
       state.cash -= def.cost;
@@ -437,6 +439,8 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (t.upgrade) return fail('That upgrade is already underway.');
       const next = nextUpgrade(state, content, cmd.track);
       if (!next) return fail('Already at the highest level.');
+      const room = missingRoomFor(state, content, { track: cmd.track, level: t.level + 1 });
+      if (room) return fail(`${next.name} needs a ${room.name.toLowerCase()} at HQ first.`);
       if (next.cost > state.cash) return fail('Not enough cash.');
       state.cash -= next.cost;
       t.upgrade = { weeksLeft: next.weeks, totalWeeks: next.weeks };

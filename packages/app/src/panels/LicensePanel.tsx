@@ -1,6 +1,7 @@
 import { content, type TrackId } from '@stm/content';
 import {
   levelDef,
+  missingRoomFor,
   licenseRevenue,
   licenseUpkeep,
   nextUpgrade,
@@ -47,8 +48,8 @@ export function LicensePanel({ game }: { game: GameState }) {
   return (
     <>
       <Advisor who="Chief of staff" color={LAYER.trust}>
-        Bigger models need a license to scale: enough power, a safety program, compliance and environmental standing. Skipping
-        a requirement doesn't block training, but it risks fines, incidents and slow runs.
+        Bigger models need a license to scale: enough power, a safety program, compliance and environmental standing. Skipping a requirement
+        doesn't block training, but it risks fines, incidents and slow runs.
       </Advisor>
 
       <div className="card">
@@ -81,14 +82,17 @@ export function LicensePanel({ game }: { game: GameState }) {
             {content.license.tiers.map((t) => (
               <tr key={t.tier} className={t.tier === target ? 'you' : undefined}>
                 <td>{t.name}</td>
-                <td className="muted">{t.tier === 1 ? 'any score' : `score ${tierScoreNow(game, t.tier)}+ on Suite v${game.suite.version}`}</td>
+                <td className="muted">
+                  {t.tier === 1 ? 'any score' : `score ${tierScoreNow(game, t.tier)}+ on Suite v${game.suite.version}`}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="small muted">
-          A run's tier comes from its capability, so a new eval suite never lowers it (the score thresholds above just shift). Each missing level adds {pct(content.license.riskPerGap)} risk on its
-          track (power instead slows training by {pct(content.license.powerSlowdownPerGap)}).
+          A run's tier comes from its capability, so a new eval suite never lowers it (the score thresholds above just shift). Each missing
+          level adds {pct(content.license.riskPerGap)} risk on its track (power instead slows training by{' '}
+          {pct(content.license.powerSlowdownPerGap)}).
         </div>
       </div>
     </>
@@ -100,6 +104,7 @@ function TrackCard({ game, id, onUpgrade }: { game: GameState; id: TrackId; onUp
   const state = game.license[id];
   const current = levelDef(content, id, state.level)!;
   const next = nextUpgrade(game, content, id);
+  const missingRoom = next ? missingRoomFor(game, content, { track: id, level: game.license[id].level + 1 }) : null;
   const color = TRACK_COLOR[id];
   return (
     <div className="card" style={{ ['--c' as string]: color, borderTop: `4px solid ${color}` }}>
@@ -107,20 +112,22 @@ function TrackCard({ game, id, onUpgrade }: { game: GameState; id: TrackId; onUp
         <h3>{def.name}</h3>
         <span className="row" aria-label={`Level ${state.level} of ${def.levels.length}`}>
           {def.levels.map((_, i) => (
-            <span
-              key={i}
-              style={{ width: 10, height: 10, borderRadius: 3, background: i < state.level ? color : 'var(--line)' }}
-            />
+            <span key={i} style={{ width: 10, height: 10, borderRadius: 3, background: i < state.level ? color : 'var(--line)' }} />
           ))}
         </span>
       </div>
       <div className="small">
-        <strong>Level {state.level}: {current.name}.</strong> {current.blurb}
+        <strong>
+          Level {state.level}: {current.name}.
+        </strong>{' '}
+        {current.blurb}
         {current.powerCapMW ? ` Site power ${current.powerCapMW} MW.` : ''}
       </div>
       {state.upgrade ? (
         <>
-          <div className="small">Upgrading to {next?.name}: {state.upgrade.weeksLeft} wk left</div>
+          <div className="small">
+            Upgrading to {next?.name}: {state.upgrade.weeksLeft} wk left
+          </div>
           <Bar value={1 - state.upgrade.weeksLeft / state.upgrade.totalWeeks} color={color} />
         </>
       ) : next ? (
@@ -135,8 +142,13 @@ function TrackCard({ game, id, onUpgrade }: { game: GameState; id: TrackId; onUp
               {next.weeklyRevenue ? ` · +${money(next.weeklyRevenue)}/wk heat sales` : ''}
             </div>
           </div>
-          <button className="btn primary" disabled={next.cost > game.cash} onClick={onUpgrade}>
-            Upgrade
+          <button
+            className="btn primary"
+            disabled={next.cost > game.cash || !!missingRoom}
+            onClick={onUpgrade}
+            title={missingRoom ? `Needs a ${missingRoom.name.toLowerCase()} at HQ` : undefined}
+          >
+            {missingRoom ? `Needs ${missingRoom.name.toLowerCase()}` : 'Upgrade'}
           </button>
         </div>
       ) : (

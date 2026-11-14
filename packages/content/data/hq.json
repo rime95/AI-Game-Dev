@@ -27,14 +27,41 @@
     {
       "id": "hqBuilding",
       "name": "HQ building",
-      "blurb": "Our own building. Room for hundreds of people. (Multi-floor layouts come later; for now it is one big floor.)",
-      "w": 32,
-      "h": 26,
+      "blurb": "Our own three-floor building, with room for specialist labs, a cafeteria and a boardroom.",
+      "w": 20,
+      "h": 14,
       "rentPerWeek": 0,
       "moveCost": 60000000,
       "requiresRounds": 2,
       "maxRacks": 24,
-      "maxServerKW": 1000
+      "maxServerKW": 1000,
+      "floors": 3,
+      "floorNames": [
+        "Floor 1",
+        "Floor 2",
+        "Floor 3"
+      ]
+    },
+    {
+      "id": "hqCampus",
+      "name": "HQ campus",
+      "blurb": "A main building and an annex on our own lot. The old garage gets a spot of honour.",
+      "w": 20,
+      "h": 14,
+      "floors": 6,
+      "floorNames": [
+        "Main · 1",
+        "Main · 2",
+        "Main · 3",
+        "Annex · 1",
+        "Annex · 2",
+        "Annex · 3"
+      ],
+      "rentPerWeek": 0,
+      "moveCost": 250000000,
+      "requiresRounds": 3,
+      "maxRacks": 48,
+      "maxServerKW": 2000
     }
   ],
   "rooms": [
@@ -112,6 +139,136 @@
       "tierEffect": [
         1
       ]
+    },
+    {
+      "id": "hardwareLab",
+      "name": "Hardware lab",
+      "blurb": "Four benches for hardware engineers. Tape-outs need engineers seated here; each one cuts bug risk.",
+      "kind": "lab",
+      "w": 4,
+      "h": 3,
+      "cost": 300000,
+      "upkeepPerWeek": 4000,
+      "seats": {
+        "discipline": "hardwareEng",
+        "count": 4
+      },
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ],
+      "minStage": 1
+    },
+    {
+      "id": "opsRoom",
+      "name": "Ops room",
+      "blurb": "Four seats for ops engineers: fewer hardware failures and smoother acquisitions.",
+      "kind": "lab",
+      "w": 3,
+      "h": 3,
+      "cost": 150000,
+      "upkeepPerWeek": 2000,
+      "seats": {
+        "discipline": "ops",
+        "count": 4
+      },
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ],
+      "minStage": 1
+    },
+    {
+      "id": "productStudio",
+      "name": "Product studio",
+      "blurb": "Four seats for product managers: better app conversion and more enterprise accounts.",
+      "kind": "lab",
+      "w": 3,
+      "h": 3,
+      "cost": 150000,
+      "upkeepPerWeek": 2000,
+      "seats": {
+        "discipline": "product",
+        "count": 4
+      },
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ],
+      "minStage": 1
+    },
+    {
+      "id": "cafeteria",
+      "name": "Cafeteria",
+      "blurb": "Lunch for 60. A big morale boost per tile.",
+      "kind": "break",
+      "w": 4,
+      "h": 4,
+      "cost": 400000,
+      "upkeepPerWeek": 5000,
+      "serves": 60,
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ],
+      "minStage": 2
+    },
+    {
+      "id": "boardroom",
+      "name": "Boardroom",
+      "blurb": "Series B investors and later want a proper room to meet in.",
+      "kind": "special",
+      "w": 3,
+      "h": 3,
+      "cost": 300000,
+      "upkeepPerWeek": 1000,
+      "tierEffect": [
+        1
+      ],
+      "requiredFor": {
+        "fundingRound": 1
+      },
+      "minStage": 1
+    },
+    {
+      "id": "legalOffice",
+      "name": "Legal office",
+      "blurb": "In-house counsel. Required for Compliance level 3 and up.",
+      "kind": "special",
+      "w": 2,
+      "h": 2,
+      "cost": 200000,
+      "upkeepPerWeek": 3000,
+      "tierEffect": [
+        1
+      ],
+      "requiredFor": {
+        "track": "compliance",
+        "level": 3
+      },
+      "minStage": 1
+    },
+    {
+      "id": "secureVault",
+      "name": "Secure vault",
+      "blurb": "Locked-down room for model weights. Required for Safety level 3 and up.",
+      "kind": "special",
+      "w": 2,
+      "h": 2,
+      "cost": 500000,
+      "upkeepPerWeek": 3000,
+      "tierEffect": [
+        1
+      ],
+      "requiredFor": {
+        "track": "safety",
+        "level": 3
+      },
+      "minStage": 1
     }
   ],
   "equipment": [
