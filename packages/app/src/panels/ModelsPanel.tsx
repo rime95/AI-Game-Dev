@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { content, type Precision } from '@stm/content';
 import {
   allChips,
@@ -88,6 +88,8 @@ export function ModelsPanel({ game }: { game: GameState }) {
   }));
   const update = (patch: Partial<TrainingSpec>) => setSpec((s) => ({ ...s, ...patch }));
   const preview = useMemo(() => previewTraining(game, content, spec), [game, spec]);
+  const setModelDraft = useStore((s) => s.setModelDraft);
+  useEffect(() => setModelDraft(spec), [spec, setModelDraft]);
   const chip = allChips(game, content).find((c) => c.id === spec.chipId);
   const precisionSupported = chip ? chip.tflops[spec.precision] > 0 : true;
 

@@ -19,6 +19,8 @@ import { money } from '../format';
 import { LAYER } from '../ui/layers';
 import { Diorama } from './Diorama';
 import { HqView } from './HqView';
+import { Blueprint } from './blueprint/Blueprint';
+import { WaferReveal } from './blueprint/WaferReveal';
 
 /** The world area: the HQ (people) or the campus overview (machines), plus build-mode overlays. */
 export function World({ game }: { game: GameState }) {
@@ -26,6 +28,8 @@ export function World({ game }: { game: GameState }) {
   const setView = useStore((s) => s.setWorldView);
   const build = useStore((s) => s.build);
   const rotateBuild = useStore((s) => s.rotateBuild);
+  const tab = useStore((s) => s.tab);
+  const blueprint = tab === 'silicon' ? 'chip' : tab === 'models' ? 'model' : null;
 
   // R rotates the room being placed.
   useEffect(() => {
@@ -37,9 +41,18 @@ export function World({ game }: { game: GameState }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [build, rotateBuild]);
 
+  if (blueprint)
+    return (
+      <>
+        <Blueprint key={blueprint} game={game} kind={blueprint} />
+        <WaferReveal game={game} />
+      </>
+    );
+
   return (
     <>
       {view === 'hq' ? <HqView game={game} /> : <Diorama game={game} />}
+      <WaferReveal game={game} />
       <div className="world-top">
         <div className="view-switch" role="tablist" aria-label="World view">
           <button role="tab" aria-selected={view === 'hq'} onClick={() => setView('hq')}>

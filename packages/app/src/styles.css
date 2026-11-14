@@ -566,3 +566,81 @@ table.t tr.you td { background: color-mix(in srgb, var(--models) 8%, transparent
   border: 0;
   font-weight: 600;
 }
+
+/* ---------- Blueprint mode (world area) ---------- */
+.bp-view { position: absolute; inset: 0; background: #123a63; }
+.bp-head {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #eaf3ff;
+  pointer-events: none;
+}
+.bp-view .bp-tag, .wafer-reveal .bp-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 1px solid rgb(234 243 255 / 0.6);
+  border-radius: 4px;
+  color: #eaf3ff;
+}
+.bp-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff; }
+.bp-sub { font-size: 12px; color: rgb(234 243 255 / 0.75); }
+.bp-tools { position: absolute; left: 16px; bottom: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bp-btn, .bp-select {
+  background: rgb(234 243 255 / 0.1);
+  border: 1px solid rgb(234 243 255 / 0.55);
+  color: #eaf3ff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bp-select option { color: var(--ink); }
+.bp-btn:hover:not(:disabled) { background: rgb(234 243 255 / 0.2); }
+.bp-btn:disabled { opacity: 0.6; cursor: default; }
+.bp-hint { font-size: 12px; color: rgb(234 243 255 / 0.6); }
+.bp-empty { position: absolute; inset: 0; display: grid; place-items: center; background: #123a63; color: #eaf3ff; }
+.bp-callout {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #eaf3ff;
+  white-space: nowrap;
+  padding-left: 10px;
+  border-left: 1px solid rgb(234 243 255 / 0.7);
+}
+.bp-callout.left { transform: translateX(-100%); padding-left: 0; padding-right: 10px; border-left: 0; border-right: 1px solid rgb(234 243 255 / 0.7); text-align: right; }
+.bp-callout .t { font-weight: 700; color: #fff; }
+.bp-loss {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  padding: 8px 10px;
+  border: 1px solid rgb(234 243 255 / 0.4);
+  border-radius: 8px;
+  background: rgb(18 58 99 / 0.85);
+}
+.wafer-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #eaf3ff;
+  background: rgb(18 58 99 / 0.96);
+}
+.wafer-reveal h2 { color: #fff; font-size: 24px; }
+.wafer-reveal svg.spin { animation: wafer-spin 6s linear infinite; }
+@keyframes wafer-spin { to { transform: rotate(360deg); } }
+.wafer-yield { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .wafer-reveal svg.spin { animation: none; } }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { content, type Chip } from '@stm/content';
 import { archFit, normalizeSplit, previewChip, type ChipDesign, type DieSplit, type GameState } from '@stm/sim';
 import { useStore } from '../store';
@@ -29,6 +29,8 @@ export function SiliconPanel({ game }: { game: GameState }) {
     fp4: false,
   });
   const preview = useMemo(() => previewChip(game, content, design), [game, design]);
+  const setChipDraft = useStore((s) => s.setChipDraft);
+  useEffect(() => setChipDraft(design), [design, setChipDraft]);
   const split = normalizeSplit(design.split);
   const setBlock = (key: keyof DieSplit, value: number) => setDesign((d) => ({ ...d, split: { ...d.split, [key]: value } }));
   const project = game.chipProject;

@@ -252,7 +252,7 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 13;
+  version: 14;
   companyName: string;
   hq: HqState;
   consumer: ConsumerApp;
@@ -290,6 +290,8 @@ export interface GameState {
   fleet: FleetEntry[];
   /** Chips you designed and taped out. Same shape as vendor chips, so every formula works on them. */
   customChips: Chip[];
+  /** The design and measured yield behind each custom chip (for Blueprint views and the wafer reveal). */
+  customChipInfo: Record<string, { design: ChipDesign; yieldRate: number }>;
   /** Units bought this week per chip, against the weekly allocation. */
   purchasedThisWeek: Record<string, number>;
   chipProject: ChipProject | null;

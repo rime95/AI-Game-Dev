@@ -81,6 +81,9 @@ describe('chip design', () => {
       if (s.pendingEvent) s = run(s, [{ type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id }]);
       s = run(s, [{ type: 'advanceWeek' }]);
     }
+    const info = s.customChipInfo[s.customChips[0]!.id];
+    expect(info.design.name).toBe(balanced.name);
+    expect(info.yieldRate).toBeGreaterThan(0.29);
     expect(s.customChips).toHaveLength(1);
     const chip = s.customChips[0]!;
     expect(applyCommand(s, content, { type: 'rentChips', chipId: chip.id, count: 8 }).error).toMatch(/foundry/);

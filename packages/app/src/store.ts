@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Command, GameState } from '@stm/sim';
+import type { ChipDesign, Command, GameState, TrainingSpec } from '@stm/sim';
 import type { FromWorker, ToWorker } from './sim.worker';
 import {
   AUTOSAVE_ID,
@@ -37,6 +37,11 @@ interface Store {
   selectedRoom: string | null;
   /** HQ floor shown and built on. */
   floor: number;
+  /** Designs being edited in Silicon and Models, drawn in Blueprint mode. */
+  chipDraft: ChipDesign | null;
+  modelDraft: TrainingSpec | null;
+  /** A freshly taped-out chip whose wafer reveal is playing. */
+  reveal: string | null;
   pauseOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
@@ -54,6 +59,9 @@ interface Store {
   cancelBuild: () => void;
   selectRoom: (id: string | null) => void;
   setFloor: (floor: number) => void;
+  setChipDraft: (d: ChipDesign) => void;
+  setModelDraft: (d: TrainingSpec) => void;
+  closeReveal: () => void;
   setPauseOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
@@ -73,6 +81,9 @@ export const useStore = create<Store>((set, get) => ({
   build: null,
   selectedRoom: null,
   floor: 0,
+  chipDraft: null,
+  modelDraft: null,
+  reveal: null,
   pauseOpen: false,
   saves: [],
   settings: loadSettings(),
@@ -80,7 +91,7 @@ export const useStore = create<Store>((set, get) => ({
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0 });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -90,7 +101,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0 });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -127,6 +138,9 @@ export const useStore = create<Store>((set, get) => ({
   cancelBuild: () => set({ build: null }),
   selectRoom: (selectedRoom) => set({ selectedRoom }),
   setFloor: (floor) => set({ floor, selectedRoom: null }),
+  setChipDraft: (chipDraft) => set({ chipDraft }),
+  setModelDraft: (modelDraft) => set({ modelDraft }),
+  closeReveal: () => set({ reveal: null }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };
@@ -141,6 +155,9 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   const { state, error } = e.data;
   const prev = useStore.getState().game;
   useStore.setState({ game: state, error: error ?? null });
+  // A tape-out just delivered a new chip: play the wafer reveal.
+  if (prev && state.customChips.length > prev.customChips.length && state.week !== prev.week)
+    useStore.setState({ reveal: state.customChips[state.customChips.length - 1].id });
   // Autosave when a new week begins, every N weeks (per settings).
   const every = useStore.getState().settings.autosaveEveryWeeks;
   if (every > 0 && prev && state.week !== prev.week && state.week % every === 0) {

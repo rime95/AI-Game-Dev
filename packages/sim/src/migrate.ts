@@ -3,7 +3,7 @@ import type { GameState } from './types';
 import { autoFurnish, initialHq, refreshHq } from './hq';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -48,6 +48,8 @@ const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
     refreshHq(next as GameState, content);
     return next;
   },
+  // v14: custom chips remember their design and yield. Older chips have none (Blueprint shows their stats only).
+  13: (s) => ({ ...s, version: 14, customChipInfo: {} }),
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };

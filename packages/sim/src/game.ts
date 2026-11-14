@@ -64,7 +64,7 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 13,
+    version: 14,
     companyName: companyName.trim() || 'Your lab',
     hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
@@ -94,6 +94,7 @@ export function createGame(content: Content, seed: number, companyName = 'Your l
     staff: { research: 1, modelEng: 1, hardwareEng: 0, product: 1, ops: 0 },
     fleet: [],
     customChips: [],
+    customChipInfo: {},
     purchasedThisWeek: {},
     chipProject: null,
     license: initialLicense(),
@@ -560,6 +561,7 @@ function advanceWeek(state: GameState, content: Content): void {
         const yieldRate = Math.max(0.3, Math.min(0.95, node.baseYield + (rand(state) - 0.5) * 0.2 + effectiveStaff(state, 'hardwareEng') * 0.01));
         const chip = deriveChip(node, project.design, `custom-${state.nextId++}`, yieldRate);
         state.customChips.push(chip);
+        state.customChipInfo[chip.id] = { design: project.design, yieldRate };
         state.chipProject = null;
         log(state, 'good', `${chip.name} works! Yield ${Math.round(yieldRate * 100)}%, unit cost $${Math.round(chip.priceUsd).toLocaleString('en-US')}. Buy units in Compute.`);
       }
