@@ -22,6 +22,10 @@ import { HqView } from './HqView';
 import { WorldMap } from './WorldMap';
 import { SiteView } from './SiteView';
 import { FabView } from './FabView';
+import { ProductsShowcase } from './ProductsShowcase';
+import { Nudges } from './Nudges';
+import { MilestoneCard } from './Milestone';
+import { MemorialCard } from './Memorial';
 import { Blueprint } from './blueprint/Blueprint';
 import { WaferReveal } from './blueprint/WaferReveal';
 
@@ -49,6 +53,14 @@ export function World({ game }: { game: GameState }) {
       <>
         <Blueprint key={blueprint} game={game} kind={blueprint} />
         <WaferReveal game={game} />
+        <MilestoneCard game={game} />
+      </>
+    );
+  if (tab === 'products')
+    return (
+      <>
+        <ProductsShowcase game={game} />
+        <MilestoneCard game={game} />
       </>
     );
 
@@ -66,6 +78,9 @@ export function World({ game }: { game: GameState }) {
         <SiteView game={game} />
       )}
       <WaferReveal game={game} />
+      <MilestoneCard game={game} />
+      <Nudges game={game} />
+      {view === 'campus' && <MemorialCard game={game} />}
       <div className="world-top">
         <div className="view-switch" role="tablist" aria-label="World view">
           <button role="tab" aria-selected={view === 'hq'} onClick={() => setView('hq')}>

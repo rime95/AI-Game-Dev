@@ -88,7 +88,7 @@ function Campus({ game }: { game: GameState }) {
       {game.hq.stage === 'hqCampus' && (
         <>
           <Building tab="hq" setTab={setTab} label="Annex" position={[-7, 0, -6.3]} size={[3, 2.4, 1.6]} color={LAYER.gold} />
-          <GarageMemorial onClick={() => setTab('hq')} />
+          <GarageMemorial onClick={() => useStore.getState().setMemorialOpen(true)} />
         </>
       )}
       <Building

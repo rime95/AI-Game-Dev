@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { ChipDesign, Command, GameState, TrainingSpec } from '@stm/sim';
 import type { FromWorker, ToWorker } from './sim.worker';
+import { detectMilestone, type Milestone } from './milestones';
+
+export type { Milestone };
 import {
   AUTOSAVE_ID,
   cleanupLegacySaves,
@@ -45,6 +48,11 @@ interface Store {
   /** Data center campus and hall shown in the site view (hall null = campus exterior). */
   siteId: string | null;
   hallId: string | null;
+  /** A big move being announced (news card). */
+  milestone: Milestone | null;
+  /** Nudges the player closed this session. */
+  dismissedNudges: string[];
+  memorialOpen: boolean;
   pauseOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
@@ -67,6 +75,9 @@ interface Store {
   closeReveal: () => void;
   openSite: (siteId: string, hallId?: string | null) => void;
   openHall: (hallId: string | null) => void;
+  closeMilestone: () => void;
+  dismissNudge: (key: string) => void;
+  setMemorialOpen: (open: boolean) => void;
   setPauseOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
@@ -91,6 +102,9 @@ export const useStore = create<Store>((set, get) => ({
   reveal: null,
   siteId: null,
   hallId: null,
+  milestone: null,
+  dismissedNudges: [],
+  memorialOpen: false,
   pauseOpen: false,
   saves: [],
   settings: loadSettings(),
@@ -98,7 +112,7 @@ export const useStore = create<Store>((set, get) => ({
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -108,7 +122,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -150,6 +164,9 @@ export const useStore = create<Store>((set, get) => ({
   closeReveal: () => set({ reveal: null }),
   openSite: (siteId, hallId = null) => set({ worldView: 'site', siteId, hallId, build: null, selectedRoom: null }),
   openHall: (hallId) => set({ hallId, build: null, selectedRoom: null }),
+  closeMilestone: () => set({ milestone: null }),
+  dismissNudge: (key) => set({ dismissedNudges: [...get().dismissedNudges, key] }),
+  setMemorialOpen: (memorialOpen) => set({ memorialOpen }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };
@@ -164,6 +181,10 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   const { state, error } = e.data;
   const prev = useStore.getState().game;
   useStore.setState({ game: state, error: error ?? null });
+  // Big moves get a news card.
+  // (prev is null right after a new game or a load, so switching games never triggers one.)
+  const milestone = prev ? detectMilestone(prev, state) : null;
+  if (milestone) useStore.setState({ milestone });
   // A tape-out just delivered a new chip: play the wafer reveal.
   if (prev && state.customChips.length > prev.customChips.length && state.week !== prev.week)
     useStore.setState({ reveal: state.customChips[state.customChips.length - 1].id });
