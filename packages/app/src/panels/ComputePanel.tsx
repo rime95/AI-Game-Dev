@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { allChips, archFit, buyAllowance, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, totalChips, type GameState } from '@stm/sim';
+import { allChips, archFit, buyAllowance, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, serverLayout, totalChips, TUNING, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -8,13 +8,24 @@ import { Advisor, Bar, Stat } from './Panel';
 export function ComputePanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const power = ownedPowerMW(game, content);
+  const servers = serverLayout(game, content);
+  const ownedTotal = game.fleet.filter((f) => f.owned).reduce((n, f) => n + f.count, 0);
 
   return (
     <>
       <Advisor who="Infrastructure lead" color={LAYER.compute}>
-        Rented chips cost rent every week. Bought chips cost cash up front, then only power — but they need site power.
+        Rented chips cost rent every week. Bought chips cost cash up front, then power — they need site power, and a rack in an HQ server room (or colocation space).
         Match the chip to the model: check the fit chips below.
       </Advisor>
+      {ownedTotal > 0 && (
+        <div className="card">
+          <h3>Where owned chips live</h3>
+          <div className="small">
+            {ownedTotal - servers.colo} racked at HQ{servers.rooms.some((r) => r.throttle < 1) ? ' (some throttled: add cooling in HQ)' : ''} ·{' '}
+            {servers.colo} in colocation at {money(TUNING.colocationPerChipWeek)}/chip/week. Build server rooms in HQ to bring them home.
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ ['--c' as string]: LAYER.power }}>
         <div className="row between">

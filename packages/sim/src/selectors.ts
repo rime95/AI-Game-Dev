@@ -2,6 +2,7 @@ import type { Arch, Chip, Content } from '@stm/content';
 import type { GameState, ReleasedModel, TrainingSpec } from './types';
 import { TUNING } from './tuning';
 import { effectiveStaff } from './hq';
+import { chipEfficiency, serverLayout } from './servers';
 import {
   archFit,
   capabilityIndex,
@@ -108,9 +109,11 @@ export function servingCapacityTokens(state: GameState, content: Content): numbe
   const arch = getArch(content, model.archId);
   if (!arch) return 0;
   let tokensPerSec = 0;
+  const layout = serverLayout(state, content);
   for (const chip of allChips(state, content)) {
     const free = freeChips(state, chip.id);
-    if (free > 0) tokensPerSec += free * servingTokensPerSecond(chip, arch, model.paramsB, model.precision);
+    if (free > 0)
+      tokensPerSec += free * servingTokensPerSecond(chip, arch, model.paramsB, model.precision) * chipEfficiency(state, content, chip.id, layout);
   }
   return tokensPerSec * TUNING.secondsPerWeek;
 }
@@ -187,7 +190,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
   const requirements = requirementsFor(state, content, tier);
   const speedFactor = powerSpeedFactor(content, requirements.find((r) => r.track === 'power')!.gap);
   const flopsPerWeek =
-    clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount) * TUNING.secondsPerWeek * speedFactor;
+    clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount) * TUNING.secondsPerWeek * speedFactor * chipEfficiency(state, content, chip.id);
   const weeks = Math.max(1, Math.ceil(flops / flopsPerWeek));
   const ownedShare = Math.min(1, totalChips(state, chip.id) > 0 ? ownedCount(state, chip.id) / totalChips(state, chip.id) : 0);
   const weeklyChipCost =

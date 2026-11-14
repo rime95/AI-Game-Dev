@@ -215,18 +215,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; font-weight: 600; 
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 0;
   border: 1px solid var(--line);
   background: #fff;
-  border-radius: 9px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 4px 8px;
   cursor: pointer;
 }
-.build-item .name { font-weight: 600; font-size: 13px; }
+.build-item .name { font-weight: 600; font-size: 12px; }
 .build-item .meta { font-size: 11px; color: var(--ink-3); }
 .build-item[aria-pressed='true'] { background: var(--ink); color: #fff; border-color: transparent; }
 .build-item[aria-pressed='true'] .meta { color: rgb(255 255 255 / 0.75); }
 .build-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.build-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .build-help { display: flex; align-items: center; gap: 8px; padding: 0 6px; }
 .room-card {
   position: absolute;

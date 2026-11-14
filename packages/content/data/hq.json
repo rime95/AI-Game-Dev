@@ -7,7 +7,9 @@
       "w": 6,
       "h": 4,
       "rentPerWeek": 0,
-      "moveCost": 0
+      "moveCost": 0,
+      "maxRacks": 1,
+      "maxServerKW": 40
     },
     {
       "id": "office",
@@ -18,7 +20,9 @@
       "rentPerWeek": 40000,
       "moveCost": 500000,
       "requiresRounds": 1,
-      "orCash": 20000000
+      "orCash": 20000000,
+      "maxRacks": 8,
+      "maxServerKW": 250
     },
     {
       "id": "hqBuilding",
@@ -28,7 +32,9 @@
       "h": 26,
       "rentPerWeek": 0,
       "moveCost": 60000000,
-      "requiresRounds": 2
+      "requiresRounds": 2,
+      "maxRacks": 24,
+      "maxServerKW": 1000
     }
   ],
   "rooms": [
@@ -80,6 +86,95 @@
         1.1,
         1.2
       ]
+    },
+    {
+      "id": "serverRoom",
+      "name": "Server room",
+      "blurb": "A cooled room for our own racks. Fill it with racks, cooling and power units.",
+      "kind": "server",
+      "w": 4,
+      "h": 3,
+      "cost": 100000,
+      "upkeepPerWeek": 2000,
+      "tierEffect": [
+        1
+      ]
+    },
+    {
+      "id": "serverRoomLarge",
+      "name": "Large server room",
+      "blurb": "More floor for racks, cooling and power.",
+      "kind": "server",
+      "w": 6,
+      "h": 5,
+      "cost": 250000,
+      "upkeepPerWeek": 4000,
+      "tierEffect": [
+        1
+      ]
+    }
+  ],
+  "equipment": [
+    {
+      "id": "rack",
+      "name": "Rack",
+      "blurb": "Holds 32 owned chips of one type. Needs power and cooling.",
+      "kind": "rack",
+      "w": 1,
+      "h": 2,
+      "cost": 20000,
+      "upkeepPerWeek": 200,
+      "chips": 32
+    },
+    {
+      "id": "pdu",
+      "name": "Power unit",
+      "blurb": "Distributes 200 kW to the racks in its room.",
+      "kind": "power",
+      "w": 1,
+      "h": 1,
+      "cost": 30000,
+      "upkeepPerWeek": 300,
+      "powerKW": 200
+    },
+    {
+      "id": "coolAir",
+      "name": "Air cooler",
+      "blurb": "Fans and vents. Removes 60 kW of heat.",
+      "kind": "cooling",
+      "w": 1,
+      "h": 1,
+      "cost": 15000,
+      "upkeepPerWeek": 300,
+      "coolingKW": 60,
+      "pue": 1.5
+    },
+    {
+      "id": "coolLiquid",
+      "name": "Liquid cooling",
+      "blurb": "Pipes and manifolds. Removes 250 kW and cuts the power bill.",
+      "kind": "cooling",
+      "w": 1,
+      "h": 1,
+      "cost": 120000,
+      "upkeepPerWeek": 1000,
+      "coolingKW": 250,
+      "pue": 1.2,
+      "requiresPowerLevel": 2
+    },
+    {
+      "id": "coolImmersion",
+      "name": "Immersion tank",
+      "blurb": "Chips bathe in coolant: removes 600 kW and holds 32 chips itself.",
+      "kind": "cooling",
+      "w": 1,
+      "h": 1,
+      "cost": 300000,
+      "upkeepPerWeek": 2000,
+      "coolingKW": 600,
+      "chips": 32,
+      "pue": 1.08,
+      "requiresPowerLevel": 3
     }
   ]
 }

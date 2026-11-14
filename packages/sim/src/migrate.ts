@@ -3,7 +3,7 @@ import type { GameState } from './types';
 import { autoFurnish, initialHq, refreshHq } from './hq';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -21,8 +21,16 @@ const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
     next.lastWeek = s.lastWeek ? { ...s.lastWeek, facilities: 0 } : null;
     autoFurnish(next as GameState, content);
     refreshHq(next as GameState, content);
+    delete next.hq.equipment;
     return next;
   },
+  // v12: server rooms. Owned chips start out in colocation.
+  11: (s) => ({
+    ...s,
+    version: 12,
+    hq: { ...s.hq, equipment: [] },
+    lastWeek: s.lastWeek ? { ...s.lastWeek, colocation: 0 } : null,
+  }),
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };

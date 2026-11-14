@@ -219,7 +219,7 @@ export const RoomTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
   blurb: z.string(),
-  kind: z.enum(['desks', 'lab', 'break']),
+  kind: z.enum(['desks', 'lab', 'break', 'server']),
   /** Footprint in tiles before rotation. */
   w: z.number().int().positive(),
   h: z.number().int().positive(),
@@ -248,12 +248,39 @@ export const HqStageSchema = z.object({
   /** Unlocked by closing this many funding rounds, or by holding this much cash. */
   requiresRounds: z.number().int().nonnegative().default(0),
   orCash: z.number().nonnegative().optional(),
+  /** Server room limits from the building's power and cooling (world-and-facilities §2.5). */
+  maxRacks: z.number().int().nonnegative(),
+  maxServerKW: z.number().nonnegative(),
 });
 export type HqStage = z.infer<typeof HqStageSchema>;
+
+/** Equipment placed inside a server room (world-and-facilities §6). */
+export const EquipmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  blurb: z.string(),
+  kind: z.enum(['rack', 'cooling', 'power']),
+  w: z.number().int().positive(),
+  h: z.number().int().positive(),
+  cost: z.number().nonnegative(),
+  upkeepPerWeek: z.number().nonnegative(),
+  /** Chips it holds (racks, immersion tanks). One chip type per unit. */
+  chips: z.number().int().nonnegative().default(0),
+  /** Heat it removes, kW. */
+  coolingKW: z.number().nonnegative().default(0),
+  /** Power it distributes, kW. */
+  powerKW: z.number().nonnegative().default(0),
+  /** Power usage effectiveness of the room when this unit does the cooling. */
+  pue: z.number().min(1).optional(),
+  /** Power license level needed to install it. */
+  requiresPowerLevel: z.number().int().positive().default(1),
+});
+export type Equipment = z.infer<typeof EquipmentSchema>;
 
 export const HqSchema = z.object({
   stages: z.array(HqStageSchema).min(1),
   rooms: z.array(RoomTemplateSchema).min(1),
+  equipment: z.array(EquipmentSchema),
 });
 
 export const ContentSchema = z.object({

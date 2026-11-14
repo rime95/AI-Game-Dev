@@ -124,7 +124,7 @@ Same template system, with equipment instead of furniture:
 | **Cooling unit** | 1×1 | air 60 kW · liquid 250 kW · immersion tank 600 kW (also holds 32 chips) |
 | **Power unit (PDU)** | 1×1 | 200 kW |
 
-- **Owned chips must be racked.** Buying chips without rack space puts them "in storage", where they do no work. Rented chips stay in the cloud and need no space.
+- **Owned chips must be racked.** Owned chips fill HQ racks first. Until we have our own data centers (step 5), chips with no powered rack go to **colocation**: rented rack space at $80 per chip per week, full speed, standard PUE. Rented chips stay in the cloud and need no space. *(Changed from "storage": with tens of thousands of owned chips in the late game, idle storage would break the game before data centers exist.)*
 - **Cooling capacity per room** (simplified, as decided):
   - Room heat = Σ chips × watts × PUE.
   - If heat > the room's cooling capacity, every chip in that room **throttles** to `capacity / heat`.
@@ -188,7 +188,7 @@ The simulation stays authoritative and testable. The layout is game state, and t
 
 ## 11. Build order (each step playable)
 1. ✅ **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move. *Interim:* the HQ building exists as one big 32×26 floor (Series B, $60M) until step 3 adds floors.
-2. **HQ server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay, building power/cooling limit.
+2. ✅ **HQ server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay, building power/cooling limit. Limits: garage 1 rack / 40 kW, office 8 / 250 kW, HQ building 24 / 1 MW. Liquid cooling needs Power level 2, immersion Power level 3.
 3. **HQ building and HQ campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings, garage memorial.
 4. **Exploded chip card** and model layer stack in Blueprint mode.
 5. **Data center campuses (sites track):** site construction, location stats, hall interiors, operations center, world map.

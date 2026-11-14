@@ -4,6 +4,7 @@ import { TUNING } from './tuning';
 import { clusterFlopsPerSecond } from './formulas';
 import { getArch, getChip } from './selectors';
 import { effectiveStaff } from './hq';
+import { chipEfficiency } from './servers';
 
 export interface IncidentRates {
   hardware: number;
@@ -44,7 +45,12 @@ export function runFlopsPerWeek(state: GameState, content: Content, run: Trainin
   const arch = getArch(content, run.spec.archId);
   const chip = getChip(content, run.spec.chipId, state);
   if (!arch || !chip) return 0;
-  return clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) * TUNING.secondsPerWeek * run.speedFactor;
+  return (
+    clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) *
+    TUNING.secondsPerWeek *
+    run.speedFactor *
+    chipEfficiency(state, content, chip.id)
+  );
 }
 
 export function runProgress(run: TrainingRun): number {

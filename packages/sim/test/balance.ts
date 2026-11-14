@@ -11,6 +11,10 @@ import {
   createGame,
   deskStats,
   findSpot,
+  findEquipmentSpot,
+  rackUnits,
+  serverLayout,
+  stageDef,
   labSeating,
   moveCheck,
   freeChips,
@@ -88,6 +92,37 @@ function furnish(s: GameState): GameState {
   while (labSeating(s, content).reduce((n, l) => n + l.seats, 0) < s.staff.research && place('researchLab'));
   while (deskStats(s, content).crowding > 1 && place('deskPod'));
   while (deskStats(s, content).breakCoverage < 1 && place('breakRoom'));
+  return buildServers(s);
+}
+
+/** Rack owned chips at HQ (saves colocation fees): server room, racks, then enough power and cooling. */
+function buildServers(s: GameState): GameState {
+  const equip = (equipId: string): boolean => {
+    const spot = findEquipmentSpot(s, content, equipId);
+    if (!spot) return false;
+    const res = applyCommand(s, content, { type: 'placeEquipment', equipId, ...spot });
+    if (res.error) return false;
+    s = res.state;
+    return true;
+  };
+  const owned = s.fleet.filter((f) => f.owned).reduce((n, f) => n + f.count, 0);
+  if (!owned || s.cash < 3_000_000) return s;
+  const maxRacks = stageDef(content, s.hq.stage).maxRacks;
+  if (!s.hq.rooms.some((r) => r.templateId.startsWith('serverRoom'))) {
+    const spot = findSpot(s, content, 'serverRoomLarge') ? 'serverRoomLarge' : 'serverRoom';
+    const at = findSpot(s, content, spot);
+    if (at) s = act(s, { type: 'placeRoom', templateId: spot, ...at });
+  }
+  while (rackUnits(s, content) < Math.min(maxRacks, Math.ceil(owned / 32)) && equip('rack'));
+  for (let i = 0; i < 20; i++) {
+    const layout = serverLayout(s, content);
+    const room = layout.rooms[0];
+    if (!room) break;
+    const wantKW = Math.min(layout.buildingKW, owned) ; // racks want ~1 kW per chip
+    if (room.powerKW < Math.min(wantKW, rackUnits(s, content) * 32)) { if (!equip('pdu')) break; continue; }
+    if (room.throttle < 1) { if (!(s.license.power.level >= 2 && equip('coolLiquid')) && !equip('coolAir')) break; continue; }
+    break;
+  }
   return s;
 }
 
@@ -209,7 +244,8 @@ function play(seed: number) {
   };
 }
 
-for (let seed = 1; seed <= SEEDS; seed++) {
+const FIRST = Number(process.argv[4] ?? 1);
+for (let seed = FIRST; seed < FIRST + SEEDS; seed++) {
   if (VERBOSE) console.log(`seed ${seed}`);
   console.log(play(seed * 101));
 }

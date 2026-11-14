@@ -132,6 +132,8 @@ export const TUNING = {
   moveInWeeks: 1,
   labNextToBreakBonus: 0.05,
   demolishRefund: 0.5,
+  /** Colocation: rented rack space for owned chips with no room at HQ, $ per chip per week. */
+  colocationPerChipWeek: 80,
 
   randomEventChance: 0.06,
   rivalPressEventChance: 0.6,

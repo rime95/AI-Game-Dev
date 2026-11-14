@@ -20,6 +20,8 @@ export type WorldView = 'hq' | 'campus';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {
+  /** A room template, or equipment for a server room. */
+  kind: 'room' | 'equipment';
   templateId: string;
   rot: number;
 }
@@ -45,7 +47,7 @@ interface Store {
   quitToMenu: () => Promise<void>;
   setTab: (tab: Tab) => void;
   setWorldView: (v: WorldView) => void;
-  startBuild: (templateId: string) => void;
+  startBuild: (templateId: string, kind?: 'room' | 'equipment') => void;
   rotateBuild: () => void;
   cancelBuild: () => void;
   selectRoom: (id: string | null) => void;
@@ -113,7 +115,7 @@ export const useStore = create<Store>((set, get) => ({
 
   setTab: (tab) => set({ tab }),
   setWorldView: (worldView) => set({ worldView, build: worldView === 'hq' ? get().build : null }),
-  startBuild: (templateId) => set({ build: { templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
+  startBuild: (templateId, kind = 'room') => set({ build: { kind, templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
   rotateBuild: () => {
     const b = get().build;
     if (b) set({ build: { ...b, rot: (b.rot + 1) % 4 } });
@@ -145,3 +147,6 @@ export function boot(): void {
   cleanupLegacySaves();
   void useStore.getState().refreshSaves();
 }
+
+// Dev builds only: expose the store for debugging and automated UI checks.
+if (import.meta.env.DEV) (window as unknown as { __stm: typeof useStore }).__stm = useStore;

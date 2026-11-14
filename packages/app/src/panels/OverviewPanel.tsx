@@ -8,7 +8,7 @@ import { GoalsCard } from './GoalsCard';
 
 export function OverviewPanel({ game }: { game: GameState }) {
   const lw = game.lastWeek;
-  const costs = lw ? lw.salaries + lw.rent + lw.power + lw.licenseUpkeep + (lw.facilities ?? 0) : 0;
+  const costs = lw ? lw.salaries + lw.rent + lw.power + lw.licenseUpkeep + (lw.facilities ?? 0) + (lw.colocation ?? 0) : 0;
   const income = lw ? lw.revenue + lw.licenseRevenue : 0;
   const live = liveModel(game);
   const setPauseOpen = useStore((s) => s.setPauseOpen);
@@ -32,6 +32,7 @@ export function OverviewPanel({ game }: { game: GameState }) {
             <Stat k="Chip rent" v={money(lw.rent)} />
             <Stat k="Power" v={money(lw.power)} />
             <Stat k="Office & rooms" v={money(lw.facilities ?? 0)} c={LAYER.gold} />
+            {(lw.colocation ?? 0) > 0 && <Stat k="Colocation" v={money(lw.colocation)} c={LAYER.compute} />}
             <Stat k="License upkeep" v={money(lw.licenseUpkeep)} c={LAYER.trust} />
             {lw.licenseRevenue > 0 && <Stat k="Heat sales" v={money(lw.licenseRevenue)} c={LAYER.env} />}
             <Stat k="Net" v={money(income - costs)} c={income - costs >= 0 ? 'var(--good)' : 'var(--bad)'} />

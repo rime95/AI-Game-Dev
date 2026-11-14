@@ -106,6 +106,9 @@ export function roomArt(t: RoomTemplate, tier: number): RoomArt {
       ];
       return { color: LAYER.gold, floor: '#f3ead2', props, seats };
     }
+    case 'server':
+      // Raised floor; racks, cooling and power units are placed by the player.
+      return { color: LAYER.compute, floor: '#dfe3ea', props: [], seats: [] };
   }
 }
 

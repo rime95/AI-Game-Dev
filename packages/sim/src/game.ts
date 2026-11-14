@@ -2,7 +2,8 @@ import type { Content, Discipline, Effects, GameEvent } from '@stm/content';
 import type { Command, CommandResult, GameState, LogKind, PendingEvent } from './types';
 import { TUNING } from './tuning';
 import { pickWeighted, rand, randInt } from './rng';
-import { clusterFlopsPerSecond, powerDrawMW, weeklyPowerCost } from './formulas';
+import { clusterFlopsPerSecond, powerDrawMW } from './formulas';
+import { equipmentDef, equipmentPlacement, ownedChipCosts } from './servers';
 import { bugChance, deriveChip, previewChip, RESPIN_COST_SHARE, RESPIN_TIME_SHARE } from './chipDesign';
 import {
   initialLicense,
@@ -62,7 +63,7 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 11,
+    version: 12,
     companyName: companyName.trim() || 'Your lab',
     hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
@@ -309,10 +310,32 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
     case 'demolishRoom': {
       const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
       if (!room) return fail('Unknown room.');
-      const refund = room.spent * TUNING.demolishRefund;
+      const inRoom = state.hq.equipment.filter((e) => e.roomId === room.id);
+      const refund = (room.spent + inRoom.reduce((n, e) => n + e.spent, 0)) * TUNING.demolishRefund;
       state.cash += refund;
       state.hq.rooms = state.hq.rooms.filter((r) => r !== room);
+      state.hq.equipment = state.hq.equipment.filter((e) => e.roomId !== room.id);
       log(state, 'info', `Cleared out the ${templateDef(content, room.templateId)?.name.toLowerCase() ?? 'room'} (${formatM(refund)} back).`);
+      return { state };
+    }
+
+    case 'placeEquipment': {
+      const def = equipmentDef(content, cmd.equipId);
+      if (!def) return fail('Unknown equipment.');
+      const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
+      const { error, roomId } = equipmentPlacement(state, content, def.id, cmd.x, cmd.y, rot);
+      if (error || !roomId) return fail(error ?? 'Equipment goes inside a server room.');
+      if (state.cash < def.cost) return fail('Not enough cash.');
+      state.cash -= def.cost;
+      state.hq.equipment.push({ id: `eq-${state.nextId++}`, equipId: def.id, roomId, x: cmd.x, y: cmd.y, rot, spent: def.cost });
+      return { state };
+    }
+
+    case 'demolishEquipment': {
+      const eq = state.hq.equipment.find((e) => e.id === cmd.equipmentId);
+      if (!eq) return fail('Unknown equipment.');
+      state.cash += eq.spent * TUNING.demolishRefund;
+      state.hq.equipment = state.hq.equipment.filter((e) => e !== eq);
       return { state };
     }
 
@@ -341,8 +364,14 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
         const t = templateDef(content, room.templateId);
         if (!t) continue;
         const f = footprint(t, room.rot);
-        room.x = Math.min(room.x, stage.w - f.w);
-        room.y = Math.min(room.y, stage.h - f.h);
+        const nx = Math.min(room.x, stage.w - f.w);
+        const ny = Math.min(room.y, stage.h - f.h);
+        for (const e of state.hq.equipment.filter((q) => q.roomId === room.id)) {
+          e.x += nx - room.x;
+          e.y += ny - room.y;
+        }
+        room.x = nx;
+        room.y = ny;
       }
       log(state, 'good', `We moved into the ${lowerName(stage.name)}! Unpacking boxes this week.`);
       return { state };
@@ -560,15 +589,16 @@ function advanceWeek(state: GameState, content: Content): void {
   let power = 0;
   for (const f of state.fleet) {
     const chip = getChip(content, f.chipId, state);
-    if (!chip) continue;
-    if (f.owned) power += weeklyPowerCost(chip, f.count);
-    else rent += chip.rentPerWeekUsd * f.count;
+    if (chip && !f.owned) rent += chip.rentPerWeekUsd * f.count;
   }
+  const owned = ownedChipCosts(state, content);
+  power += owned.power;
+  const colocation = owned.colocation;
   const upkeep = licenseUpkeep(state, content);
   const licenseIncome = licenseRevenue(state, content);
   const fac = facilitiesCost(state, content);
   const facilities = fac.rent + fac.upkeep;
-  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities;
+  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities - colocation;
 
   // 3b. HQ: morale drifts, move-in ends
   tickHq(state, content);
@@ -657,6 +687,7 @@ function advanceWeek(state: GameState, content: Content): void {
     salaries,
     rent,
     facilities,
+    colocation,
     power,
     licenseUpkeep: upkeep,
     licenseRevenue: licenseIncome,

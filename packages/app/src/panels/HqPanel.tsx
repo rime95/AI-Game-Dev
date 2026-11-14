@@ -6,6 +6,8 @@ import {
   labSeating,
   moraleTarget,
   moveCheck,
+  rackUnits,
+  serverLayout,
   productivity,
   stageDef,
   templateDef,
@@ -29,11 +31,15 @@ export function HqPanel({ game }: { game: GameState }) {
   const labs = labSeating(game, content);
   const labSeats = labs.reduce((n, l) => n + l.seats, 0);
   const seatedResearch = labs.reduce((n, l) => n + l.seated, 0);
+  const servers = serverLayout(game, content);
+  const owned = game.fleet.filter((f) => f.owned).reduce((n, f) => n + f.count, 0);
 
   return (
     <>
       <Advisor who="Office manager" color={LAYER.gold}>
-        {hint(game, d.crowding, seatedResearch, d.breakCoverage)}
+        {servers.rooms.some((r) => r.throttle < 1)
+          ? `The server room is throttling: chips run at ${Math.round(Math.min(...servers.rooms.map((r) => r.throttle)) * 100)}% speed. Add cooling.`
+          : hint(game, d.crowding, seatedResearch, d.breakCoverage)}
       </Advisor>
 
       <div className="card">
@@ -108,6 +114,27 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
       </div>
 
+      <div className="card" style={{ ['--c' as string]: LAYER.compute }}>
+        <h3>Server rooms</h3>
+        <div className="grid2">
+          <Stat k="Racks" v={`${rackUnits(game, content)} / ${stage.maxRacks}`} />
+          <Stat k="HQ server power" v={`${Math.round(servers.hqKW)} / ${servers.buildingKW} kW`} />
+          <Stat k="Owned chips at HQ" v={`${owned - servers.colo} / ${owned}`} c={LAYER.compute} />
+          <Stat k="In colocation" v={`${servers.colo} · ${money(servers.colo * TUNING.colocationPerChipWeek)}/wk`} />
+        </div>
+        {servers.rooms.map((r, i) => (
+          <div className="small" key={r.roomId} style={{ color: r.throttle < 1 ? 'var(--bad)' : undefined }}>
+            Room {i + 1}: {r.itKW.toFixed(0)} kW heat · {r.coolingKW} kW cooling · {r.powerKW} kW power ·{' '}
+            {r.throttle < 1 ? `throttled to ${Math.round(r.throttle * 100)}%` : 'full speed'} · PUE {r.pue.toFixed(2)}
+          </div>
+        ))}
+        <div className="small muted">
+          Owned chips rack here first: each rack holds 32 of one chip type, power units switch racks on, and if heat exceeds cooling every
+          chip in the room slows to cooling ÷ heat. Chips without a powered rack go to colocation at {money(TUNING.colocationPerChipWeek)}
+          /chip/week. The {lowerName(stage.name)} can supply {stage.maxServerKW} kW and {stage.maxRacks} rack{stage.maxRacks > 1 ? 's' : ''}.
+        </div>
+      </div>
+
       <div className="card">
         <h3>Build</h3>
         {content.hq.rooms.map((t) => (
@@ -118,7 +145,7 @@ export function HqPanel({ game }: { game: GameState }) {
                 {t.w}×{t.h} · {money(t.upkeepPerWeek)}/wk · {t.blurb}
               </div>
             </div>
-            <button className="btn" disabled={game.cash < t.cost} onClick={() => startBuild(t.id)}>
+            <button className="btn" disabled={game.cash < t.cost} onClick={() => startBuild(t.id, 'room')}>
               {money(t.cost)}
             </button>
           </div>

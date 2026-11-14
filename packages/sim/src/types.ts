@@ -132,6 +132,8 @@ export interface WeekReport {
   rent: number;
   /** HQ rent plus room upkeep. */
   facilities: number;
+  /** Rack space rented for owned chips we have no room for. */
+  colocation: number;
   power: number;
   licenseUpkeep: number;
   licenseRevenue: number;
@@ -219,10 +221,22 @@ export interface PlacedRoom {
   spent: number;
 }
 
+/** Equipment placed inside a server room. */
+export interface PlacedEquipment {
+  id: string;
+  equipId: string;
+  roomId: string;
+  x: number;
+  y: number;
+  rot: number;
+  spent: number;
+}
+
 export interface HqState {
   /** HQ stage id (garage, office, ...). */
   stage: string;
   rooms: PlacedRoom[];
+  equipment: PlacedEquipment[];
   /** Team morale, 0–100. */
   morale: number;
   /** Weeks of reduced productivity left after a move. */
@@ -234,7 +248,7 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 11;
+  version: 12;
   companyName: string;
   hq: HqState;
   consumer: ConsumerApp;
@@ -313,6 +327,8 @@ export type Command =
   | { type: 'demolishRoom'; roomId: string }
   | { type: 'upgradeRoom'; roomId: string }
   | { type: 'moveHq' }
+  | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number }
+  | { type: 'demolishEquipment'; equipmentId: string }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

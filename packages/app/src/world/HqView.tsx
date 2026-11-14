@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
-import { BufferGeometry, Float32BufferAttribute, type Group } from 'three';
+import { BufferGeometry, Float32BufferAttribute, type Group, type MeshStandardMaterial } from 'three';
 import { content, type Discipline } from '@stm/content';
 import {
   deskStats,
+  equipmentDef,
+  equipmentPlacement,
+  equipmentRect,
+  freeChips,
+  serverLayout,
+  totalChips,
   footprint,
   labSeating,
   placementError,
@@ -12,7 +18,9 @@ import {
   stageDef,
   templateDef,
   type GameState,
+  type PlacedEquipment,
   type PlacedRoom,
+  type ServerLayout,
 } from '@stm/sim';
 import { useStore } from '../store';
 import { money } from '../format';
@@ -137,7 +145,8 @@ function Hq({ game }: { game: GameState }) {
   // Tile under the pointer, from a point on the floor plane.
   const toTile = (e: ThreeEvent<PointerEvent>) => ({ x: Math.floor(e.point.x + w / 2), y: Math.floor(e.point.z + h / 2) });
 
-  const ghost = build && hoverTile ? ghostFor(game, build.templateId, build.rot, hoverTile) : null;
+  const ghost = build && hoverTile ? ghostFor(game, build.kind, build.templateId, build.rot, hoverTile) : null;
+  const servers = useMemo(() => serverLayout(game, content), [game]);
 
   return (
     <group>
@@ -157,7 +166,12 @@ function Hq({ game }: { game: GameState }) {
         onClick={(e) => {
           if (e.delta > 4) return; // a drag to pan, not a click
           if (ghost) {
-            if (ghost.ok) send({ type: 'placeRoom', templateId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot });
+            if (ghost.ok)
+              send(
+                build!.kind === 'room'
+                  ? { type: 'placeRoom', templateId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot }
+                  : { type: 'placeEquipment', equipId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot },
+              );
           } else if (!build) selectRoom(null);
         }}
         onContextMenu={() => useStore.getState().cancelBuild()}
@@ -180,9 +194,24 @@ function Hq({ game }: { game: GameState }) {
           selected={selected === room.id}
           hovered={hoverRoom === room.id}
           interactive={!build}
+          heat={servers.rooms.find((r) => r.roomId === room.id)}
           onHover={setHoverRoom}
           onSelect={selectRoom}
           label={roomLabel(game, room)}
+        />
+      ))}
+
+      {game.hq.equipment.map((eq) => (
+        <EquipmentPiece
+          key={eq.id}
+          eq={eq}
+          game={game}
+          servers={servers}
+          stageW={w}
+          stageH={h}
+          selected={selected === eq.id}
+          interactive={!build}
+          onSelect={selectRoom}
         />
       ))}
 
@@ -210,14 +239,16 @@ function roomLabel(game: GameState, room: PlacedRoom): string {
   return `${t.name} · serves ${Math.round(t.serves * t.tierEffect[room.tier - 1])}${tier}`;
 }
 
-function ghostFor(game: GameState, templateId: string, rot: number, tile: { x: number; y: number }) {
-  const t = templateDef(content, templateId);
+function ghostFor(game: GameState, kind: 'room' | 'equipment', templateId: string, rot: number, tile: { x: number; y: number }) {
+  const t = kind === 'room' ? templateDef(content, templateId) : equipmentDef(content, templateId);
   if (!t) return null;
   const f = footprint(t, rot);
   // Center the footprint on the pointer.
   const x = tile.x - Math.floor((f.w - 1) / 2);
   const y = tile.y - Math.floor((f.h - 1) / 2);
-  const err = placementError(game, content, templateId, x, y, rot) ?? (game.cash < t.cost ? 'Not enough cash.' : null);
+  const err =
+    (kind === 'room' ? placementError(game, content, templateId, x, y, rot) : equipmentPlacement(game, content, templateId, x, y, rot).error) ??
+    (game.cash < t.cost ? 'Not enough cash.' : null);
   return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `${t.name} · ${money(t.cost)}` };
 }
 
@@ -325,11 +356,13 @@ interface RoomProps {
   hovered: boolean;
   interactive: boolean;
   label: string;
+  /** Server rooms: heat vs cooling, for the floor tint. */
+  heat?: { itKW: number; coolingKW: number };
   onHover: (id: string | null) => void;
   onSelect: (id: string) => void;
 }
 
-function Room({ room, stageW, stageH, people, training, lowMorale, selected, hovered, interactive, label, onHover, onSelect }: RoomProps) {
+function Room({ room, stageW, stageH, people, training, lowMorale, selected, hovered, interactive, label, heat, onHover, onSelect }: RoomProps) {
   const t = templateDef(content, room.templateId)!;
   const rect = roomRect(content, room);
   const art = useMemo(() => roomArt(t, room.tier), [t, room.tier]);
@@ -364,7 +397,7 @@ function Room({ room, stageW, stageH, people, training, lowMorale, selected, hov
         }}
       >
         <planeGeometry args={[rect.w - 0.04, rect.h - 0.04]} />
-        <meshStandardMaterial color={art.floor} />
+        <meshStandardMaterial color={heat ? heatTint(heat.itKW, heat.coolingKW) : art.floor} />
       </mesh>
       {/* Low walls in the layer color */}
       {(
@@ -474,4 +507,132 @@ function Figure({
 
 export function useDeskSummary(game: GameState) {
   return useMemo(() => deskStats(game, content), [game]);
+}
+
+/** Heat overlay (decoration only): cool blue when cooling has headroom, red when it can't keep up. */
+function heatTint(itKW: number, coolingKW: number): string {
+  if (itKW <= 0) return '#dfe3ea';
+  const r = Math.min(1.3, itKW / Math.max(1, coolingKW));
+  const t = Math.max(0, Math.min(1, (r - 0.4) / 0.9));
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+  return `rgb(${mix(198, 240)}, ${mix(214, 170)}, ${mix(238, 160)})`;
+}
+
+/**
+ * A rack, cooling unit or power unit. Rack lights (world-and-facilities §6): violet = training,
+ * blue = serving, dark = idle or unpowered, blinking red = throttled.
+ */
+function EquipmentPiece({
+  eq,
+  game,
+  servers,
+  stageW,
+  stageH,
+  selected,
+  interactive,
+  onSelect,
+}: {
+  eq: PlacedEquipment;
+  game: GameState;
+  servers: ServerLayout;
+  stageW: number;
+  stageH: number;
+  selected: boolean;
+  interactive: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const def = equipmentDef(content, eq.equipId);
+  const light = useRef<MeshStandardMaterial>(null);
+  const room = servers.rooms.find((r) => r.roomId === eq.roomId);
+  const rack = room?.racks.find((r) => r.equipmentId === eq.id);
+  const throttled = !!room && room.throttle < 1 && !!rack?.count;
+  let lightColor = '#2b2e36';
+  if (rack?.chipId && rack.count) {
+    const total = totalChips(game, rack.chipId);
+    const training = total - freeChips(game, rack.chipId);
+    // Training takes the first racks of a chip type, serving the rest.
+    const racksOfType = room!.racks.filter((r) => r.chipId === rack.chipId);
+    const share = training / Math.max(1, total);
+    const idx = racksOfType.indexOf(rack);
+    if (idx < Math.round(share * racksOfType.length)) lightColor = LAYER.models;
+    else if (game.liveModelId) lightColor = LAYER.compute;
+  }
+  useFrame(({ clock }) => {
+    if (!light.current) return;
+    light.current.emissiveIntensity = throttled ? 0.3 + 0.7 * (Math.sin(clock.elapsedTime * 6) > 0 ? 1 : 0) : lightColor === '#2b2e36' ? 0 : 0.8;
+  });
+  if (!def) return null;
+  const r = equipmentRect(content, eq);
+  const cx = r.x + r.w / 2 - stageW / 2;
+  const cz = r.y + r.h / 2 - stageH / 2;
+  const click = (e: ThreeEvent<MouseEvent>) => {
+    if (!interactive || e.delta > 4) return;
+    e.stopPropagation();
+    onSelect(eq.id);
+  };
+  const outline = selected ? 0.5 : 0;
+  if (def.kind === 'rack') {
+    return (
+      <group position={[cx, 0, cz]} onClick={click}>
+        <mesh position={[0, 0.45, 0]} castShadow>
+          <boxGeometry args={[r.w - 0.18, 0.9, r.h - 0.18]} />
+          <meshStandardMaterial color="#2f333d" emissive={LAYER.compute} emissiveIntensity={outline} />
+        </mesh>
+        {/* Front light strips, facing the camera side */}
+        {[0.2, 0.4, 0.6, 0.8].map((y) => (
+          <mesh key={y} position={[r.w / 2 - 0.08, y, 0]}>
+            <boxGeometry args={[0.02, 0.06, r.h - 0.4]} />
+            <meshStandardMaterial ref={y === 0.2 ? light : undefined} color={throttled ? '#c2413b' : lightColor} emissive={throttled ? '#c2413b' : lightColor} emissiveIntensity={0.8} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (def.kind === 'power') {
+    return (
+      <group position={[cx, 0, cz]} onClick={click}>
+        <mesh position={[0, 0.35, 0]} castShadow>
+          <boxGeometry args={[0.6, 0.7, 0.6]} />
+          <meshStandardMaterial color="#e9e3d6" emissive={LAYER.power} emissiveIntensity={0.15 + outline} />
+        </mesh>
+        <mesh position={[0, 0.72, 0]}>
+          <boxGeometry args={[0.62, 0.06, 0.62]} />
+          <meshStandardMaterial color={LAYER.power} />
+        </mesh>
+      </group>
+    );
+  }
+  // Cooling: air = fan box, liquid = blue pipes, immersion = coolant tank.
+  const isAir = def.id === 'coolAir';
+  const isTank = def.chips > 0;
+  return (
+    <group position={[cx, 0, cz]} onClick={click}>
+      <mesh position={[0, isTank ? 0.3 : 0.4, 0]} castShadow>
+        <boxGeometry args={[0.8, isTank ? 0.6 : 0.8, 0.8]} />
+        <meshStandardMaterial color={isTank ? '#d8eef0' : '#eef1f4'} emissive={LAYER.env} emissiveIntensity={outline} />
+      </mesh>
+      {isAir && (
+        <mesh position={[0, 0.81, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.3, 20]} />
+          <meshStandardMaterial color="#9aa3b1" />
+        </mesh>
+      )}
+      {!isAir && !isTank && (
+        <>
+          {[-0.2, 0.2].map((z) => (
+            <mesh key={z} position={[0, 0.95, z]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.06, 0.06, 0.9, 10]} />
+              <meshStandardMaterial color={LAYER.compute} />
+            </mesh>
+          ))}
+        </>
+      )}
+      {isTank && (
+        <mesh position={[0, 0.61, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.7, 0.7]} />
+          <meshStandardMaterial color="#5fd0d8" emissive="#5fd0d8" emissiveIntensity={rack?.count ? 0.5 : 0.1} />
+        </mesh>
+      )}
+    </group>
+  );
 }

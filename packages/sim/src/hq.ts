@@ -1,6 +1,7 @@
 import type { Content, HqStage, RoomTemplate } from '@stm/content';
 import type { GameState, HqState, PlacedRoom } from './types';
 import { TUNING } from './tuning';
+import { equipmentUpkeep } from './servers';
 
 /** HQ track: rooms on a grid, desks, morale and productivity (world-and-facilities §4–§5). */
 
@@ -18,7 +19,7 @@ export function nextStage(content: Content, state: GameState): HqStage | null {
 }
 
 /** Footprint after rotation (90° steps: odd rotations swap width and depth). */
-export function footprint(t: RoomTemplate, rot: number): { w: number; h: number } {
+export function footprint(t: { w: number; h: number }, rot: number): { w: number; h: number } {
   return rot % 2 ? { w: t.h, h: t.w } : { w: t.w, h: t.h };
 }
 
@@ -208,7 +209,7 @@ export function facilitiesCost(state: GameState, content: Content): { rent: numb
     const t = templateDef(content, r.templateId);
     return n + (t ? t.upkeepPerWeek * r.tier : 0);
   }, 0);
-  return { rent, upkeep };
+  return { rent, upkeep: upkeep + equipmentUpkeep(state, content) };
 }
 
 /** 'Office' → 'office', but 'HQ building' stays as is. */
@@ -248,6 +249,7 @@ export function initialHq(content: Content): HqState {
   const pod = content.hq.rooms.find((r) => r.kind === 'desks');
   return {
     stage: content.hq.stages[0].id,
+    equipment: [],
     rooms: pod ? [{ id: 'room-0', templateId: pod.id, x: 0, y: 0, rot: 0, tier: 1, spent: 0 }] : [],
     morale: TUNING.startMorale,
     moveInWeeks: 0,
