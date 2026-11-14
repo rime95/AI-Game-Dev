@@ -8,7 +8,7 @@ import { GameOver } from './ui/GameOver';
 import { MainMenu } from './ui/MainMenu';
 import { PauseMenu } from './ui/PauseMenu';
 import { Panel } from './panels/Panel';
-import { Diorama } from './world/Diorama';
+import { World } from './world/World';
 
 export function App() {
   const screen = useStore((s) => s.screen);
@@ -36,7 +36,12 @@ export function App() {
   useEffect(() => {
     if (screen !== 'game') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPauseOpen(!useStore.getState().pauseOpen);
+      if (e.key !== 'Escape') return;
+      const st = useStore.getState();
+      // Esc leaves build mode or closes a room card before it opens the menu.
+      if (!st.pauseOpen && st.build) return st.cancelBuild();
+      if (!st.pauseOpen && st.selectedRoom) return st.selectRoom(null);
+      setPauseOpen(!st.pauseOpen);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -72,7 +77,7 @@ export function App() {
       <TopBar game={game} />
       <NavRail />
       <div className="world">
-        <Diorama game={game} />
+        <World game={game} />
       </div>
       <Panel game={game} />
       <Feed game={game} />

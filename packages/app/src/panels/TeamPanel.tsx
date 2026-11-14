@@ -6,7 +6,7 @@ import { LAYER } from '../ui/layers';
 import { Advisor } from './Panel';
 
 const ROLES: { id: Discipline; label: string; does: string; color: string }[] = [
-  { id: 'research', label: 'Researchers', does: 'Each adds +3% effective training compute (up to +60%).', color: LAYER.models },
+  { id: 'research', label: 'Researchers', does: 'Each adds +3% effective training compute (up to +60%), but only while seated in a research lab (build one in HQ).', color: LAYER.models },
   { id: 'modelEng', label: 'Model engineers', does: `Each can orchestrate a training cluster of up to ${TUNING.chipsPerModelEngineer} chips.`, color: LAYER.models },
   { id: 'hardwareEng', label: 'Hardware engineers', does: 'Design custom chips in Silicon. Each cuts tape-out bug risk by 15%; newer nodes need more of them.', color: LAYER.silicon },
   { id: 'product', label: 'Product managers', does: 'Each adds 0.5% paid conversion to the consumer app (max 8%) and handles 2 enterprise accounts.', color: LAYER.products },
@@ -20,8 +20,9 @@ export function TeamPanel({ game }: { game: GameState }) {
   return (
     <>
       <Advisor who="People lead" color={LAYER.gold}>
-        {headcount} people on payroll at {money(TUNING.salaryPerWeek)} each per week. Research currently multiplies
-        effective compute by ×{researchBonus(game.staff.research).toFixed(2)}.
+        {headcount} people on payroll at {money(TUNING.salaryPerWeek)} each per week. Seated researchers multiply effective
+        compute by ×{researchBonus(game.hq.research).toFixed(2)}. Everyone works at ×{game.hq.productivity.toFixed(2)}{' '}
+        productivity: give new hires desks in HQ.
       </Advisor>
       {ROLES.map((r) => (
         <div className="card" key={r.id} style={{ ['--c' as string]: r.color }}>

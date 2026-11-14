@@ -9,6 +9,10 @@ import {
   offerCheck,
   cloudSupply,
   createGame,
+  deskStats,
+  findSpot,
+  labSeating,
+  moveCheck,
   freeChips,
   fundingCheck,
   getChip,
@@ -66,6 +70,27 @@ function acquireChips(s: GameState, need: number, keepCash: number): GameState {
   return s;
 }
 
+/** Keep the HQ furnished: move up when it is affordable, then labs, desks and break rooms. */
+function furnish(s: GameState): GameState {
+  const mc = moveCheck(s, content);
+  if (!mc.error && mc.stage && s.cash > mc.stage.moveCost * 1.5 + 5_000_000) {
+    s = act(s, { type: "moveHq" });
+    if (VERBOSE) console.log(`  wk ${s.week}: moved to ${s.hq.stage}`);
+  }
+  const place = (templateId: string): boolean => {
+    const spot = findSpot(s, content, templateId);
+    if (!spot) return false;
+    const res = applyCommand(s, content, { type: 'placeRoom', templateId, ...spot });
+    if (res.error) return false;
+    s = res.state;
+    return true;
+  };
+  while (labSeating(s, content).reduce((n, l) => n + l.seats, 0) < s.staff.research && place('researchLab'));
+  while (deskStats(s, content).crowding > 1 && place('deskPod'));
+  while (deskStats(s, content).breakCoverage < 1 && place('breakRoom'));
+  return s;
+}
+
 function bestTrainingChip(s: GameState): { id: string; free: number } {
   const options = content.chips.map((c) => ({ id: c.id, free: freeChips(s, c.id), fp8: c.tflops.fp8 }));
   options.sort((a, b) => b.free * b.fp8 - a.free * a.fp8);
@@ -78,6 +103,8 @@ function play(seed: number) {
   const milestones: string[] = [];
   for (let w = 0; w < WEEKS && s.status === 'playing'; w++) {
     if (s.pendingEvent) s = act(s, { type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id });
+
+    s = furnish(s);
 
     // Raise money whenever investors will take our call.
     const f = fundingCheck(s, content);
@@ -104,7 +131,10 @@ function play(seed: number) {
         const flops = 6 * next.paramsB * 1e9 * next.tokensB * 1e9;
         const perChipWeek = 2000e12 * 0.45 * TUNING.secondsPerWeek; // K2-class at FP8
         const want = Math.max(64, Math.ceil(flops / (perChipWeek * TARGET_WEEKS)));
-        while (maxClusterChips(s) < want && s.cash > 1_000_000) s = act(s, { type: 'hire', discipline: 'modelEng' });
+        for (let before = -1; maxClusterChips(s) < want && maxClusterChips(s) > before && s.cash > 1_000_000; ) {
+          before = maxClusterChips(s);
+          s = furnish(act(s, { type: 'hire', discipline: 'modelEng' }));
+        }
         // A run uses one chip type: build up a K2 cluster (bought over several weeks if allocation-limited),
         // falling back to rented K1 early on.
         const k2 = getChip(content, 'kite-k2')!;
@@ -174,6 +204,7 @@ function play(seed: number) {
     best: bestScore(s).toFixed(1),
     topRival: top.toFixed(1),
     rank: 1 + s.rivals.filter((r) => r.score > bestScore(s)).length,
+    hq: `${s.hq.stage} ${deskStats(s, content).headcount}/${deskStats(s, content).capacity} morale ${s.hq.morale.toFixed(0)}`,
     milestones: milestones.join(', '),
   };
 }

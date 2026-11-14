@@ -1,3 +1,4 @@
+import { content } from '@stm/content';
 import { migrateSave, totalUsers, type GameState, type MigrationResult } from '@stm/sim';
 
 /** What the load screen shows without reading the whole save. */
@@ -135,7 +136,7 @@ export async function saveGame(state: GameState, opts: { id?: string; label?: st
 export async function loadGame(id: string): Promise<MigrationResult> {
   const file = await backend.read(id);
   if (!file) return { error: 'That save could not be found.' };
-  return migrateSave(file.state);
+  return migrateSave(file.state, content);
 }
 
 export async function deleteSave(id: string): Promise<void> {

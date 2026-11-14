@@ -8,6 +8,7 @@ export * from './victory';
 export * from './acquisitions';
 export * from './products';
 export * from './training';
+export * from './hq';
 export { TUNING } from './tuning';
 export * from './migrate';
 export { createGame, applyCommand, targetUsers, DISCIPLINE_LABEL } from './game';

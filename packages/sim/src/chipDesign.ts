@@ -1,5 +1,6 @@
 import type { Chip, Content, ProcessNode } from '@stm/content';
 import type { ChipDesign, DieSplit, GameState } from './types';
+import { effectiveStaff } from './hq';
 
 /** mm² of die area each HBM stack's interface (PHY + controller) needs. */
 export const MM2_PER_HBM_STACK = 25;
@@ -93,6 +94,6 @@ export function previewChip(state: GameState, content: Content, design: ChipDesi
     hbmStacks: Math.round(chip.memGB / node.hbmGBPerStack),
     tapeoutCost: node.tapeoutCost,
     tapeoutWeeks: node.tapeoutWeeks,
-    bugChance: bugChance(node, state.staff.hardwareEng),
+    bugChance: bugChance(node, effectiveStaff(state, 'hardwareEng')),
   };
 }

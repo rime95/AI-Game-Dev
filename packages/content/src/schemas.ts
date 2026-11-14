@@ -66,6 +66,8 @@ export type Rival = z.infer<typeof RivalSchema>;
 export const EffectsSchema = z.object({
   cash: z.number().optional(),
   reputation: z.number().optional(),
+  /** Team morale points (0–100 scale). */
+  morale: z.number().optional(),
   staff: z.object({ discipline: DisciplineSchema, delta: z.number().int() }).optional(),
   /** Multiplies your market pull for `boostWeeks` weeks. */
   shareBoost: z.number().positive().optional(),
@@ -212,7 +214,50 @@ export const ClientSectorSchema = z.object({
 });
 export type ClientSector = z.infer<typeof ClientSectorSchema>;
 
+/** A room template for the HQ grid (world-and-facilities §4). */
+export const RoomTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  blurb: z.string(),
+  kind: z.enum(['desks', 'lab', 'break']),
+  /** Footprint in tiles before rotation. */
+  w: z.number().int().positive(),
+  h: z.number().int().positive(),
+  cost: z.number().nonnegative(),
+  upkeepPerWeek: z.number().nonnegative(),
+  /** Generic desks. */
+  desks: z.number().int().nonnegative().default(0),
+  /** Specialist seats: staff of this discipline only do their specialist work while seated here. */
+  seats: z.object({ discipline: DisciplineSchema, count: z.number().int().positive() }).optional(),
+  /** Staff a break room serves. */
+  serves: z.number().int().nonnegative().default(0),
+  /** Effect multiplier per tier (index 0 = tier 1). Upgrading to tier n costs cost × (n − 1). */
+  tierEffect: z.array(z.number().positive()).min(1),
+});
+export type RoomTemplate = z.infer<typeof RoomTemplateSchema>;
+
+/** A stage on the HQ track: garage, office, ... */
+export const HqStageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  blurb: z.string(),
+  w: z.number().int().positive(),
+  h: z.number().int().positive(),
+  rentPerWeek: z.number().nonnegative(),
+  moveCost: z.number().nonnegative(),
+  /** Unlocked by closing this many funding rounds, or by holding this much cash. */
+  requiresRounds: z.number().int().nonnegative().default(0),
+  orCash: z.number().nonnegative().optional(),
+});
+export type HqStage = z.infer<typeof HqStageSchema>;
+
+export const HqSchema = z.object({
+  stages: z.array(HqStageSchema).min(1),
+  rooms: z.array(RoomTemplateSchema).min(1),
+});
+
 export const ContentSchema = z.object({
+  hq: HqSchema,
   chips: z.array(ChipSchema).min(1),
   clients: z.array(ClientSectorSchema).min(1),
   startups: z.array(StartupSchema),

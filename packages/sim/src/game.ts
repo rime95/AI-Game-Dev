@@ -45,11 +45,26 @@ import {
   generateOffer,
   offerCheck,
 } from './products';
+import {
+  deskStats,
+  effectiveStaff,
+  facilitiesCost,
+  footprint,
+  initialHq,
+  lowerName,
+  moveCheck,
+  placementError,
+  refreshHq,
+  templateDef,
+  tickHq,
+  upgradeCost,
+} from './hq';
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 10,
+    version: 11,
     companyName: companyName.trim() || 'Your lab',
+    hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
     offers: [],
     contracts: [],
@@ -102,11 +117,18 @@ export function createGame(content: Content, seed: number, companyName = 'Your l
   }
   log(state, 'info', `${state.companyName}: three people, a garage and $8M of seed money. Rent some chips and train a first model.`);
   state.history.push({ week: 0, cash: state.cash, users: 0, bestScore: 0 });
+  refreshHq(state, content);
   return state;
 }
 
 /** Apply one player command. Never mutates the input state. */
 export function applyCommand(prev: GameState, content: Content, cmd: Command): CommandResult {
+  const res = runCommand(prev, content, cmd);
+  if (res.state !== prev) refreshHq(res.state, content);
+  return res;
+}
+
+function runCommand(prev: GameState, content: Content, cmd: Command): CommandResult {
   if (cmd.type === 'continuePlaying') {
     if (prev.status !== 'won') return { state: prev, error: 'Nothing to continue.' };
     return { state: { ...structuredClone(prev), status: 'playing' } };
@@ -266,6 +288,63 @@ export function applyCommand(prev: GameState, content: Content, cmd: Command): C
       state.cash -= TUNING.hireCost;
       state.staff[cmd.discipline] += 1;
       log(state, 'info', `Hired a ${DISCIPLINE_LABEL[cmd.discipline]}.`);
+      const desks = deskStats(state, content);
+      if (desks.crowding > 1 && desks.headcount - 1 <= desks.capacity)
+        log(state, 'bad', `We're out of desks: ${desks.headcount} people, ${desks.capacity} seats. Crowding slows everyone down. Build more in the HQ.`);
+      return { state };
+    }
+
+    case 'placeRoom': {
+      const t = templateDef(content, cmd.templateId);
+      if (!t) return fail('Unknown room.');
+      const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
+      const err = placementError(state, content, t.id, cmd.x, cmd.y, rot);
+      if (err) return fail(err);
+      if (state.cash < t.cost) return fail('Not enough cash.');
+      state.cash -= t.cost;
+      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, tier: 1, spent: t.cost });
+      return { state };
+    }
+
+    case 'demolishRoom': {
+      const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
+      if (!room) return fail('Unknown room.');
+      const refund = room.spent * TUNING.demolishRefund;
+      state.cash += refund;
+      state.hq.rooms = state.hq.rooms.filter((r) => r !== room);
+      log(state, 'info', `Cleared out the ${templateDef(content, room.templateId)?.name.toLowerCase() ?? 'room'} (${formatM(refund)} back).`);
+      return { state };
+    }
+
+    case 'upgradeRoom': {
+      const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
+      const t = room && templateDef(content, room.templateId);
+      if (!room || !t) return fail('Unknown room.');
+      const cost = upgradeCost(t, room.tier);
+      if (cost === null) return fail(`The ${t.name.toLowerCase()} is fully upgraded.`);
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      room.tier += 1;
+      room.spent += cost;
+      log(state, 'good', `${t.name} upgraded to tier ${room.tier}.`);
+      return { state };
+    }
+
+    case 'moveHq': {
+      const { stage, error } = moveCheck(state, content);
+      if (error || !stage) return fail(error ?? 'Nowhere to move.');
+      state.cash -= stage.moveCost;
+      state.hq.stage = stage.id;
+      state.hq.moveInWeeks = TUNING.moveInWeeks;
+      // Rooms move with us at the same spots: every stage is at least as big as the one before.
+      for (const room of state.hq.rooms) {
+        const t = templateDef(content, room.templateId);
+        if (!t) continue;
+        const f = footprint(t, room.rot);
+        room.x = Math.min(room.x, stage.w - f.w);
+        room.y = Math.min(room.y, stage.h - f.h);
+      }
+      log(state, 'good', `We moved into the ${lowerName(stage.name)}! Unpacking boxes this week.`);
       return { state };
     }
 
@@ -401,6 +480,7 @@ function advanceWeek(state: GameState, content: Content): void {
         const chip = getChip(content, run.spec.chipId, state);
         if (ev) {
           run.incidents += 1;
+          state.hq.morale = Math.max(0, state.hq.morale + TUNING.moraleOnIncident);
           state.pendingEvent = instantiate(ev, { model: run.spec.name, chip: chip?.name ?? 'chip' });
         }
       }
@@ -435,7 +515,7 @@ function advanceWeek(state: GameState, content: Content): void {
     project.weeksLeft -= 1;
     const node = content.nodes.find((n) => n.id === project.design.nodeId);
     if (project.weeksLeft <= 0 && node) {
-      if (!project.respun && rand(state) < bugChance(node, state.staff.hardwareEng)) {
+      if (!project.respun && rand(state) < bugChance(node, effectiveStaff(state, 'hardwareEng'))) {
         const extra = Math.ceil(node.tapeoutWeeks * RESPIN_TIME_SHARE);
         const cost = node.tapeoutCost * RESPIN_COST_SHARE;
         project.respun = true;
@@ -444,7 +524,7 @@ function advanceWeek(state: GameState, content: Content): void {
         state.cash -= cost;
         log(state, 'bad', `First silicon of ${project.design.name} has a bug. Respin: ${extra} more weeks, ${formatM(cost)}.`);
       } else {
-        const yieldRate = Math.max(0.3, Math.min(0.95, node.baseYield + (rand(state) - 0.5) * 0.2 + state.staff.hardwareEng * 0.01));
+        const yieldRate = Math.max(0.3, Math.min(0.95, node.baseYield + (rand(state) - 0.5) * 0.2 + effectiveStaff(state, 'hardwareEng') * 0.01));
         const chip = deriveChip(node, project.design, `custom-${state.nextId++}`, yieldRate);
         state.customChips.push(chip);
         state.chipProject = null;
@@ -486,7 +566,12 @@ function advanceWeek(state: GameState, content: Content): void {
   }
   const upkeep = licenseUpkeep(state, content);
   const licenseIncome = licenseRevenue(state, content);
-  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep;
+  const fac = facilitiesCost(state, content);
+  const facilities = fac.rent + fac.upkeep;
+  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities;
+
+  // 3b. HQ: morale drifts, move-in ends
+  tickHq(state, content);
 
   // 4. Users move toward the market share our model + price earn
   const target = targetUsers(state, content);
@@ -571,6 +656,7 @@ function advanceWeek(state: GameState, content: Content): void {
     slaPenalty,
     salaries,
     rent,
+    facilities,
     power,
     licenseUpkeep: upkeep,
     licenseRevenue: licenseIncome,
@@ -729,7 +815,10 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
     releasedWeek: state.week + 1,
   });
   const live = liveModel(state);
-  if (!live || capability > live.capability) state.liveModelId = id;
+  if (!live || capability > live.capability) {
+    state.liveModelId = id;
+    state.hq.morale = Math.min(100, state.hq.morale + TUNING.moraleOnRelease);
+  }
   log(
     state,
     'good',
@@ -760,6 +849,7 @@ function applyEffects(state: GameState, content: Content, e: Effects): void {
   }
   if (e.cash) state.cash += e.cash;
   if (e.reputation) state.reputation = clampRep(state.reputation + e.reputation);
+  if (e.morale) state.hq.morale = Math.max(0, Math.min(100, state.hq.morale + e.morale));
   if (e.staff) state.staff[e.staff.discipline] = Math.max(0, state.staff[e.staff.discipline] + e.staff.delta);
   if (e.shareBoost && e.boostWeeks) state.modifiers.push({ shareBoost: e.shareBoost, weeksLeft: e.boostWeeks });
   if (e.riskChance && e.riskReputation && rand(state) < e.riskChance) {

@@ -187,7 +187,7 @@ Unchanged: rented cloud chips, training math, eval suites, products, acquisition
 The simulation stays authoritative and testable. The layout is game state, and the 3D view only renders it.
 
 ## 11. Build order (each step playable)
-1. **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move.
+1. ✅ **Grid + templates + garage/office (HQ track):** build mode, desk pods, research lab and break room, soft desk cap, morale, seat-based research bonus. Garage → office move. *Interim:* the HQ building exists as one big 32×26 floor (Series B, $60M) until step 3 adds floors.
 2. **HQ server rooms:** racks, cooling and PDUs, racked owned chips, throttling, rack lights, heat overlay, building power/cooling limit.
 3. **HQ building and HQ campus:** multi-floor, remaining room templates, boardroom and vault/legal requirements, acquired buildings, garage memorial.
 4. **Exploded chip card** and model layer stack in Blueprint mode.

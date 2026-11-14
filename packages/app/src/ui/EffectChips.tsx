@@ -7,6 +7,7 @@ export function EffectChips({ effects }: { effects: Effects }) {
   const chips: { text: string; c: string }[] = [];
   if (effects.cash) chips.push({ text: money(effects.cash), c: LAYER.gold });
   if (effects.reputation) chips.push({ text: `Reputation ${signed(effects.reputation)}`, c: LAYER.trust });
+  if (effects.morale) chips.push({ text: `${effects.morale > 0 ? '+' : ''}${effects.morale} morale`, c: LAYER.gold });
   if (effects.staff) chips.push({ text: `+${effects.staff.delta} ${effects.staff.discipline}`, c: LAYER.gold });
   if (effects.shareBoost && effects.boostWeeks)
     chips.push({ text: `User pull +${Math.round((effects.shareBoost - 1) * 100)}% · ${effects.boostWeeks} wk`, c: LAYER.products });

@@ -130,6 +130,8 @@ export interface WeekReport {
   slaPenalty: number;
   salaries: number;
   rent: number;
+  /** HQ rent plus room upkeep. */
+  facilities: number;
   power: number;
   licenseUpkeep: number;
   licenseRevenue: number;
@@ -203,9 +205,38 @@ export interface Contract {
   weeksLeft: number;
 }
 
+/** A room placed on the HQ grid. */
+export interface PlacedRoom {
+  id: string;
+  templateId: string;
+  /** Top-left tile. */
+  x: number;
+  y: number;
+  /** Rotation in 90° steps (0–3). */
+  rot: number;
+  tier: number;
+  /** Cash put into the room so far (build + upgrades); demolishing refunds part of it. */
+  spent: number;
+}
+
+export interface HqState {
+  /** HQ stage id (garage, office, ...). */
+  stage: string;
+  rooms: PlacedRoom[];
+  /** Team morale, 0–100. */
+  morale: number;
+  /** Weeks of reduced productivity left after a move. */
+  moveInWeeks: number;
+  /** Cached: crowding × morale × move-in. Refreshed after every command and week. */
+  productivity: number;
+  /** Cached: researchers seated in labs × lab multipliers × productivity. */
+  research: number;
+}
+
 export interface GameState {
-  version: 10;
+  version: 11;
   companyName: string;
+  hq: HqState;
   consumer: ConsumerApp;
   offers: EnterpriseOffer[];
   contracts: Contract[];
@@ -278,6 +309,10 @@ export type Command =
   | { type: 'setSubPrice'; price: number }
   | { type: 'acceptOffer'; offerId: string }
   | { type: 'declineOffer'; offerId: string }
+  | { type: 'placeRoom'; templateId: string; x: number; y: number; rot: number }
+  | { type: 'demolishRoom'; roomId: string }
+  | { type: 'upgradeRoom'; roomId: string }
+  | { type: 'moveHq' }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

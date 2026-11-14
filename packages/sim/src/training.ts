@@ -3,6 +3,7 @@ import type { GameState, TrainingRun } from './types';
 import { TUNING } from './tuning';
 import { clusterFlopsPerSecond } from './formulas';
 import { getArch, getChip } from './selectors';
+import { effectiveStaff } from './hq';
 
 export interface IncidentRates {
   hardware: number;
@@ -24,7 +25,7 @@ export function incidentRates(
     TUNING.hardwareFailureBase *
     (1 + TUNING.hardwareFailurePerDoubling * doublings) *
     (custom ? TUNING.customChipFailureMult : 1) *
-    Math.pow(TUNING.hardwareFailureOpsFactor, state.staff.ops);
+    Math.pow(TUNING.hardwareFailureOpsFactor, effectiveStaff(state, 'ops'));
   const precisionRisk = precision === 'fp4' ? 2.5 : precision === 'fp8' ? 1.5 : 1;
   const sizeRisk = 1 + Math.max(0, Math.log10(paramsB / 100));
   return {

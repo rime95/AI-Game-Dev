@@ -1,0 +1,85 @@
+{
+  "stages": [
+    {
+      "id": "garage",
+      "name": "Garage",
+      "blurb": "A folding table, a box fan and a dream. Room for a handful of people.",
+      "w": 6,
+      "h": 4,
+      "rentPerWeek": 0,
+      "moveCost": 0
+    },
+    {
+      "id": "office",
+      "name": "Office",
+      "blurb": "A real office floor with space for proper rooms.",
+      "w": 14,
+      "h": 10,
+      "rentPerWeek": 40000,
+      "moveCost": 500000,
+      "requiresRounds": 1,
+      "orCash": 20000000
+    },
+    {
+      "id": "hqBuilding",
+      "name": "HQ building",
+      "blurb": "Our own building. Room for hundreds of people. (Multi-floor layouts come later; for now it is one big floor.)",
+      "w": 32,
+      "h": 26,
+      "rentPerWeek": 0,
+      "moveCost": 60000000,
+      "requiresRounds": 2
+    }
+  ],
+  "rooms": [
+    {
+      "id": "deskPod",
+      "name": "Desk pod",
+      "blurb": "Four desks. Everyone needs somewhere to sit.",
+      "kind": "desks",
+      "w": 2,
+      "h": 2,
+      "cost": 40000,
+      "upkeepPerWeek": 500,
+      "desks": 4,
+      "tierEffect": [
+        1
+      ]
+    },
+    {
+      "id": "researchLab",
+      "name": "Research lab",
+      "blurb": "Six seats for researchers. They only boost training compute while seated in a lab.",
+      "kind": "lab",
+      "w": 4,
+      "h": 3,
+      "cost": 250000,
+      "upkeepPerWeek": 4000,
+      "seats": {
+        "discipline": "research",
+        "count": 6
+      },
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ]
+    },
+    {
+      "id": "breakRoom",
+      "name": "Break room",
+      "blurb": "Coffee, couches and a whiteboard. Keeps up to 20 people happy.",
+      "kind": "break",
+      "w": 3,
+      "h": 2,
+      "cost": 60000,
+      "upkeepPerWeek": 1000,
+      "serves": 20,
+      "tierEffect": [
+        1,
+        1.1,
+        1.2
+      ]
+    }
+  ]
+}

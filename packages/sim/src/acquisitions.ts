@@ -2,6 +2,7 @@ import type { AcquisitionGains, Content, Startup } from '@stm/content';
 import type { GameState } from './types';
 import { TUNING } from './tuning';
 import { marketShares, rivalUsers } from './victory';
+import { effectiveStaff } from './hq';
 
 export type DealKind = Startup['kind'] | 'rival';
 
@@ -26,7 +27,7 @@ export function startupPrice(s: Startup, week: number): number {
 
 export function clashChance(state: GameState, gives: AcquisitionGains): number {
   if (!gives.staff?.length) return 0;
-  return TUNING.cultureClashBase * Math.pow(TUNING.cultureClashOpsFactor, state.staff.ops);
+  return TUNING.cultureClashBase * Math.pow(TUNING.cultureClashOpsFactor, effectiveStaff(state, 'ops'));
 }
 
 /** Antitrust: only big players get reviewed; a strong compliance team usually gets deals through. */

@@ -113,6 +113,26 @@ export const TUNING = {
   strugglingRivalFromWeek: 52,
   blockedDealRefund: 0.8,
 
+  /** HQ: morale and productivity (world-and-facilities §5). */
+  startMorale: 70,
+  /** Morale with no break space and no crowding. */
+  moraleBase: 50,
+  /** Extra morale target when break rooms cover everyone. */
+  moraleFromBreakSpace: 35,
+  moraleCrowdedPenalty: 15,
+  /** Share of the gap to the morale target closed each week. */
+  moraleDrift: 0.2,
+  moraleCrowdedPerWeek: 2,
+  moraleFactorMin: 0.8,
+  moraleFactorMax: 1.1,
+  moraleOnRelease: 4,
+  moraleOnIncident: -3,
+  /** Productivity during the week after moving HQ. */
+  moveInProductivity: 0.7,
+  moveInWeeks: 1,
+  labNextToBreakBonus: 0.05,
+  demolishRefund: 0.5,
+
   randomEventChance: 0.06,
   rivalPressEventChance: 0.6,
   bankruptAfterNegativeWeeks: 4,

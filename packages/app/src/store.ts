@@ -14,8 +14,15 @@ import {
   type Settings,
 } from './saves';
 
-export type Tab = 'overview' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
+export type Tab = 'overview' | 'hq' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
 export type Screen = 'menu' | 'game';
+export type WorldView = 'hq' | 'campus';
+
+/** Build mode: the room template being placed and its rotation (90° steps). */
+export interface BuildState {
+  templateId: string;
+  rot: number;
+}
 
 interface Store {
   screen: Screen;
@@ -23,6 +30,9 @@ interface Store {
   error: string | null;
   notice: string | null;
   tab: Tab;
+  worldView: WorldView;
+  build: BuildState | null;
+  selectedRoom: string | null;
   pauseOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
@@ -34,6 +44,11 @@ interface Store {
   refreshSaves: () => Promise<void>;
   quitToMenu: () => Promise<void>;
   setTab: (tab: Tab) => void;
+  setWorldView: (v: WorldView) => void;
+  startBuild: (templateId: string) => void;
+  rotateBuild: () => void;
+  cancelBuild: () => void;
+  selectRoom: (id: string | null) => void;
   setPauseOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
@@ -49,6 +64,9 @@ export const useStore = create<Store>((set, get) => ({
   error: null,
   notice: null,
   tab: 'overview',
+  worldView: 'hq',
+  build: null,
+  selectedRoom: null,
   pauseOpen: false,
   saves: [],
   settings: loadSettings(),
@@ -56,7 +74,7 @@ export const useStore = create<Store>((set, get) => ({
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq' });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -66,7 +84,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq' });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -94,6 +112,14 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setTab: (tab) => set({ tab }),
+  setWorldView: (worldView) => set({ worldView, build: worldView === 'hq' ? get().build : null }),
+  startBuild: (templateId) => set({ build: { templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
+  rotateBuild: () => {
+    const b = get().build;
+    if (b) set({ build: { ...b, rot: (b.rot + 1) % 4 } });
+  },
+  cancelBuild: () => set({ build: null }),
+  selectRoom: (selectedRoom) => set({ selectedRoom }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };

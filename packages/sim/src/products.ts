@@ -5,6 +5,7 @@ import { bestCapability, liveModel, marketSize } from './selectors';
 import { tierForCapability } from './license';
 import { labPull } from './victory';
 import { rand, randInt } from './rng';
+import { effectiveStaff } from './hq';
 
 export function consumerMarket(week: number): number {
   return marketSize(week) * TUNING.consumerMarketMultiplier;
@@ -12,7 +13,7 @@ export function consumerMarket(week: number): number {
 
 /** Share of paying subscribers among app users. Product managers improve the funnel. */
 export function conversion(state: GameState): number {
-  return Math.min(TUNING.maxConversion, TUNING.baseConversion + state.staff.product * TUNING.conversionPerProductManager);
+  return Math.min(TUNING.maxConversion, TUNING.baseConversion + effectiveStaff(state, 'product') * TUNING.conversionPerProductManager);
 }
 
 /** App users we'd converge to, competing with rivals' apps (all priced at the reference). */
@@ -46,7 +47,7 @@ export function totalUsers(state: GameState): number {
 }
 
 export function contractCapacity(state: GameState): number {
-  return state.staff.product * TUNING.contractsPerProductManager;
+  return Math.floor(effectiveStaff(state, 'product') * TUNING.contractsPerProductManager + 1e-9);
 }
 
 export function currentTier(state: GameState, content: Content): number {

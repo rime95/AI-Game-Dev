@@ -31,7 +31,7 @@ export function Diorama({ game }: { game: GameState }) {
         <Campus game={game} />
         <MapControls enableRotate={false} minZoom={14} maxZoom={90} screenSpacePanning />
       </Canvas>
-      <div className="world-legend" aria-hidden="true">
+      <div className="world-legend" aria-hidden="true" style={{ top: 60 }}>
         <span><i style={{ background: LAYER.models }} />Training</span>
         <span><i style={{ background: LAYER.compute }} />Serving</span>
         <span><i style={{ background: '#55575f' }} />Idle</span>

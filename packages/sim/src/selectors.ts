@@ -1,6 +1,7 @@
 import type { Arch, Chip, Content } from '@stm/content';
 import type { GameState, ReleasedModel, TrainingSpec } from './types';
 import { TUNING } from './tuning';
+import { effectiveStaff } from './hq';
 import {
   archFit,
   capabilityIndex,
@@ -57,7 +58,7 @@ export function buyAllowance(state: GameState, chip: Chip): number {
 }
 
 export function maxClusterChips(state: GameState): number {
-  return state.staff.modelEng * TUNING.chipsPerModelEngineer;
+  return Math.floor(effectiveStaff(state, 'modelEng') * TUNING.chipsPerModelEngineer + 1e-9);
 }
 
 export function reservedChips(state: GameState, chipId: string): number {
@@ -155,7 +156,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
   if (state.staff.modelEng < 1) errors.push('Hire a model engineer first.');
   else if (spec.chipCount > maxClusterChips(state))
     errors.push(
-      `${state.staff.modelEng} model engineer${state.staff.modelEng > 1 ? 's' : ''} can run at most ${maxClusterChips(state)} chips. Hire more in Team.`,
+      `${state.staff.modelEng} model engineer${state.staff.modelEng > 1 ? 's' : ''} can run at most ${maxClusterChips(state)} chips at current productivity. Hire more in Team.`,
     );
 
   if (!arch || !chip || spec.paramsB <= 0 || spec.tokensB <= 0 || spec.chipCount <= 0) {
@@ -179,7 +180,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
   }
 
   const flops = trainingFlops(arch, spec.paramsB, spec.tokensB);
-  const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, state.staff.research) * (1 + state.ipBonus);
+  const eff = effectiveCompute(arch, spec.paramsB, spec.tokensB, spec.precision, effectiveStaff(state, 'research')) * (1 + state.ipBonus);
   const projectedCapability = capabilityIndex(eff);
   const projectedScore = suiteScore(projectedCapability, state.suite.mid);
   const tier = tierForCapability(content, projectedCapability);

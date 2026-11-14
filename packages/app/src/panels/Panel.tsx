@@ -11,6 +11,7 @@ import { ProductsPanel } from './ProductsPanel';
 import { TeamPanel } from './TeamPanel';
 import { RivalsPanel } from './RivalsPanel';
 import { DealsPanel } from './DealsPanel';
+import { HqPanel } from './HqPanel';
 
 export function Panel({ game }: { game: GameState }) {
   const tab = useStore((s) => s.tab);
@@ -22,6 +23,7 @@ export function Panel({ game }: { game: GameState }) {
         <h2>{m.label}</h2>
       </div>
       {tab === 'overview' && <OverviewPanel game={game} />}
+      {tab === 'hq' && <HqPanel game={game} />}
       {tab === 'compute' && <ComputePanel game={game} />}
       {tab === 'silicon' && <SiliconPanel game={game} />}
       {tab === 'license' && <LicensePanel game={game} />}

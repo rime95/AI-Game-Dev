@@ -1,7 +1,9 @@
+import type { Content } from '@stm/content';
 import type { GameState } from './types';
+import { autoFurnish, initialHq, refreshHq } from './hq';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -10,14 +12,23 @@ export const OLDEST_MIGRATABLE_VERSION = 9;
 type AnySave = Record<string, any>;
 
 /** Each migration upgrades a save from version N to N + 1. */
-const MIGRATIONS: Record<number, (s: AnySave) => AnySave> = {
+const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
   9: (s) => ({ ...s, version: 10, companyName: 'Your lab' }),
+  // v11: the HQ grid. Funded labs start in the office; rooms are set up for the current team.
+  10: (s, content) => {
+    const stage = (s.roundsRaised ?? 0) >= 1 && content.hq.stages[1] ? content.hq.stages[1].id : content.hq.stages[0].id;
+    const next: AnySave = { ...s, version: 11, hq: { ...initialHq(content), stage, rooms: [] } };
+    next.lastWeek = s.lastWeek ? { ...s.lastWeek, facilities: 0 } : null;
+    autoFurnish(next as GameState, content);
+    refreshHq(next as GameState, content);
+    return next;
+  },
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };
 
 /** Validate and upgrade a parsed save to the current version. */
-export function migrateSave(raw: unknown): MigrationResult {
+export function migrateSave(raw: unknown, content: Content): MigrationResult {
   if (!raw || typeof raw !== 'object') return { error: 'This file is not a Sand to Mind save.' };
   let s = raw as AnySave;
   const from = s.version;
@@ -28,9 +39,9 @@ export function migrateSave(raw: unknown): MigrationResult {
   while (s.version < SAVE_VERSION) {
     const step = MIGRATIONS[s.version];
     if (!step) return { error: `No upgrade path from save version ${s.version}.` };
-    s = step(s);
+    s = step(s, content);
   }
-  for (const key of ['week', 'cash', 'rivals', 'license', 'suite']) {
+  for (const key of ['week', 'cash', 'rivals', 'license', 'suite', 'hq']) {
     if (!(key in s)) return { error: 'This save is damaged (missing data).' };
   }
   return from === SAVE_VERSION ? { state: s as GameState } : { state: s as GameState, migratedFrom: from };
