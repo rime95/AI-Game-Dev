@@ -65,6 +65,22 @@ export function SettingsForm() {
         <input type="checkbox" checked={settings.pauseOnMilestones} onChange={(e) => update({ pauseOnMilestones: e.target.checked })} />
         Pause on news cards (big milestones)
       </label>
+      <div className="field">
+        <span className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Numbers on screen</span>
+        <div className="seg">
+          <button aria-pressed={settings.detail === 'simple'} onClick={() => update({ detail: 'simple' })}>
+            Simple
+          </button>
+          <button aria-pressed={settings.detail === 'full'} onClick={() => update({ detail: 'full' })}>
+            Every detail
+          </button>
+        </div>
+        <span className="small muted">Simple shows what matters. Any panel can still open its details.</span>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={settings.showGuide} onChange={(e) => update({ showGuide: e.target.checked })} />
+        Show the "Next step" guide
+      </label>
       <AutosaveField />
     </div>
   );

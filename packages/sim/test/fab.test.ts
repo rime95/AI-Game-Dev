@@ -119,7 +119,7 @@ describe('the fab', () => {
     s = act(s, { type: 'retoolFabLine', lineId: s.fab!.lines[0]!.id, nodeId: 'n5' });
     expect(s.cash).toBe(before - 250_000_000);
     expect(s.fab!.lines[0]).toMatchObject({ status: 'retooling', wafers: 0, chipId: null, nodeId: 'n5' });
-    expect(applyCommand(s, content, { type: 'setFabLineChip', lineId: s.fab!.lines[0]!.id, chipId: 'custom-fab' }).error).toMatch(/different process node/);
+    expect(applyCommand(s, content, { type: 'setFabLineChip', lineId: s.fab!.lines[0]!.id, chipId: 'custom-fab' }).error).toMatch(/different chip generation/);
   });
 
   it('fab incidents hit the line they happened on', () => {

@@ -4,13 +4,13 @@
     "deck": "incident",
     "trigger": "training",
     "incident": "hardware",
-    "speaker": "Ops lead",
-    "title": "Node failures in the {model} cluster",
-    "body": "A batch of {chip} boards started throwing memory errors overnight. The run is limping along on the healthy nodes.",
+    "speaker": "Sam, infrastructure",
+    "title": "Chips are failing in the {model} run",
+    "body": "A batch of {chip} boards started crashing overnight. Training is limping along on the ones that still work.",
     "choices": [
       {
         "id": "swap",
-        "label": "Swap the bad boards",
+        "label": "Replace the broken boards",
         "detail": "Pay for replacements and lose a few days restarting.",
         "effects": {
           "runCostPerChip": 200,
@@ -20,15 +20,15 @@
       {
         "id": "degraded",
         "label": "Run degraded",
-        "detail": "Keep going on fewer nodes for the rest of the run.",
+        "detail": "Keep going on fewer chips for the rest of the run.",
         "effects": {
           "runSpeedMult": 0.85
         }
       },
       {
         "id": "audit",
-        "label": "Pause for a full audit",
-        "detail": "Lose a week, but find the root cause.",
+        "label": "Stop and find the cause",
+        "detail": "Lose a week, but it won't happen again soon.",
         "effects": {
           "runProgressWeeks": -1,
           "runSpeedMult": 1.05
@@ -41,13 +41,13 @@
     "deck": "incident",
     "trigger": "training",
     "incident": "lossSpike",
-    "speaker": "Model engineering lead",
-    "title": "{model}: the loss just spiked",
-    "body": "Training loss jumped and hasn't come back down. It might recover on its own. It might not.",
+    "speaker": "Priya, head of research",
+    "title": "{model}'s training went off the rails",
+    "body": "The model suddenly got worse at its lessons and hasn't bounced back. It might recover on its own. It might not.",
     "choices": [
       {
         "id": "rollback",
-        "label": "Roll back to the last checkpoint",
+        "label": "Go back to last week's saved progress",
         "detail": "Safe. Costs about a week of progress.",
         "effects": {
           "runProgressWeeks": -1
@@ -64,7 +64,7 @@
       },
       {
         "id": "lower-lr",
-        "label": "Lower the learning rate",
+        "label": "Slow down and learn carefully",
         "detail": "Stable from here on, but slower.",
         "effects": {
           "runSpeedMult": 0.9
@@ -77,13 +77,13 @@
     "deck": "incident",
     "trigger": "training",
     "incident": "contamination",
-    "speaker": "Research lead",
-    "title": "Eval questions found in {model}'s training data",
-    "body": "Part of our data mix contains frontier-eval questions. Our scores would look great — and be wrong.",
+    "speaker": "Priya, head of research",
+    "title": "{model} has seen the test answers",
+    "body": "Some of our training data contains questions from the industry test. Our score would look great, and it would be a lie.",
     "choices": [
       {
         "id": "retrain",
-        "label": "Purge and retrain that stage",
+        "label": "Remove them and retrain that part",
         "detail": "Clean, but costs two weeks.",
         "effects": {
           "runProgressWeeks": -2
@@ -100,7 +100,7 @@
       {
         "id": "ignore",
         "label": "Ignore it",
-        "detail": "Ship the inflated numbers. Someone may notice.",
+        "detail": "Ship the inflated score. Someone may notice.",
         "effects": {
           "runScandalChance": 0.5
         }
@@ -111,14 +111,14 @@
     "id": "press-rival-release",
     "deck": "press",
     "trigger": "rivalRelease",
-    "speaker": "Comms lead",
+    "speaker": "Jonas, product",
     "title": "{rival} ships {model}",
-    "body": "{model} scores {score} on the frontier eval. Reporters are asking for our take.",
+    "body": "{model} scores {score} on the smarts test. Reporters are asking what we think.",
     "choices": [
       {
         "id": "publish",
         "label": "Publish our results",
-        "detail": "Share our eval numbers and method.",
+        "detail": "Share our test scores and how we got them.",
         "effects": {
           "cash": -150000,
           "reputation": 2,
@@ -128,7 +128,7 @@
       },
       {
         "id": "promo",
-        "label": "Run an API price promo",
+        "label": "Run a price promo for developers",
         "detail": "Pull developers our way for a month.",
         "effects": {
           "cash": -300000,
@@ -148,7 +148,7 @@
     "id": "talent-star",
     "deck": "talent",
     "trigger": "random",
-    "speaker": "Research lead",
+    "speaker": "Priya, head of research",
     "title": "A star researcher wants in",
     "body": "She can join next week, but wants a large signing bonus.",
     "choices": [
@@ -178,14 +178,14 @@
     "deck": "incident",
     "trigger": "random",
     "requiresLiveModel": true,
-    "speaker": "Ops lead",
+    "speaker": "Sam, infrastructure",
     "title": "API outage: 3 hours down",
     "body": "A bad deploy took the API offline. Developers are angry on social media.",
     "choices": [
       {
         "id": "credits",
-        "label": "Issue service credits",
-        "detail": "Refund affected customers and publish a postmortem.",
+        "label": "Refund customers and apologise",
+        "detail": "Pay back the people affected and explain what went wrong.",
         "effects": {
           "cash": -200000,
           "reputation": 1
@@ -235,13 +235,13 @@
     "deck": "regulation",
     "trigger": "random",
     "requiresLiveModel": true,
-    "speaker": "Policy counsel",
-    "title": "Regulator requests a model card",
-    "body": "The AI office wants documentation for our live model: data sources, evals and known risks.",
+    "speaker": "Grace, policy",
+    "title": "The regulator wants to know how our model works",
+    "body": "The AI office wants a report on our live model: what it learned from, how we tested it, and what could go wrong.",
     "choices": [
       {
         "id": "full",
-        "label": "Publish a full model card",
+        "label": "Publish a full report",
         "detail": "Costs time and legal review. Builds trust.",
         "effects": {
           "cash": -100000,
@@ -264,7 +264,7 @@
     "deck": "press",
     "trigger": "random",
     "requiresLiveModel": true,
-    "speaker": "Product lead",
+    "speaker": "Jonas, product",
     "title": "Our model went viral",
     "body": "A demo of our model is everywhere this week. Sign-ups are spiking.",
     "choices": [
@@ -294,14 +294,14 @@
     "deck": "incident",
     "trigger": "fab",
     "fabIncident": "cleanroom",
-    "speaker": "Fab manager",
-    "title": "Contamination on {line}",
-    "body": "Particle counts spiked in the cleanroom around {line}. Wafers in flight may be dirty.",
+    "speaker": "Kenji, factory manager",
+    "title": "Dust got into {line}",
+    "body": "Dust levels jumped in the clean room around {line}. The chips being made right now may be ruined.",
     "choices": [
       {
         "id": "scrap",
         "label": "Scrap the batch and deep-clean",
-        "detail": "Lose two weeks of output and $20M, keep the yield.",
+        "detail": "Lose two weeks of chips and $20M, but quality stays high.",
         "effects": {
           "cash": -20000000,
           "fabPauseWeeks": 2
@@ -309,8 +309,8 @@
       },
       {
         "id": "ship",
-        "label": "Ship what passes test",
-        "detail": "Keep running, but yield drops 30% for 6 weeks.",
+        "label": "Keep the ones that pass testing",
+        "detail": "Keep running, but 30% fewer chips come out good for 6 weeks.",
         "effects": {
           "fabYieldMult": 0.7,
           "fabWeeks": 6
@@ -323,9 +323,9 @@
     "deck": "incident",
     "trigger": "fab",
     "fabIncident": "litho",
-    "speaker": "Fab manager",
-    "title": "Lithography tool down on {line}",
-    "body": "A scanner on {line} failed overnight. The vendor can fly a replacement in, at a price.",
+    "speaker": "Kenji, factory manager",
+    "title": "A key machine broke on {line}",
+    "body": "The machine that prints chip patterns on {line} failed overnight. The maker can fly in a new one, at a price.",
     "choices": [
       {
         "id": "replace",
@@ -338,7 +338,7 @@
       },
       {
         "id": "limp",
-        "label": "Run on the remaining tools",
+        "label": "Make do with the other machines",
         "detail": "The line runs at half speed for 6 weeks.",
         "effects": {
           "fabSpeedMult": 0.5,
@@ -352,14 +352,14 @@
     "deck": "supply",
     "trigger": "fab",
     "fabIncident": "hbm",
-    "speaker": "Supply chain lead",
-    "title": "HBM shortage",
-    "body": "Our memory supplier cut allocations across the industry. Every line that packages chips feels it.",
+    "speaker": "Kenji, factory manager",
+    "title": "Chip memory is running short",
+    "body": "Our memory supplier is rationing everyone. Every production line that finishes chips will feel it.",
     "choices": [
       {
         "id": "spot",
         "label": "Pay spot prices",
-        "detail": "$60M to keep our full HBM allocation.",
+        "detail": "$60M to keep all the memory we ordered.",
         "effects": {
           "cash": -60000000
         }
@@ -367,7 +367,7 @@
       {
         "id": "ride",
         "label": "Ride it out",
-        "detail": "Half our HBM allocation for 6 weeks.",
+        "detail": "Only half the memory we need for 6 weeks.",
         "effects": {
           "fabHbmMult": 0.5,
           "fabWeeks": 6

@@ -16,8 +16,8 @@ import {
 } from '@stm/sim';
 import { useStore } from '../store';
 import { money, pct } from '../format';
-import { LAYER } from '../ui/layers';
-import { Advisor, Bar } from './Panel';
+import { BAD, LAYER } from '../ui/layers';
+import { Advisor, Bar, useDetails } from './Panel';
 
 export const TRACK_COLOR: Record<TrackId, string> = {
   power: LAYER.power,
@@ -44,30 +44,31 @@ export function LicensePanel({ game }: { game: GameState }) {
   const met = reqs.filter((r) => r.gap === 0).length;
   const upkeep = licenseUpkeep(game, content);
   const income = licenseRevenue(game, content);
+  const details = useDetails();
 
   return (
     <>
-      <Advisor who="Chief of staff" color={LAYER.trust}>
-        Bigger models need a license to scale: enough power, a safety program, compliance and environmental standing. Skipping a requirement
-        doesn't block training, but it risks fines, incidents and slow runs.
+      <Advisor who="chief" color={LAYER.trust}>
+        Smarter models need a bigger license from the government: enough power, a safety program, paperwork in order and a clean
+        environmental record. We can train without them, but we risk fines, scandals and slow runs.
       </Advisor>
 
       <div className="card">
         <div className="row between">
           <h3>Next goal: {tierName(content, target)}</h3>
           <span className="small muted">
-            {met}/4 met · from score {tierScoreNow(game, target)} on Suite v{game.suite.version}
+            {met} of 4 ready · for models with smarts {tierScoreNow(game, target)}+
           </span>
         </div>
         <div className="chips">
           {reqs.map((r) => (
-            <span key={r.track} className="chip" style={{ ['--c' as string]: r.gap === 0 ? TRACK_COLOR[r.track] : '#c2413b' }}>
+            <span key={r.track} className="chip" style={{ ['--c' as string]: r.gap === 0 ? TRACK_COLOR[r.track] : BAD }}>
               {r.gap === 0 ? '✓' : '✗'} {trackDef(content, r.track).name} {r.have}/{r.need}
             </span>
           ))}
         </div>
         <div className="small muted">
-          Upkeep {money(upkeep)}/wk{income > 0 ? ` · heat sales +${money(income)}/wk` : ''}
+          Upkeep {money(upkeep)} a week{income > 0 ? ` · selling waste heat earns ${money(income)} a week` : ''}
         </div>
       </div>
 
@@ -83,16 +84,16 @@ export function LicensePanel({ game }: { game: GameState }) {
               <tr key={t.tier} className={t.tier === target ? 'you' : undefined}>
                 <td>{t.name}</td>
                 <td className="muted">
-                  {t.tier === 1 ? 'any score' : `score ${tierScoreNow(game, t.tier)}+ on Suite v${game.suite.version}`}
+                  {t.tier === 1 ? 'any model' : `smarts ${tierScoreNow(game, t.tier)}+`}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="small muted">
-          A run's tier comes from its capability, so a new eval suite never lowers it (the score thresholds above just shift). Each missing
-          level adds {pct(content.license.riskPerGap)} risk on its track (power instead slows training by{' '}
-          {pct(content.license.powerSlowdownPerGap)}).
+          {details
+            ? `A run's tier comes from its capability, so a new test never lowers it (the smarts thresholds above just shift). Each missing level adds ${pct(content.license.riskPerGap)} risk on its track (power instead slows training by ${pct(content.license.powerSlowdownPerGap)}).`
+            : 'When the smarts test gets harder, these numbers drop too, but your license stays the same.'}
         </div>
       </div>
     </>
@@ -121,12 +122,12 @@ function TrackCard({ game, id, onUpgrade }: { game: GameState; id: TrackId; onUp
           Level {state.level}: {current.name}.
         </strong>{' '}
         {current.blurb}
-        {current.powerCapMW ? ` Site power ${current.powerCapMW} MW.` : ''}
+        {current.powerCapMW ? ` We can draw ${current.powerCapMW} MW.` : ''}
       </div>
       {state.upgrade ? (
         <>
           <div className="small">
-            Upgrading to {next?.name}: {state.upgrade.weeksLeft} wk left
+            Upgrading to {next?.name}: {state.upgrade.weeksLeft} weeks left
           </div>
           <Bar value={1 - state.upgrade.weeksLeft / state.upgrade.totalWeeks} color={color} />
         </>
@@ -137,9 +138,9 @@ function TrackCard({ game, id, onUpgrade }: { game: GameState; id: TrackId; onUp
               Next: <strong>{next.name}</strong> — {next.blurb}
             </div>
             <div className="muted">
-              {money(next.cost)} · {next.weeks} wk · upkeep {money(next.upkeep)}/wk
-              {next.powerCapMW ? ` · ${next.powerCapMW} MW` : ''}
-              {next.weeklyRevenue ? ` · +${money(next.weeklyRevenue)}/wk heat sales` : ''}
+              {money(next.cost)} · {next.weeks} weeks · then {money(next.upkeep)} a week
+              {next.powerCapMW ? ` · up to ${next.powerCapMW} MW` : ''}
+              {next.weeklyRevenue ? ` · earns ${money(next.weeklyRevenue)} a week selling heat` : ''}
             </div>
           </div>
           <button

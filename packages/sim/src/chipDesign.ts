@@ -77,16 +77,16 @@ export function previewChip(state: GameState, content: Content, design: ChipDesi
   if (!node) return { errors: ['Unknown process node.'], chip: null, node, hbmStacks: 0, tapeoutCost: 0, tapeoutWeeks: 0, bugChance: 0 };
 
   if (!design.name.trim()) errors.push('Name the chip.');
-  if (state.week < node.availableFromWeek) errors.push(`${node.name} opens at the foundry in week ${node.availableFromWeek}.`);
+  if (state.week < node.availableFromWeek) errors.push(`That chip generation opens at the factory in week ${node.availableFromWeek}.`);
   if (seatedStaff(state, 'hardwareEng') < node.minHardwareEng)
     errors.push(
       `${node.name} needs at least ${node.minHardwareEng} hardware engineer${node.minHardwareEng > 1 ? 's' : ''} seated in a hardware lab. Hire in Team, build labs in HQ.`,
     );
-  if (state.chipProject) errors.push('A tape-out is already in progress.');
-  if (node.tapeoutCost > state.cash) errors.push('Not enough cash for the tape-out.');
+  if (state.chipProject) errors.push('A chip is already at the factory.');
+  if (node.tapeoutCost > state.cash) errors.push('Not enough cash to send it to the factory.');
   const s = normalizeSplit(design.split);
   if (s.compute < 0.1) errors.push('Give compute at least 10% of the die.');
-  if (s.memory * node.dieAreaMm2 < MM2_PER_HBM_STACK) errors.push('Memory needs room for at least one HBM stack.');
+  if (s.memory * node.dieAreaMm2 < MM2_PER_HBM_STACK) errors.push('Memory needs room for at least one memory stack.');
 
   const chip = deriveChip(node, design, 'preview');
   return {

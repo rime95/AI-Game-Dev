@@ -101,7 +101,7 @@ function lineLabel(game: GameState, line: FabLine): string {
   const lw = line.lastWeek;
   const chip = game.customChips.find((c) => c.id === line.chipId);
   if (!chip) return `Bay ${line.bay + 1} · ${node} · pick a design`;
-  return `Bay ${line.bay + 1} · ${chip.name} · ${lw ? `${big(lw.chips)}/wk · yield ${pct(lw.yieldRate)}` : 'starting'}`;
+  return `Bay ${line.bay + 1} · ${chip.name} · ${lw ? `${big(lw.chips)}/wk · ${pct(lw.yieldRate)} good` : 'starting'}`;
 }
 
 function Bay({
@@ -226,7 +226,7 @@ function FabBar({ game }: { game: GameState }) {
         <strong>Fab</strong> ·{' '}
         {fab.status === 'building'
           ? `under construction, ${fab.weeksLeft} wk left`
-          : `${fab.lines.length}/${content.fab.bays} lines · HBM ${big(hbm)} stacks/wk${fab.hbmWeeks > 0 ? ' (shortage)' : ''} · market ${big(marketPerWeek(game, content))} chips/wk · last week ${money(-(lw?.fabCosts ?? 0))} costs, ${money(lw?.fabSales ?? 0)} sales`}
+          : `${fab.lines.length}/${content.fab.bays} lines · memory ${big(hbm)} stacks/wk${fab.hbmWeeks > 0 ? ' (shortage)' : ''} · market ${big(marketPerWeek(game, content))} chips/wk · last week ${money(-(lw?.fabCosts ?? 0))} costs, ${money(lw?.fabSales ?? 0)} sales`}
         {' · '}click a bay
       </span>
     </div>
@@ -238,7 +238,7 @@ const BOTTLENECK_TEXT: Record<string, string> = {
   etch: 'Deposition & etch is the slowest stage',
   test: 'Test is the slowest stage',
   packaging: 'Packaging is the bottleneck',
-  hbm: 'Not enough HBM memory this week',
+  hbm: 'Not enough chip memory this week',
   demand: 'Nowhere to put more chips (site power full, market saturated)',
   design: 'No chip design assigned',
   paused: 'Line paused after an incident',
@@ -347,14 +347,14 @@ function BayCard({ game, bay, onClose }: { game: GameState; bay: number; onClose
           )}
           {lw && (
             <div className="small">
-              Last week: {big(lw.chips)} chips ({big(lw.toFleet)} to fleet, {big(lw.sold)} sold) · yield {pct(lw.yieldRate)} ·{' '}
+              Last week: {big(lw.chips)} chips ({big(lw.toFleet)} to fleet, {big(lw.sold)} sold) · {pct(lw.yieldRate)} good ·{' '}
               {money(lw.unitCost)} each.{' '}
               <span style={{ color: lw.bottleneck === 'demand' ? undefined : 'var(--bad)' }}>{BOTTLENECK_TEXT[lw.bottleneck]}.</span>
             </div>
           )}
           {chip && (
             <div className="small muted">
-              {hbmStacks(chip, node)} HBM stacks per chip · mature unit cost ≈{' '}
+              {hbmStacks(chip, node)} memory stacks per chip · mature unit cost ≈{' '}
               {money(fabUnitCost(content, node, chip, Math.min(0.95, node.baseYield + 0.12)))}
             </div>
           )}

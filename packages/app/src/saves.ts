@@ -169,11 +169,15 @@ export interface Settings {
   pauseOnMilestones: boolean;
   /** Speed the clock starts at when a game opens (0 = paused). */
   defaultSpeed: Speed;
+  /** Simple shows outcomes; full shows every number on every screen. */
+  detail: 'simple' | 'full';
+  /** Show the "Next step" guide in the world view. */
+  showGuide: boolean;
 }
 
 export type Speed = 0 | 1 | 2 | 4;
 
-export const DEFAULT_SETTINGS: Settings = { autosaveEveryWeeks: 1, uiScale: 100, panelWidth: 480, pauseOnMilestones: true, defaultSpeed: 0 };
+export const DEFAULT_SETTINGS: Settings = { autosaveEveryWeeks: 1, uiScale: 100, panelWidth: 480, pauseOnMilestones: true, defaultSpeed: 0, detail: 'simple', showGuide: true };
 
 const SETTINGS_KEY = 'stm.settings';
 export function loadSettings(): Settings {

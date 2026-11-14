@@ -6,7 +6,7 @@
     "equity": 0.15,
     "minUsers": 1000000,
     "minTier": 2,
-    "blurb": "Early-stage funds want proof that people use our model."
+    "blurb": "Our first big investors. They want proof that people use our model."
   },
   {
     "id": "series-b",
@@ -15,7 +15,7 @@
     "equity": 0.15,
     "minUsers": 10000000,
     "minTier": 3,
-    "blurb": "Growth investors want a competitive model and real traction."
+    "blurb": "Bigger investors want a model that can compete and a growing user base."
   },
   {
     "id": "series-c",
@@ -24,7 +24,7 @@
     "equity": 0.12,
     "minUsers": 40000000,
     "minTier": 4,
-    "blurb": "Crossover funds back labs that can reach the frontier."
+    "blurb": "Big funds back labs that could build the best model in the world."
   },
   {
     "id": "series-d",
@@ -33,7 +33,7 @@
     "equity": 0.1,
     "minUsers": 150000000,
     "minTier": 4,
-    "blurb": "Sovereign funds and strategic partners write the big checks."
+    "blurb": "Countries and tech giants write the really big checks."
   },
   {
     "id": "ipo",
@@ -43,6 +43,6 @@
     "minUsers": 400000000,
     "minTier": 5,
     "requiresProfit": true,
-    "blurb": "Public markets want a profitable leader. Ring the bell."
+    "blurb": "Go public on the stock market. Investors want a profitable leader."
   }
 ]

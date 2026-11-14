@@ -48,14 +48,14 @@ export function WaferReveal({ game }: { game: GameState }) {
         ))}
       </svg>
       <div className="wafer-yield">
-        Yield {shown ? Math.round((good / shown) * 100) : 0}%
+        {shown ? Math.round((good / shown) * 100) : 0}% good chips
         <span className="bp-sub">
           {' '}
-          · {good} good of {shown} dies
+          · {good} of {shown} work
         </span>
       </div>
       <button className="bp-btn" onClick={close} disabled={!done}>
-        {done ? 'Into production' : 'Testing dies…'}
+        {done ? 'Start making them' : 'Testing chips…'}
       </button>
     </div>
   );

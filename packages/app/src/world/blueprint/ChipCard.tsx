@@ -3,6 +3,7 @@ import type { Chip, ProcessNode } from '@stm/content';
 import { normalizeSplit, type ChipDesign } from '@stm/sim';
 import { LAYER } from '../../ui/layers';
 import { BpBox, Callout, Layer } from './parts';
+import { useDetails } from '../../panels/Panel';
 
 /**
  * Exploded accelerator card (world-and-facilities §8), generated from the design's numbers:
@@ -14,6 +15,7 @@ export function ChipCard({ design, chip, node }: { design: ChipDesign; chip: Chi
   const stacks = Math.max(1, Math.round(chip.memGB / node.hbmGBPerStack));
   const die = Math.sqrt(node.dieAreaMm2) / 10; // cm on the drawing
   const powerStages = Math.max(4, Math.min(24, Math.round(chip.watts / 80)));
+  const details = useDetails();
 
   const plan = useMemo(
     () => floorplan(split, die, design.fp8, design.fp4),
@@ -55,7 +57,7 @@ export function ChipCard({ design, chip, node }: { design: ChipDesign; chip: Chi
       {/* Silicon interposer */}
       <Layer y={0.28} lift={1.5}>
         <BpBox size={[interposerW, 0.06, interposerD]} position={[0, 0.03, 0]} tint={LAYER.silicon} opacity={0.3} />
-        <Callout position={[-interposerW / 2 - 0.2, 0.05, 0]} side="left" title="Interposer" lines={['Wires HBM to the die']} />
+        <Callout position={[-interposerW / 2 - 0.2, 0.05, 0]} side="left" title="Interposer" lines={['Wires the memory to the chip']} />
       </Layer>
 
       {/* The die: floorplan blocks from the area split */}
@@ -73,16 +75,25 @@ export function ChipCard({ design, chip, node }: { design: ChipDesign; chip: Chi
         <Callout
           position={[die / 2 + 0.3, 0.1, -die / 2]}
           title={`Die · ${node.dieAreaMm2} mm²`}
-          lines={[
-            `Compute ${Math.round(split.compute * 100)}% · ${chip.tflops.fp16} TFLOPS FP16`,
-            design.fp4
-              ? `FP8 + FP4 units · ${chip.tflops.fp4} TFLOPS FP4`
-              : design.fp8
-                ? `FP8 units · ${chip.tflops.fp8} TFLOPS FP8`
-                : 'No low-precision units',
-            `SRAM ${Math.round(split.sram * 100)}% · ×${(1 + split.sram * 2).toFixed(2)} bandwidth`,
-            `Links ${Math.round(split.interconnect * 100)}% · ${chip.interconnectGBs} GB/s`,
-          ]}
+          lines={
+            details
+              ? [
+                  `Compute ${Math.round(split.compute * 100)}% · ${chip.tflops.fp16} TFLOPS FP16`,
+                  design.fp4
+                    ? `FP8 + FP4 units · ${chip.tflops.fp4} TFLOPS FP4`
+                    : design.fp8
+                      ? `FP8 units · ${chip.tflops.fp8} TFLOPS FP8`
+                      : 'No low-precision units',
+                  `SRAM ${Math.round(split.sram * 100)}% · ×${(1 + split.sram * 2).toFixed(2)} bandwidth`,
+                  `Links ${Math.round(split.interconnect * 100)}% · ${chip.interconnectGBs} GB/s`,
+                ]
+              : [
+                  `Compute ${Math.round(split.compute * 100)}%: the number crunchers`,
+                  design.fp4 ? 'Turbo math built in' : design.fp8 ? 'Fast math built in' : 'Careful math only',
+                  `Cache ${Math.round(split.sram * 100)}%: speeds up memory`,
+                  `Links ${Math.round(split.interconnect * 100)}%: talks to other chips`,
+                ]
+          }
         />
       </Layer>
 
@@ -106,8 +117,8 @@ export function ChipCard({ design, chip, node }: { design: ChipDesign; chip: Chi
         <Callout
           position={[-die / 2 - 1.2, 0.6, 0]}
           side="left"
-          title={`HBM × ${stacks}`}
-          lines={[`${chip.memGB} GB`, `${chip.memBwTBs} TB/s effective`]}
+          title={`Memory stacks × ${stacks}`}
+          lines={details ? [`${chip.memGB} GB`, `${chip.memBwTBs} TB/s effective`] : [`${chip.memGB} GB of fast memory`]}
         />
       </Layer>
 

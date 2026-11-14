@@ -19,7 +19,7 @@ export const DEFAULT_FLEET_QUOTA = 2000;
 
 export function fabError(state: GameState, content: Content): string | null {
   const r = content.fab;
-  if (state.fab) return 'We already have a fab.';
+  if (state.fab) return 'We already have a chip factory.';
   if (state.roundsRaised < r.requiresRounds) return `A fab needs ${content.funding[r.requiresRounds - 1]?.name ?? 'more funding'} closed first.`;
   if (state.license.power.level < r.requiresPowerLevel) return `A fab draws huge power: it needs Power level ${r.requiresPowerLevel}.`;
   if (state.license.environmental.level < r.requiresEnvironmentalLevel)
@@ -117,7 +117,7 @@ export function tickFab(state: GameState, content: Content, ownedMW: number): Fa
     fab.weeksLeft -= 1;
     if (fab.weeksLeft <= 0) {
       fab.status = 'online';
-      out.logs.push({ kind: 'good', text: 'Our fab is online. Build a production line in a bay and point it at one of our chip designs.' });
+      out.logs.push({ kind: 'good', text: 'Our chip factory is open! Set up a production line in a bay and choose one of our chip designs.' });
     }
     return out;
   }
@@ -135,7 +135,7 @@ export function tickFab(state: GameState, content: Content, ownedMW: number): Fa
       if (line.weeksLeft <= 0) {
         const wasRetool = line.status === 'retooling';
         line.status = 'running';
-        out.logs.push({ kind: 'good', text: `Fab line ${line.bay + 1} is ${wasRetool ? 'retooled' : 'built'} and ready (${nodeName(content, line.nodeId)}).` });
+        out.logs.push({ kind: 'good', text: `Production line ${line.bay + 1} is ${wasRetool ? 'refitted' : 'built'} and ready (${nodeName(content, line.nodeId)}).` });
       }
       line.lastWeek = null;
       continue;

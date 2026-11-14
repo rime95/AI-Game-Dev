@@ -31,3 +31,29 @@ export function pct(n: number): string {
 export function dateLabel(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
+
+/** "×1.4" against a reference (the starter chip, say). */
+export function times(x: number): string {
+  if (!isFinite(x) || x <= 0) return '×0';
+  return `×${x >= 10 ? x.toFixed(0) : x >= 2 ? x.toFixed(1) : x.toFixed(2).replace(/0$/, '')}`;
+}
+
+/** Training data in book-equivalents (1B tokens ≈ 10,000 books). */
+export function books(tokensB: number): string {
+  return `${big(tokensB * 1e4)} books`;
+}
+
+/** A weekly chance in three words. */
+export function riskLabel(p: number): 'Low' | 'Some' | 'High' {
+  return p < 0.02 ? 'Low' : p < 0.06 ? 'Some' : 'High';
+}
+
+export function weeks(n: number): string {
+  if (n >= 104) return `${(n / 52).toFixed(1)} years`;
+  return `${Math.round(n)} week${Math.round(n) === 1 ? '' : 's'}`;
+}
+
+/** Megawatts as homes powered (~800 homes per MW). */
+export function homes(mw: number): string {
+  return `${big(mw * 800)} homes`;
+}

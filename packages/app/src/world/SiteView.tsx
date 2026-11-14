@@ -281,7 +281,7 @@ function HallBuilding({
         <div className="world-tag" style={{ borderColor: trim }}>
           {building
             ? `Hall · building, ${hall.weeksLeft} wk`
-            : `Hall · ${chips.toLocaleString('en-US')} chips${throttled ? ` · throttled ${pct(room!.throttle)}` : ''}`}
+            : `Hall · ${chips.toLocaleString('en-US')} chips${throttled ? ` · too hot, ${pct(room!.throttle)} speed` : ''}`}
         </div>
       </Html>
     </group>
@@ -441,9 +441,9 @@ function HallBar({ game, site, hall, servers }: { game: GameState; site: Site; h
               {room.itKW.toFixed(0)} kW heat · {room.coolingKW.toFixed(0)} kW cooling · {room.powerKW} kW power
             </span>
             <span className={room.throttle < 1 ? 'neg' : undefined}>
-              {room.throttle < 1 ? `Throttled to ${pct(room.throttle)}` : 'Full speed'}
+              {room.throttle < 1 ? `Too hot: ${pct(room.throttle)} speed` : 'Full speed'}
             </span>
-            <span>PUE {room.pue.toFixed(2)}</span>
+            <span>Cooling overhead {room.pue.toFixed(2)}</span>
           </>
         )}
       </div>

@@ -3,7 +3,15 @@ import { researchBonus, TUNING, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { money } from '../format';
 import { LAYER } from '../ui/layers';
-import { Advisor } from './Panel';
+import { Advisor, useDetails } from './Panel';
+
+const PLAIN: Record<Discipline, string> = {
+  research: 'Make every model smarter. They need a research lab in HQ.',
+  modelEng: `Run training. Each one can manage about ${TUNING.chipsPerModelEngineer} chips.`,
+  hardwareEng: 'Design our own chips, with fewer bugs. They need a hardware lab in HQ.',
+  product: 'Turn app users into paying customers and look after business clients. They need a product studio in HQ.',
+  ops: 'Keep the hardware running and make company takeovers go smoothly. They need an ops room in HQ.',
+};
 
 const ROLES: { id: Discipline; label: string; does: string; color: string }[] = [
   { id: 'research', label: 'Researchers', does: 'Each adds +3% effective training compute (up to +60%), but only while seated in a research lab (build one in HQ).', color: LAYER.models },
@@ -16,13 +24,14 @@ const ROLES: { id: Discipline; label: string; does: string; color: string }[] = 
 export function TeamPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const headcount = Object.values(game.staff).reduce((n, c) => n + c, 0);
+  const details = useDetails();
 
   return (
     <>
-      <Advisor who="People lead" color={LAYER.gold}>
-        {headcount} people on payroll at {money(TUNING.salaryPerWeek)} each per week. Seated researchers multiply effective
-        compute by ×{researchBonus(game.hq.effective.research).toFixed(2)}. Everyone works at ×{game.hq.productivity.toFixed(2)}{' '}
-        productivity: give new hires desks in HQ.
+      <Advisor who="people" color={LAYER.gold}>
+        {details
+          ? `${headcount} people on payroll at ${money(TUNING.salaryPerWeek)} each per week. Seated researchers multiply training by ×${researchBonus(game.hq.effective.research).toFixed(2)}. Everyone works at ×${game.hq.productivity.toFixed(2)} speed.`
+          : `${headcount} people on the team, each paid ${money(TUNING.salaryPerWeek)} a week. New hires need a desk and the right room in HQ to do their best work.`}
       </Advisor>
       {ROLES.map((r) => (
         <div className="card" key={r.id} style={{ ['--c' as string]: r.color }}>
@@ -32,7 +41,7 @@ export function TeamPanel({ game }: { game: GameState }) {
               <span className="v">{game.staff[r.id]}</span>
             </span>
           </div>
-          <div className="small muted">{r.does}</div>
+          <div className="small muted">{details ? r.does : PLAIN[r.id]}</div>
           <div className="row">
             <button className="btn" onClick={() => send({ type: 'hire', discipline: r.id })}>
               Hire one ({money(TUNING.hireCost)})

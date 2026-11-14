@@ -122,7 +122,7 @@ export function createGame(content: Content, seed: number, companyName = 'Your l
       nextReleaseWeek: randInt(state, 3, r.releaseEveryWeeks),
     });
   }
-  log(state, 'info', `${state.companyName}: three people, a garage and $8M of seed money. Rent some chips and train a first model.`);
+  log(state, 'info', `${state.companyName} begins: three people, a garage and $8M from early investors. First job: rent some chips and train a model.`);
   state.history.push({ week: 0, cash: state.cash, users: 0, bestScore: 0 });
   refreshHq(state, content);
   return state;
@@ -186,7 +186,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
         termWeeks: offer.termWeeks,
         weeksLeft: offer.termWeeks,
       });
-      log(state, 'good', `Signed ${offer.client}: ${offer.seats.toLocaleString('en-US')} seats for ${offer.termWeeks} weeks.`);
+      log(state, 'good', `Signed ${offer.client}: ${offer.seats.toLocaleString('en-US')} of their staff will use us for ${offer.termWeeks} weeks.`);
       return { state };
     }
 
@@ -430,13 +430,13 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (state.cash < content.fab.buildCost) return fail('Not enough cash.');
       state.cash -= content.fab.buildCost;
       state.fab = newFab(content);
-      log(state, 'good', `Construction of our own fab has begun: ${content.fab.buildWeeks} weeks to the first cleanroom.`);
+      log(state, 'good', `Construction of our own chip factory has begun: ${content.fab.buildWeeks} weeks to go.`);
       return { state };
     }
 
     case 'addFabLine': {
       const fab = state.fab;
-      if (!fab || fab.status !== 'online') return fail('The fab isn\'t online yet.');
+      if (!fab || fab.status !== 'online') return fail('The factory isn\'t open yet.');
       if (fab.lines.length >= content.fab.bays) return fail(`All ${content.fab.bays} bays have lines.`);
       const node = content.nodes.find((n) => n.id === cmd.nodeId);
       if (!node) return fail('Unknown process node.');
@@ -446,7 +446,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       state.cash -= cost;
       const bay = [...Array(content.fab.bays).keys()].find((b) => !fab.lines.some((l) => l.bay === b))!;
       fab.lines.push(newLine(`line-${state.nextId++}`, bay, node.id, content.fab.line.weeks));
-      log(state, 'info', `Installing a ${node.name} line in bay ${bay + 1} (${content.fab.line.weeks} weeks).`);
+      log(state, 'info', `Installing a ${node.name} production line in bay ${bay + 1} (${content.fab.line.weeks} weeks).`);
       return { state };
     }
 
@@ -467,13 +467,13 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (!line) return fail('Unknown line.');
       const node = content.nodes.find((n) => n.id === cmd.nodeId);
       if (!node) return fail('Unknown process node.');
-      if (node.id === line.nodeId) return fail('The line is already on that node.');
+      if (node.id === line.nodeId) return fail('The line already makes that generation.');
       if (state.week < node.availableFromWeek) return fail(`${node.name} isn't available until week ${node.availableFromWeek}.`);
       const cost = lineCost(content, node.id) * content.fab.line.retoolShare;
       if (state.cash < cost) return fail('Not enough cash.');
       state.cash -= cost;
       Object.assign(line, { nodeId: node.id, chipId: null, status: 'retooling', weeksLeft: content.fab.line.retoolWeeks, wafers: 0 });
-      log(state, 'info', `Retooling fab line ${line.bay + 1} for ${node.name} (${content.fab.line.retoolWeeks} weeks). Yield learning starts over.`);
+      log(state, 'info', `Refitting line ${line.bay + 1} for ${node.name} chips (${content.fab.line.retoolWeeks} weeks). It will need practice again before most chips come out good.`);
       return { state };
     }
 
@@ -481,8 +481,8 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
       if (!line) return fail('Unknown line.');
       const info = state.customChipInfo[cmd.chipId];
-      if (!info) return fail('Fab lines make our own chip designs.');
-      if (info.design.nodeId !== line.nodeId) return fail('That chip was designed for a different process node.');
+      if (!info) return fail('Factory lines make our own chip designs.');
+      if (info.design.nodeId !== line.nodeId) return fail('That chip was designed for a different chip generation.');
       line.chipId = cmd.chipId;
       return { state };
     }
@@ -551,7 +551,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (cost > state.cash) return fail('Not enough cash.');
       state.cash -= cost;
       state.dataTokensB += b;
-      log(state, 'info', `Licensed ${b}B tokens of training data.`);
+      log(state, 'info', `Bought ${b}B tokens of training data (about ${(b * 1e4).toLocaleString('en-US')} books).`);
       return { state };
     }
 
@@ -609,7 +609,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (next.cost > state.cash) return fail('Not enough cash.');
       state.cash -= next.cost;
       t.upgrade = { weeksLeft: next.weeks, totalWeeks: next.weeks };
-      log(state, 'info', `Started: ${next.name} (${next.weeks} wk).`);
+      log(state, 'info', `Started: ${next.name} (${next.weeks} weeks).`);
       return { state };
     }
 
@@ -630,7 +630,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
         totalWeeks: preview.tapeoutWeeks,
         respun: false,
       };
-      log(state, 'info', `Taped out ${cmd.design.name.trim()} on ${preview.node.name}. First silicon in ${preview.tapeoutWeeks} wk.`);
+      log(state, 'info', `Sent ${cmd.design.name.trim()} to the factory. The first chips come back in ${preview.tapeoutWeeks} weeks.`);
       return { state };
     }
 
@@ -720,14 +720,14 @@ function advanceWeek(state: GameState, content: Content): void {
         project.weeksLeft = extra;
         project.totalWeeks += extra;
         state.cash -= cost;
-        log(state, 'bad', `First silicon of ${project.design.name} has a bug. Respin: ${extra} more weeks, ${formatM(cost)}.`);
+        log(state, 'bad', `The first ${project.design.name} chips have a bug. Fixing it and sending it again: ${extra} more weeks, ${formatM(cost)}.`);
       } else {
         const yieldRate = Math.max(0.3, Math.min(0.95, node.baseYield + (rand(state) - 0.5) * 0.2 + effectiveStaff(state, 'hardwareEng') * 0.01));
         const chip = deriveChip(node, project.design, `custom-${state.nextId++}`, yieldRate);
         state.customChips.push(chip);
         state.customChipInfo[chip.id] = { design: project.design, yieldRate };
         state.chipProject = null;
-        log(state, 'good', `${chip.name} works! Yield ${Math.round(yieldRate * 100)}%, unit cost $${Math.round(chip.priceUsd).toLocaleString('en-US')}. Buy units in Compute.`);
+        log(state, 'good', `${chip.name} works! ${Math.round(yieldRate * 100)}% of chips come out good, at $${Math.round(chip.priceUsd).toLocaleString('en-US')} each. Order some in Compute.`);
       }
     }
   }
@@ -746,9 +746,9 @@ function advanceWeek(state: GameState, content: Content): void {
   if (state.contracts.length && servedRatio < TUNING.slaThreshold) {
     slaPenalty = enterpriseRevenue * TUNING.slaPenaltyShare;
     const cancelled = state.contracts.filter(() => rand(state) < TUNING.slaCancelChance);
-    for (const c of cancelled) log(state, 'bad', `${c.client} cancelled their contract after we missed our uptime SLA.`);
+    for (const c of cancelled) log(state, 'bad', `${c.client} cancelled their contract after we broke our uptime promise.`);
     state.contracts = state.contracts.filter((c) => !cancelled.includes(c));
-    log(state, 'bad', `SLA breach: serving covered ${Math.round(servedRatio * 100)}% of demand. ${formatM(slaPenalty)} in credits.`);
+    log(state, 'bad', `Broken uptime promise: we answered only ${Math.round(servedRatio * 100)}% of requests. ${formatM(slaPenalty)} refunded to business clients.`);
   }
   enterpriseRevenue -= slaPenalty;
   const revenue = apiRevenue + consumerRevenue + enterpriseRevenue;
@@ -792,7 +792,7 @@ function advanceWeek(state: GameState, content: Content): void {
   }
   if (servedRatio < 0.95 && demand > 0) {
     state.reputation = clampRep(state.reputation - TUNING.underServedReputationLoss);
-    if (servedRatio < 0.8) log(state, 'bad', `Serving capacity covers only ${Math.round(servedRatio * 100)}% of demand.`);
+    if (servedRatio < 0.8) log(state, 'bad', `We could only answer ${Math.round(servedRatio * 100)}% of requests. Users are waiting: free up or add chips.`);
   } else if (state.reputation < reputationCeiling(state)) {
     // Serving people well slowly rebuilds trust, up to a ceiling that our Safety and Compliance levels raise.
     state.reputation = Math.min(reputationCeiling(state), state.reputation + TUNING.reputationRecoveryPerWeek);
@@ -809,7 +809,7 @@ function advanceWeek(state: GameState, content: Content): void {
   if (state.liveModelId && state.offers.length < TUNING.maxOpenOffers && rand(state) < TUNING.offerChancePerWeek) {
     const offer = generateOffer(state, content);
     state.offers.push(offer);
-    log(state, 'info', `New enterprise offer: ${offer.client} (${offer.sector}) wants ${offer.seats.toLocaleString('en-US')} seats.`);
+    log(state, 'info', `New enterprise offer: ${offer.client} (${offer.sector}) wants us for ${offer.seats.toLocaleString('en-US')} of their staff.`);
   }
 
   // 5. Rivals
@@ -825,7 +825,7 @@ function advanceWeek(state: GameState, content: Content): void {
     rival.score = round1(scoreNow(state, rival.capability));
     rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(def.releaseEveryWeeks * 0.7), Math.ceil(def.releaseEveryWeeks * 1.3));
     const modelName = `${def.modelPrefix} ${rival.version}`;
-    log(state, 'rival', `${def.name} released ${modelName} (${rival.score}).`);
+    log(state, 'rival', `${def.name} released ${modelName} (smarts ${rival.score}).`);
     if (!state.pendingEvent && rand(state) < TUNING.rivalPressEventChance) {
       const ev = pickWeighted(state, content.events.filter((e) => e.trigger === 'rivalRelease'));
       if (ev) state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
@@ -853,7 +853,7 @@ function advanceWeek(state: GameState, content: Content): void {
       state.status = 'bankrupt';
       log(state, 'bad', 'Out of cash for too long. The company is bankrupt.');
     } else {
-      log(state, 'bad', `Cash is negative. Bankruptcy in ${TUNING.bankruptAfterNegativeWeeks - state.weeksNegative} wk.`);
+      log(state, 'bad', `We are out of cash. Bankrupt in ${TUNING.bankruptAfterNegativeWeeks - state.weeksNegative} weeks unless we turn it around.`);
     }
   } else {
     state.weeksNegative = 0;
@@ -918,7 +918,7 @@ function completeAcquisition(state: GameState, deal: Integration): void {
   if (deal.antitrustChance > 0 && rand(state) < deal.antitrustChance) {
     const refund = deal.price * TUNING.blockedDealRefund;
     state.cash += refund;
-    log(state, 'bad', `Regulators blocked our acquisition of ${deal.name}. ${formatM(refund)} refunded; the break fee is lost.`);
+    log(state, 'bad', `Regulators blocked our purchase of ${deal.name}. ${formatM(refund)} came back; the deposit is lost.`);
     return;
   }
   const g = deal.gives;
@@ -934,12 +934,12 @@ function completeAcquisition(state: GameState, deal: Integration): void {
     parts.push(`${joined} staff`);
     if (clash) {
       state.reputation = clampRep(state.reputation - 1);
-      log(state, 'bad', `Culture clash at ${deal.name}: half of their team quit during integration.`);
+      log(state, 'bad', `Culture clash at ${deal.name}: half of their team quit during the merger.`);
     }
   }
   if (g.dataTokensB) {
     state.dataTokensB += g.dataTokensB;
-    parts.push(`${g.dataTokensB.toLocaleString('en-US')}B tokens`);
+    parts.push(`${g.dataTokensB.toLocaleString('en-US')}B tokens of data`);
   }
   if (g.users) {
     state.users += g.users;
@@ -947,7 +947,7 @@ function completeAcquisition(state: GameState, deal: Integration): void {
   }
   if (g.ipBonus) {
     state.ipBonus += g.ipBonus;
-    parts.push(`+${Math.round(g.ipBonus * 100)}% effective compute`);
+    parts.push(`+${Math.round(g.ipBonus * 100)}% smarter training`);
   }
   if (g.powerMW) {
     state.extraPowerMW += g.powerMW;
@@ -963,7 +963,7 @@ function completeAcquisition(state: GameState, deal: Integration): void {
     parts.push('one less rival');
   }
   state.acquired.push(deal.dealId);
-  log(state, 'good', `${deal.name} is fully integrated: ${parts.join(', ')}.`);
+  log(state, 'good', `${deal.name} is now part of us: ${parts.join(', ')}.`);
 }
 
 function win(state: GameState, kind: VictoryKind): void {
@@ -991,7 +991,7 @@ function retireSaturatedSuite(state: GameState): void {
   log(
     state,
     'rival',
-    `Suite v${old} is saturated (top score ${round1(top)}). Suite v${old + 1} replaces it: the best model now scores ${round1(newTop)}.`,
+    `Smarts test v${old} is too easy now (top score ${round1(top)}). Harder test v${old + 1} replaces it: the best model now scores ${round1(newTop)}.`,
   );
 }
 
@@ -1001,18 +1001,18 @@ function rollLicenseConsequences(state: GameState, content: Content, tier: numbe
   if (gaps.safety > 0 && rand(state) < chance(gaps.safety)) {
     state.reputation = clampRep(state.reputation - 4 * gaps.safety);
     state.users *= 1 - 0.1 * gaps.safety;
-    log(state, 'bad', `Safety incident: ${name} was jailbroken into harmful output. Reputation −${4 * gaps.safety}, users −${10 * gaps.safety}%.`);
+    log(state, 'bad', `Safety incident: people tricked ${name} into saying harmful things. Reputation −${4 * gaps.safety}, users −${10 * gaps.safety}%.`);
   }
   if (gaps.compliance > 0 && rand(state) < chance(gaps.compliance)) {
     const fine = 1_000_000 * tier * gaps.compliance;
     state.cash -= fine;
-    log(state, 'bad', `Regulators fined us ${formatM(fine)} for launching ${name} without the required filings.`);
+    log(state, 'bad', `Regulators fined us ${formatM(fine)} for launching ${name} without the right paperwork.`);
   }
   if (gaps.environmental > 0 && rand(state) < chance(gaps.environmental)) {
     state.reputation = clampRep(state.reputation - 3 * gaps.environmental);
     const fine = 1_000_000 * gaps.environmental;
     state.cash -= fine;
-    log(state, 'bad', `Permit violation: water and carbon limits exceeded. ${formatM(fine)} fine, reputation −${3 * gaps.environmental}.`);
+    log(state, 'bad', `Permit violation: we used more water and power than allowed. ${formatM(fine)} fine, reputation −${3 * gaps.environmental}.`);
   }
 }
 
@@ -1033,12 +1033,12 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
   log(
     state,
     'good',
-    `${run.spec.name} released${checkpoint ? ` early from a ${Math.round(runProgress(run) * 100)}% checkpoint` : ''}: scores ${round1(scoreNow(state, capability))} on Suite v${state.suite.version}.`,
+    `${run.spec.name} is out${checkpoint ? ` early, ${Math.round(runProgress(run) * 100)}% trained` : ''}! It scores ${round1(scoreNow(state, capability))} smarts.`,
   );
   rollLicenseConsequences(state, content, run.tier, run.gaps, run.spec.name);
   if (run.scandalChance > 0 && rand(state) < run.scandalChance) {
     state.reputation = clampRep(state.reputation - 6);
-    log(state, 'bad', `Researchers found eval questions in ${run.spec.name}'s training data. Contamination scandal: reputation −6.`);
+    log(state, 'bad', `Researchers found test answers in ${run.spec.name}'s training data. Cheating scandal: reputation −6.`);
   }
   state.training = null;
 
@@ -1049,7 +1049,7 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
     state.liveModelId = id;
     if (live && previous && servingCapacityTokens(state, content) === 0 && servingCapacityTokens({ ...state, liveModelId: previous }, content) > 0) {
       state.liveModelId = previous;
-      log(state, 'bad', `${run.spec.name} is too big to serve on our chips: its weights don't fit in one server. ${live.name} stays live. Get chips with more memory, then switch in Models.`);
+      log(state, 'bad', `${run.spec.name} is too big to serve on our chips: it doesn't fit in one server's memory. ${live.name} stays live. Get chips with more memory, then switch in Models.`);
     } else state.hq.morale = Math.min(100, state.hq.morale + TUNING.moraleOnRelease);
   }
 }
@@ -1075,7 +1075,7 @@ function applyEffects(state: GameState, content: Content, e: Effects, fabLineId?
     if (e.runCapabilityDelta) run.capabilityDelta += e.runCapabilityDelta;
     if (e.runCapabilityRiskChance && e.runCapabilityRiskDelta && rand(state) < e.runCapabilityRiskChance) {
       run.capabilityDelta += e.runCapabilityRiskDelta;
-      log(state, 'bad', `${run.spec.name} didn't fully recover from the instability. The final model will be weaker.`);
+      log(state, 'bad', `${run.spec.name} never fully recovered from going off the rails. The final model will be weaker.`);
     }
     if (e.runCostPerChip) state.cash -= e.runCostPerChip * run.spec.chipCount;
     if (e.runScandalChance) run.scandalChance = Math.max(run.scandalChance, e.runScandalChance);

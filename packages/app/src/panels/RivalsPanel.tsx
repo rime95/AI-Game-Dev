@@ -29,19 +29,19 @@ export function RivalsPanel({ game }: { game: GameState }) {
 
   return (
     <>
-      <Advisor who="Research lead" color={LAYER.models}>
+      <Advisor who="models" color={LAYER.models}>
         {next
           ? `Next to pass: ${next.name} at ${next.score.toFixed(1)} — ${(next.score - mine).toFixed(1)} points to go.`
-          : 'We lead the frontier eval. Expect everyone to come after us.'}
+          : 'We have the smartest model in the world. Expect everyone to come after us.'}
       </Advisor>
       <div className="card">
         <div className="row between">
-          <h3>Frontier eval · Suite v{game.suite.version}</h3>
+          <h3>The smarts test · version {game.suite.version}</h3>
           <span className="small muted">since week {game.suite.startedWeek}</span>
         </div>
         <div className="small muted">
-          Top score {top.toFixed(1)} / {TUNING.suiteSaturationScore}. When any model reaches {TUNING.suiteSaturationScore}, the suite
-          retires and a harder one re-scores every model. Capability and license tiers don't change — only the numbers do.
+          Top score {top.toFixed(1)} of {TUNING.suiteSaturationScore}. When any model nearly aces it ({TUNING.suiteSaturationScore}), a harder
+          test replaces it and every model is scored again. Models don't get worse; only the numbers drop.
         </div>
         <Bar value={top / TUNING.suiteSaturationScore} color={LAYER.models} />
       </div>

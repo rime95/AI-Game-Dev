@@ -14,6 +14,46 @@ import { DealsPanel } from './DealsPanel';
 import { HqPanel } from './HqPanel';
 import { FabPanel, SitesPanel } from './SitesPanel';
 import { SelectionCard } from '../world/World';
+import { ADVISORS, type AdvisorKey } from '../words';
+
+/** Panels that hide numbers in simple mode and can show them on request. */
+const DETAIL_TABS: Tab[] = ['models', 'silicon', 'compute', 'sites', 'fab', 'hq', 'products', 'license', 'team', 'deals', 'rivals'];
+
+/** Whether the current panel shows every number. */
+export function useDetails(): boolean {
+  const tab = useStore((s) => s.tab);
+  const global = useStore((s) => s.settings.detail === 'full');
+  const local = useStore((s) => !!s.detailTabs[tab]);
+  return global || local;
+}
+
+/** Shown only with details on. */
+export function Details({ children }: { children: ReactNode }) {
+  return useDetails() ? <>{children}</> : null;
+}
+
+/** Shown only in simple mode. */
+export function Simple({ children }: { children: ReactNode }) {
+  return useDetails() ? null : <>{children}</>;
+}
+
+function DetailToggle({ tab }: { tab: Tab }) {
+  const global = useStore((s) => s.settings.detail === 'full');
+  const on = useStore((s) => !!s.detailTabs[tab]) || global;
+  const toggle = useStore((s) => s.toggleDetails);
+  if (!DETAIL_TABS.includes(tab)) return null;
+  return (
+    <button
+      className={`detail-toggle${on ? ' on' : ''}`}
+      aria-pressed={on}
+      disabled={global}
+      title={global ? 'Every detail is on in Settings' : on ? 'Back to the simple view' : 'Show every number on this screen'}
+      onClick={() => toggle(tab)}
+    >
+      {on ? 'Hide details' : 'Show details'}
+    </button>
+  );
+}
 
 /** Panels long enough to split into sub-tabs. The first one is the default. */
 export const SUB_TABS: Partial<Record<Tab, { id: string; label: string }[]>> = {
@@ -63,6 +103,7 @@ export function Panel({ game }: { game: GameState }) {
         <div className="panel-title">
           <span className="dot" />
           <h2>{m.label}</h2>
+          <DetailToggle tab={tab} />
         </div>
         {subs && (
           <div className="subtabs" role="tablist" aria-label={`${m.label} sections`}>
@@ -125,15 +166,18 @@ function ResizeHandle() {
 }
 
 /** Advisor note: one line until clicked. */
-export function Advisor({ who, color, children }: { who: string; color: string; children: ReactNode }) {
+export function Advisor({ who, color, children }: { who: AdvisorKey; color: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const person = ADVISORS[who];
   return (
     <button className={`advisor${open ? ' open' : ''}`} style={{ ['--c' as string]: color }} onClick={() => setOpen(!open)} aria-expanded={open}>
       <span className="avatar" aria-hidden="true">
-        {who.slice(0, 1)}
+        {person.name.slice(0, 1)}
       </span>
       <span className="advisor-body">
-        <span className="who">{who}</span>
+        <span className="who">
+          {person.name} <span className="muted">· {person.role}</span>
+        </span>
         <span className="say">{children}</span>
       </span>
     </button>

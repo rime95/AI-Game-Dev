@@ -17,7 +17,8 @@ import {
 import { useStore } from '../store';
 import { money, pct } from '../format';
 import { LAYER } from '../ui/layers';
-import { Advisor, Bar, Stat } from './Panel';
+import { BAD } from '../ui/layers';
+import { Advisor, Bar, Stat, useDetails } from './Panel';
 
 const SPECIALISTS = [
   { id: 'research', label: 'Researchers', room: 'research lab' },
@@ -39,21 +40,24 @@ export function HqPanel({ game }: { game: GameState }) {
   const seatedResearch = labs.reduce((n, l) => n + l.seated, 0);
   const servers = serverLayout(game, content);
   const owned = game.fleet.filter((f) => f.owned).reduce((n, f) => n + f.count, 0);
+  const details = useDetails();
 
   return (
     <>
-      <Advisor who="Office manager" color={LAYER.gold}>
+      <Advisor who="office" color={LAYER.gold}>
         {servers.rooms.some((r) => r.throttle < 1)
-          ? `The server room is throttling: chips run at ${Math.round(Math.min(...servers.rooms.map((r) => r.throttle)) * 100)}% speed. Add cooling.`
+          ? `The server room is too hot: chips run at ${Math.round(Math.min(...servers.rooms.map((r) => r.throttle)) * 100)}% speed. Add cooling.`
           : hint(game, d.crowding, seatedResearch, d.breakCoverage)}
       </Advisor>
 
       <div className="card">
         <div className="row between">
           <h3>{stage.name}</h3>
-          <span className="small muted">
-            {stage.w}×{stage.h} tiles
-          </span>
+          {details && (
+            <span className="small muted">
+              {stage.w}×{stage.h} tiles
+            </span>
+          )}
         </div>
         <div className="small muted">{stage.blurb}</div>
         <div className="grid2">
@@ -70,7 +74,7 @@ export function HqPanel({ game }: { game: GameState }) {
             <Stat k="Space" v={`${move.stage.w}×${move.stage.h} tiles`} />
             <Stat k="Rent" v={`${money(move.stage.rentPerWeek)}/wk`} />
             <Stat k="Move cost" v={money(move.stage.moveCost)} />
-            <Stat k="Move-in" v={`${TUNING.moveInWeeks} wk at ×${TUNING.moveInProductivity}`} />
+            <Stat k="Settling in" v={details ? `${TUNING.moveInWeeks} wk at ×${TUNING.moveInProductivity}` : `${TUNING.moveInWeeks} slower weeks`} />
           </div>
           <div className="small muted">Your rooms come with you at the same spots.</div>
           {move.error && (
@@ -85,12 +89,17 @@ export function HqPanel({ game }: { game: GameState }) {
       )}
 
       <div className="card">
-        <h3>Seats and productivity</h3>
+        <h3>Desks and work speed</h3>
         <div className="grid2">
           <Stat k="People / seats" v={`${d.headcount} / ${d.capacity}`} c={d.crowding > 1 ? 'var(--bad)' : undefined} />
-          <Stat k="Crowding" v={pct(Math.min(9.99, d.crowding))} c={d.crowding > 1 ? 'var(--bad)' : undefined} />
+          {details ? (
+            <Stat k="Crowding" v={pct(Math.min(9.99, d.crowding))} c={d.crowding > 1 ? 'var(--bad)' : undefined} />
+          ) : (
+            <Stat k="Working at" v={`${pct(p.total)} speed`} c={p.total < 0.9 ? 'var(--bad)' : LAYER.gold} />
+          )}
         </div>
-        <Bar value={d.capacity ? d.headcount / d.capacity : 1} color={d.crowding > 1 ? '#c2413b' : LAYER.gold} />
+        <Bar value={d.capacity ? d.headcount / d.capacity : 1} color={d.crowding > 1 ? BAD : LAYER.gold} />
+        {details && (<>
         <div className="small muted">
           Seats = {d.desks} desks + {d.specialistSeated} researchers seated in labs. Above 100% crowding, everyone works at 1 ÷ crowding².
         </div>
@@ -103,6 +112,10 @@ export function HqPanel({ game }: { game: GameState }) {
         <div className="small muted">
           Productivity scales research, cluster size per model engineer, tape-out skill, ops and product work.
         </div>
+        </>)}
+        {!details && (
+          <div className="small muted">Crowded offices, low morale and moving house slow everyone down. Desks and break rooms fix the first two.</div>
+        )}
       </div>
 
       <div className="card">
@@ -113,8 +126,8 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
         <Bar value={game.hq.morale / 100} color={LAYER.gold} />
         <div className="small muted">
-          Break space covers {pct(d.breakCoverage)} of staff ({Math.round(d.breakServes)} served). Crowding costs 2 points a week. Releases
-          lift it, incidents dent it.
+          Break rooms cover {pct(d.breakCoverage)} of the team. Crowding wears people down; launches cheer them up and setbacks
+          dent it.
         </div>
       </div>
 
@@ -146,19 +159,24 @@ export function HqPanel({ game }: { game: GameState }) {
           <Stat k="Racks" v={`${rackUnits(game, content)} / ${stage.maxRacks}`} />
           <Stat k="HQ server power" v={`${Math.round(servers.hqKW)} / ${servers.buildingKW} kW`} />
           <Stat k="Owned chips at HQ" v={`${owned - servers.colo} / ${owned}`} c={LAYER.compute} />
-          <Stat k="In colocation" v={`${servers.colo} · ${money(servers.colo * TUNING.colocationPerChipWeek)}/wk`} />
+          <Stat k="In rented rack space" v={`${servers.colo} · ${money(servers.colo * TUNING.colocationPerChipWeek)}/wk`} />
         </div>
-        {servers.rooms.map((r, i) => (
+        {!details &&
+          servers.rooms.map((r, i) => (
+            <div className="small" key={r.roomId} style={{ color: r.throttle < 1 ? 'var(--bad)' : undefined }}>
+              Room {i + 1}: {r.throttle < 1 ? `too hot, chips at ${Math.round(r.throttle * 100)}% speed. Add cooling.` : 'cool and running at full speed'}
+            </div>
+          ))}
+        {details && servers.rooms.map((r, i) => (
           <div className="small" key={r.roomId} style={{ color: r.throttle < 1 ? 'var(--bad)' : undefined }}>
             Room {i + 1}: {r.itKW.toFixed(0)} kW heat · {r.coolingKW} kW cooling · {r.powerKW} kW power ·{' '}
             {r.throttle < 1 ? `throttled to ${Math.round(r.throttle * 100)}%` : 'full speed'} · PUE {r.pue.toFixed(2)}
           </div>
         ))}
         <div className="small muted">
-          Owned chips rack here first: each rack holds 32 of one chip type, power units switch racks on, and if heat exceeds cooling every
-          chip in the room slows to cooling ÷ heat. Chips without a powered rack go to colocation at {money(TUNING.colocationPerChipWeek)}
-          /chip/week. The {lowerName(stage.name)} can supply {stage.maxServerKW} kW and {stage.maxRacks} rack{stage.maxRacks > 1 ? 's' : ''}
-          .
+          {details
+            ? `Owned chips rack here first: each rack holds 32 of one chip type, power units switch racks on, and if heat exceeds cooling every chip in the room slows to cooling ÷ heat. Chips without a powered rack go to rented rack space at ${money(TUNING.colocationPerChipWeek)}/chip/week. The ${lowerName(stage.name)} can supply ${stage.maxServerKW} kW and ${stage.maxRacks} rack${stage.maxRacks > 1 ? 's' : ''}.`
+            : 'Chips we buy live here first. Each rack needs a power unit, and the room needs enough cooling or the chips slow down. Anything that doesn’t fit goes to rented rack space.'}
         </div>
       </div>
 

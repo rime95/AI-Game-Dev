@@ -4,7 +4,9 @@ import { Grid, OrbitControls } from '@react-three/drei';
 import { content } from '@stm/content';
 import { deriveChip, getArch, liveModel, runProgress, type ChipDesign, type GameState } from '@stm/sim';
 import { useStore } from '../../store';
-import { pct } from '../../format';
+import { pct, times } from '../../format';
+import { useDetails } from '../../panels/Panel';
+import { ARCH_NAME, PRECISION_NAME, sizeName } from '../../words';
 import { ChipCard } from './ChipCard';
 import { layerCount, lossCurve, ModelStack } from './ModelStack';
 import { BP, ExplodeContext, useExplode } from './parts';
@@ -99,9 +101,10 @@ function Toolbar({
 function ChipBlueprint({ game, exploded, setExploded }: ViewProps) {
   const draft = useStore((s) => s.chipDraft);
   const [source, setSource] = useState<string>('draft');
+  const details = useDetails();
   const options: { id: string; label: string; design: ChipDesign }[] = [];
   if (draft) options.push({ id: 'draft', label: 'Draft', design: draft });
-  if (game.chipProject) options.push({ id: 'tapeout', label: 'Taping out', design: game.chipProject.design });
+  if (game.chipProject) options.push({ id: 'tapeout', label: 'At the factory', design: game.chipProject.design });
   for (const c of game.customChips) {
     const info = game.customChipInfo?.[c.id];
     if (info) options.push({ id: c.id, label: c.name, design: info.design });
@@ -111,6 +114,7 @@ function ChipBlueprint({ game, exploded, setExploded }: ViewProps) {
   const node = content.nodes.find((n) => n.id === current.design.nodeId) ?? content.nodes[0]!;
   const chip = deriveChip(node, current.design, 'blueprint');
   const info = game.customChipInfo?.[current.id];
+  const gen = ['Older', 'Modern', 'Cutting-edge'][content.nodes.indexOf(node)] ?? node.name;
 
   return (
     <div className="bp-view">
@@ -119,7 +123,11 @@ function ChipBlueprint({ game, exploded, setExploded }: ViewProps) {
       </Scene>
       <Toolbar
         title={current.design.name || 'Untitled chip'}
-        sub={`${node.name} · ${chip.tflops.fp16} TFLOPS FP16 · ${chip.memGB} GB HBM · ${chip.watts} W${info ? ` · yield ${pct(info.yieldRate)}` : ''}`}
+        sub={
+          details
+            ? `${node.name} · ${chip.tflops.fp16} TFLOPS FP16 · ${chip.memGB} GB HBM · ${chip.watts} W${info ? ` · yield ${pct(info.yieldRate)}` : ''}`
+            : `${gen} chip · ${times(chip.tflops.fp16 / content.chips[0]!.tflops.fp16)} speed · ${chip.memGB} GB memory${info ? ` · ${pct(info.yieldRate)} of chips come out good` : ''}`
+        }
         exploded={exploded}
         setExploded={setExploded}
         sources={
@@ -142,6 +150,7 @@ function ModelBlueprint({ game, exploded, setExploded }: ViewProps) {
   const draft = useStore((s) => s.modelDraft);
   const [source, setSource] = useState<string>(game.training ? 'run' : 'draft');
   const live = liveModel(game);
+  const details = useDetails();
   const options: {
     id: string;
     label: string;
@@ -199,7 +208,11 @@ function ModelBlueprint({ game, exploded, setExploded }: ViewProps) {
       </Scene>
       <Toolbar
         title={current.name || 'Untitled model'}
-        sub={`${arch.name} · ${current.paramsB}B params · ${layerCount(current.paramsB)} layers · ${current.tokensB.toLocaleString('en-US')}B tokens · ${current.precision.toUpperCase()}`}
+        sub={
+          details
+            ? `${arch.name} · ${current.paramsB}B params · ${layerCount(current.paramsB)} layers · ${current.tokensB.toLocaleString('en-US')}B tokens · ${current.precision.toUpperCase()}`
+            : `${sizeName(current.paramsB)} ${(ARCH_NAME[arch.id] ?? arch.name).toLowerCase()} · ${layerCount(current.paramsB)} layers · ${PRECISION_NAME[current.precision as keyof typeof PRECISION_NAME] ?? current.precision} math`
+        }
         exploded={exploded}
         setExploded={setExploded}
         sources={
@@ -233,7 +246,7 @@ function LossCurve({ progress, capability, incidents }: { progress: number; capa
   return (
     <div className="bp-loss">
       <div className="bp-sub">
-        Training loss · {pct(progress)} done{incidents ? ` · ${incidents} incident${incidents > 1 ? 's' : ''}` : ''}
+        Mistakes per lesson (lower is better) · {pct(progress)} done{incidents ? ` · ${incidents} setback${incidents > 1 ? 's' : ''}` : ''}
       </div>
       <svg width={W} height={H} role="img" aria-label={`Loss ${last.loss.toFixed(2)}`}>
         <path d={`M8,${H - 10} H${W - 8}`} stroke="rgb(255 255 255 / 0.25)" />

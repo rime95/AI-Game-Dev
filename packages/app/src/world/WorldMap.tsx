@@ -187,7 +187,7 @@ export function WorldMap({ game }: { game: GameState }) {
         </div>
         <div className="small muted">{legendText(overlay)}</div>
         <div className="small">
-          {game.sites.length} campus{game.sites.length === 1 ? '' : 'es'} · {layout.colo.toLocaleString('en-US')} chips in colocation
+          {game.sites.length} campus{game.sites.length === 1 ? '' : 'es'} · {layout.colo.toLocaleString('en-US')} chips in rented rack space
         </div>
       </div>
 
@@ -214,7 +214,7 @@ function LocationCard({ game, loc, onClose }: { game: GameState; loc: SiteLocati
       <div className="grid2 small">
         <span>Power ${loc.powerPricePerMWh}/MWh</span>
         <span>
-          {climate.label}: cooling ×{climate.coolingMult}, PUE {climate.pueDelta >= 0 ? '+' : ''}
+          {climate.label}: cooling ×{climate.coolingMult}, cooling overhead {climate.pueDelta >= 0 ? '+' : ''}
           {climate.pueDelta}
         </span>
         <span>Water: {content.sites.water[loc.water].label.toLowerCase()}</span>

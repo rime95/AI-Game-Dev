@@ -61,6 +61,8 @@ interface Store {
   inFlight: boolean;
   /** Sub-tab picked in each panel. */
   subTabs: Partial<Record<Tab, string>>;
+  /** Panels where the player opened "Show details" (on top of the global setting). */
+  detailTabs: Partial<Record<Tab, boolean>>;
   activityOpen: boolean;
   /** Week when the activity drawer was last opened (for the unread count). */
   seenWeek: number;
@@ -93,6 +95,7 @@ interface Store {
   setSpeed: (speed: Speed) => void;
   step: () => void;
   setSubTab: (tab: Tab, id: string) => void;
+  toggleDetails: (tab: Tab) => void;
   setActivityOpen: (open: boolean) => void;
   setAlertsOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -125,6 +128,7 @@ export const useStore = create<Store>((set, get) => ({
   speed: 0,
   inFlight: false,
   subTabs: {},
+  detailTabs: {},
   activityOpen: false,
   seenWeek: 0,
   alertsOpen: false,
@@ -201,6 +205,7 @@ export const useStore = create<Store>((set, get) => ({
     post({ type: 'command', cmd: { type: 'advanceWeek' } });
   },
   setSubTab: (tab, id) => set({ subTabs: { ...get().subTabs, [tab]: id } }),
+  toggleDetails: (tab) => set({ detailTabs: { ...get().detailTabs, [tab]: !get().detailTabs[tab] } }),
   setActivityOpen: (activityOpen) => set({ activityOpen, alertsOpen: false, seenWeek: get().game?.week ?? 0 }),
   setAlertsOpen: (alertsOpen) => set({ alertsOpen, activityOpen: false }),
   updateSettings: (patch) => {

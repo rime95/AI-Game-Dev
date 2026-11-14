@@ -129,7 +129,7 @@ function Campus({ game }: { game: GameState }) {
         setTab={setTab}
         label={
           game.chipProject
-            ? `Chip lab · tape-out ${game.chipProject.weeksLeft} wk`
+            ? `Chip lab · at the factory, ${game.chipProject.weeksLeft} wk`
             : game.customChips.length
               ? `Chip lab · ${game.customChips.length} design${game.customChips.length > 1 ? 's' : ''}`
               : game.staff.hardwareEng

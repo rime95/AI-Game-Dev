@@ -4,6 +4,7 @@ import type { Mesh } from 'three';
 import type { Arch } from '@stm/content';
 import { LAYER } from '../../ui/layers';
 import { BP, BpBox, Callout, Layer } from './parts';
+import { useDetails } from '../../panels/Panel';
 
 /** Rough transformer depth for a parameter count (for the drawing only). */
 export function layerCount(paramsB: number): number {
@@ -20,6 +21,7 @@ const MAX_GROUPS = 18;
  */
 export function ModelStack({ arch, paramsB, progress }: { arch: Arch; paramsB: number; progress: number | null }) {
   const layers = layerCount(paramsB);
+  const details = useDetails();
   const groups = Math.min(MAX_GROUPS, layers);
   const width = 1.2 + Math.log10(Math.max(1, paramsB)) * 0.7;
   const moe = arch.activeParamFraction < 1;
@@ -34,7 +36,7 @@ export function ModelStack({ arch, paramsB, progress }: { arch: Arch; paramsB: n
       {/* Embedding at the bottom */}
       <Layer y={-0.3} lift={-0.3}>
         <BpBox size={[width * 1.1, 0.1, width * 1.1]} position={[0, 0.05, 0]} tint={LAYER.models} opacity={0.3} />
-        <Callout position={[width * 0.6, 0.1, 0]} title="Embedding" lines={['Tokens in']} />
+        <Callout position={[width * 0.6, 0.1, 0]} title={details ? 'Embedding' : 'Words in'} lines={[details ? 'Tokens in' : 'Text becomes numbers']} />
       </Layer>
 
       {Array.from({ length: groups }, (_, g) => {
@@ -57,7 +59,7 @@ export function ModelStack({ arch, paramsB, progress }: { arch: Arch; paramsB: n
       {/* Output head */}
       <Layer y={top + 0.05} lift={groups * spread + 0.3}>
         <BpBox size={[width * 1.1, 0.1, width * 1.1]} position={[0, 0.05, 0]} tint={LAYER.products} opacity={0.3} />
-        <Callout position={[width * 0.6, 0.1, 0]} title="Output head" lines={['Next-token logits']} />
+        <Callout position={[width * 0.6, 0.1, 0]} title={details ? 'Output head' : 'Answer out'} lines={[details ? 'Next-token logits' : 'Picks the next word']} />
       </Layer>
 
       <Layer y={top * 0.55} lift={(groups * spread) / 2}>
@@ -66,9 +68,13 @@ export function ModelStack({ arch, paramsB, progress }: { arch: Arch; paramsB: n
           side="left"
           title={`${layers} layers`}
           lines={
-            moe
-              ? [`Attention + ${EXPERTS} experts per layer`, `${active} of ${EXPERTS} experts run per token`]
-              : ['Attention + MLP per layer', 'Every weight runs per token']
+            details
+              ? moe
+                ? [`Attention + ${EXPERTS} experts per layer`, `${active} of ${EXPERTS} experts run per token`]
+                : ['Attention + MLP per layer', 'Every weight runs per token']
+              : moe
+                ? [`${EXPERTS} experts in every layer`, `Only ${active} wake up for each word`]
+                : ['Each layer thinks a bit harder', 'The whole brain works on every word']
           }
         />
       </Layer>

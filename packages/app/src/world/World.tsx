@@ -28,6 +28,7 @@ import { MilestoneCard } from './Milestone';
 import { MemorialCard } from './Memorial';
 import { Blueprint } from './blueprint/Blueprint';
 import { WaferReveal } from './blueprint/WaferReveal';
+import { GUIDE_STEPS, nextStep } from '../guide';
 
 /** The world area: the HQ (people) or the campus overview (machines), plus build-mode overlays. */
 export function World({ game }: { game: GameState }) {
@@ -83,12 +84,44 @@ export function World({ game }: { game: GameState }) {
         <div className="world-top-left">
           <Breadcrumb game={game} />
           {view === 'hq' && <FloorTabs game={game} />}
+          <NextStepPill game={game} />
         </div>
         <AlertFlag game={game} />
       </div>
       {view === 'hq' && tab === 'hq' && <BuildBar game={game} />}
       {view === 'hq' && tab !== 'hq' && <BuildHint />}
     </>
+  );
+}
+
+/** The one thing to do next. Click to go there; hide it from Settings. */
+function NextStepPill({ game }: { game: GameState }) {
+  const show = useStore((s) => s.settings.showGuide);
+  const tab = useStore((s) => s.tab);
+  const setTab = useStore((s) => s.setTab);
+  const setSubTab = useStore((s) => s.setSubTab);
+  const update = useStore((s) => s.updateSettings);
+  if (!show) return null;
+  const step = nextStep(game);
+  const here = tab === step.tab;
+  return (
+    <div className={`next-step${here ? ' here' : ''}`} key={step.key}>
+      <button
+        className="next-step-go"
+        onClick={() => {
+          setTab(step.tab);
+          if (step.sub) setSubTab(step.tab, step.sub);
+        }}
+        title={here ? 'You are in the right place' : 'Go there'}
+      >
+        <span className="next-step-k">{step.n >= 1 && step.n <= GUIDE_STEPS ? `Next · ${step.n} of ${GUIDE_STEPS}` : 'Next'}</span>
+        <span className="next-step-t">{step.text}</span>
+        {!here && <span aria-hidden="true">→</span>}
+      </button>
+      <button className="next-step-x" aria-label="Hide the guide" title="Hide the guide (turn it back on in Settings)" onClick={() => update({ showGuide: false })}>
+        ×
+      </button>
+    </div>
   );
 }
 
@@ -237,7 +270,7 @@ function categoryOf(id: string, kind: string): Category {
 
 const DISCIPLINE_WORK: Record<string, { who: string; effect: (n: number) => string }> = {
   research: { who: 'researchers', effect: (n) => `+${(n * TUNING.researcherComputeBonus * 100).toFixed(1)}% effective compute` },
-  hardwareEng: { who: 'hardware engineers', effect: (n) => `${n.toFixed(1)} engineers' worth of tape-out skill` },
+  hardwareEng: { who: 'hardware engineers', effect: (n) => `${n.toFixed(1)} engineers' worth of chip design skill` },
   ops: { who: 'ops engineers', effect: (n) => `${n.toFixed(1)} engineers' worth of reliability` },
   product: { who: 'product managers', effect: (n) => `${n.toFixed(1)} PMs' worth of conversion and accounts` },
   modelEng: { who: 'model engineers', effect: (n) => `${n.toFixed(1)} engineers` },
@@ -289,11 +322,11 @@ function EquipmentCard({ game, id }: { game: GameState; id: string }) {
     else lines.push('Empty. Buy owned chips in Compute and they rack here first.');
   }
   if (def.powerKW) lines.push(`Supplies ${def.powerKW} kW to racks in this room.`);
-  if (def.coolingKW) lines.push(`Removes ${def.coolingKW} kW of heat · PUE ${def.pue ?? TUNING.pue}.`);
+  if (def.coolingKW) lines.push(`Removes ${def.coolingKW} kW of heat · cooling overhead ${def.pue ?? TUNING.pue}.`);
   if (room) {
     lines.push(
       `Room: ${room.itKW.toFixed(0)} kW heat · ${room.coolingKW} kW cooling · ${room.powerKW} kW power · ${
-        room.throttle < 1 ? `throttled to ${Math.round(room.throttle * 100)}%` : 'full speed'
+        room.throttle < 1 ? `too hot: running at ${Math.round(room.throttle * 100)}%` : 'full speed'
       }`,
     );
   }
@@ -361,8 +394,8 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
     const chips = s?.racks.reduce((n, r) => n + r.count, 0) ?? 0;
     effect = s
       ? `${chips} chips racked · ${s.itKW.toFixed(0)} kW heat, ${s.coolingKW} kW cooling, ${s.powerKW} kW power · ${
-          s.throttle < 1 ? `throttled to ${Math.round(s.throttle * 100)}%: add cooling` : 'running at full speed'
-        } · PUE ${s.pue.toFixed(2)}`
+          s.throttle < 1 ? `too hot, running at ${Math.round(s.throttle * 100)}%: add cooling` : 'running at full speed'
+        } · cooling overhead ${s.pue.toFixed(2)}`
       : 'Empty server room.';
   } else {
     effect = `Break space for ${Math.round(t.serves * mult)} people. Morale rises when everyone has break space.`;

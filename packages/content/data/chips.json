@@ -3,7 +3,7 @@
     "id": "kite-k1",
     "name": "Kite K1",
     "vendor": "Kite Semiconductor",
-    "blurb": "The workhorse. Balanced and everywhere, but no FP4.",
+    "blurb": "The workhorse everyone starts on. Good at everything, great at nothing.",
     "tflops": {
       "fp16": 400,
       "fp8": 800,
@@ -25,7 +25,7 @@
     "id": "monolith-m3",
     "name": "Monolith M3",
     "vendor": "Monolith Semiconductor",
-    "blurb": "Raw compute for cheap. Memory and links are thin.",
+    "blurb": "Lots of speed for the money, but short on memory. Best for all-rounder models.",
     "tflops": {
       "fp16": 1200,
       "fp8": 2400,
@@ -47,7 +47,7 @@
     "id": "kite-k2",
     "name": "Kite K2",
     "vendor": "Kite Semiconductor",
-    "blurb": "Flagship. Huge memory, fast links, FP4. Priced like it.",
+    "blurb": "The top of the range: fast, huge memory, quick links. Priced like it.",
     "tflops": {
       "fp16": 1000,
       "fp8": 2000,

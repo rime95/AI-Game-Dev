@@ -2,7 +2,7 @@ import { content } from '@stm/content';
 import type { GameState } from '@stm/sim';
 
 export interface Milestone {
-  kind: 'hq' | 'site' | 'fab' | 'ipo';
+  kind: 'hq' | 'site' | 'fab' | 'ipo' | 'model' | 'funding';
   title: string;
   body: string;
   week: number;
@@ -41,9 +41,32 @@ export function detectMilestone(prev: GameState, next: GameState): Milestone | n
     return {
       kind: 'fab',
       title: 'First light in our own fab',
-      body: 'The cleanroom is ready. From here on, sand goes in and our chips come out.',
+      body: 'The clean room is ready. From here on, sand goes in and our own chips come out.',
       week: next.week,
     };
+  if (next.models.length > prev.models.length) {
+    const m = next.models[next.models.length - 1]!;
+    const best = Math.max(0, ...next.rivals.map((r) => r.score));
+    const first = prev.models.length === 0;
+    const top = m.score > best;
+    return {
+      kind: 'model',
+      title: top ? `${m.name} is the smartest model in the world` : first ? `${m.name}, our first model, is live` : `${m.name} is live`,
+      body: top
+        ? `It scores ${m.score.toFixed(1)} on the smarts test, ahead of every rival (best ${best.toFixed(1)}). Expect users to flock in.`
+        : `It scores ${m.score.toFixed(1)} on the smarts test; the best rival has ${best.toFixed(1)}. ${first ? 'Next: set a price in Products and start selling.' : 'Every release brings new users.'}`,
+      week: next.week,
+    };
+  }
+  if (next.roundsRaised > prev.roundsRaised && next.roundsRaised < content.funding.length) {
+    const round = content.funding[next.roundsRaised - 1];
+    return {
+      kind: 'funding',
+      title: `${next.companyName} raises its ${round?.name ?? 'next round'}`,
+      body: round ? `Investors put in $${(round.cash / 1e6).toLocaleString('en-US')}M for ${Math.round(round.equity * 100)}% of the company. Time to think bigger.` : 'Fresh money in the bank. Time to think bigger.',
+      week: next.week,
+    };
+  }
   if (next.roundsRaised === content.funding.length && prev.roundsRaised < content.funding.length)
     return {
       kind: 'ipo',

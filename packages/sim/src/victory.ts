@@ -112,7 +112,7 @@ export function goalProgress(state: GameState, content: Content): GoalProgress[]
           detail: `${Math.round(fabChipShare(state) * 100)}%`,
         },
         { label: `Power level ${maxPower} (own generation)`, ok: state.license.power.level >= maxPower, detail: `level ${state.license.power.level}` },
-        { label: '#1 on the frontier eval', ok: leadsEval(state) },
+        { label: '#1 on the smarts test', ok: leadsEval(state) },
       ],
     },
   ];

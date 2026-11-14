@@ -24,12 +24,12 @@ export function nudgesFor(game: GameState): Nudge[] {
   const lw = game.lastWeek;
 
   if (lw && lw.demandTokens > 0 && lw.servedTokens / lw.demandTokens < 0.95)
-    out.push({ key: 'serving', text: 'Users are waiting: serving capacity is short. Add chips.', tab: 'compute', tone: 'bad' });
+    out.push({ key: 'serving', text: 'Users are waiting: we can’t answer everyone. Add chips or free some up.', tab: 'compute', tone: 'bad' });
 
   if (game.reputation < 20)
     out.push({
       key: `rep-${Math.floor(game.week / 13)}`,
-      text: `Reputation is ${Math.round(game.reputation)}: users stay away. Serve demand fully and raise Safety and Compliance to rebuild it.`,
+      text: `Reputation is ${Math.round(game.reputation)}: users stay away. Answer every request and raise Safety and Compliance to win them back.`,
       tab: 'license',
       tone: 'bad',
     });
@@ -39,7 +39,7 @@ export function nudgesFor(game: GameState): Nudge[] {
     const site = game.sites.find((s) => s.id === hot.siteId);
     out.push({
       key: `throttle-${hot.roomId}`,
-      text: `${site ? `A hall at ${site.name}` : 'The HQ server room'} is throttling to ${Math.round(hot.throttle * 100)}%: add cooling.`,
+      text: `${site ? `A hall at ${site.name}` : 'The HQ server room'} is too hot, so chips run at ${Math.round(hot.throttle * 100)}%: add cooling.`,
       ...(site ? { tab: 'sites' as Tab, site: { siteId: site.id, hallId: hot.roomId } } : { tab: 'hq' as Tab, view: 'hq' as WorldView }),
       tone: 'bad',
     });
@@ -87,7 +87,7 @@ export function nudgesFor(game: GameState): Nudge[] {
   )
     out.push({
       key: 'colo',
-      text: `${layout.colo.toLocaleString('en-US')} chips sit in colocation (${money(layout.colo * TUNING.colocationPerChipWeek)}/wk). Our own halls are cheaper.`,
+      text: `${layout.colo.toLocaleString('en-US')} chips live in rented rack space (${money(layout.colo * TUNING.colocationPerChipWeek)} a week). Our own server rooms are cheaper.`,
       tab: 'sites',
       view: 'map',
       tone: 'info',
@@ -96,7 +96,7 @@ export function nudgesFor(game: GameState): Nudge[] {
   if (lw && (lw.fabCosts ?? 0) - (lw.fabSales ?? 0) > Math.max(20_000_000, lw.revenue * 0.3))
     out.push({
       key: `fab-spend-${game.week}`,
-      text: `The fab spent ${money((lw.fabCosts ?? 0) - (lw.fabSales ?? 0))} more than it sold last week, mostly on chips for our fleet. Lower line quotas if we don't need them.`,
+      text: `The factory spent ${money((lw.fabCosts ?? 0) - (lw.fabSales ?? 0))} more than it sold last week, mostly on chips we kept. Keep fewer if we don't need them.`,
       tab: 'fab',
       view: 'fab',
       tone: 'bad',
@@ -106,7 +106,7 @@ export function nudgesFor(game: GameState): Nudge[] {
   if (idleLine)
     out.push({
       key: `fab-${idleLine.id}`,
-      text: `Fab bay ${idleLine.bay + 1} is idle: pick a chip design for it.`,
+      text: `Factory bay ${idleLine.bay + 1} is idle: pick a chip design for it.`,
       tab: 'fab',
       view: 'fab',
       tone: 'info',

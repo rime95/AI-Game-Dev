@@ -32,7 +32,7 @@
     {
       "id": "power",
       "name": "Power secured",
-      "missing": "Not enough power: the run is curtailed and trains slower.",
+      "missing": "Not enough power: training runs slower.",
       "levels": [
         {
           "name": "Grid connection",
@@ -52,7 +52,7 @@
         },
         {
           "name": "Dedicated supply agreement",
-          "blurb": "A long-term power purchase agreement with a wind farm.",
+          "blurb": "A long-term contract to buy power from a wind farm.",
           "cost": 15000000,
           "weeks": 10,
           "upkeep": 100000,
@@ -79,39 +79,39 @@
     {
       "id": "safety",
       "name": "Safety level",
-      "missing": "Under-tested model: risk of a public safety incident.",
+      "missing": "Not tested enough: the model could do something harmful in public.",
       "levels": [
         {
-          "name": "Basic evals",
-          "blurb": "Standard capability and misuse tests.",
+          "name": "Basic testing",
+          "blurb": "Standard checks for what the model can do and how it could be misused.",
           "cost": 0,
           "weeks": 0,
           "upkeep": 0
         },
         {
-          "name": "Red team",
-          "blurb": "A dedicated team attacking our models before launch.",
+          "name": "Hired attackers",
+          "blurb": "A team paid to break our models before launch.",
           "cost": 400000,
           "weeks": 4,
           "upkeep": 15000
         },
         {
-          "name": "Weight security",
-          "blurb": "Locked-down infrastructure so our weights can't be stolen.",
+          "name": "Locked-down models",
+          "blurb": "Tight security so nobody can steal our models.",
           "cost": 8000000,
           "weeks": 8,
           "upkeep": 150000
         },
         {
-          "name": "Interpretability program",
-          "blurb": "Research into what our models are actually doing inside.",
+          "name": "Look-inside research",
+          "blurb": "Research into what our models are really thinking.",
           "cost": 40000000,
           "weeks": 16,
           "upkeep": 500000
         },
         {
-          "name": "Full safety case",
-          "blurb": "A documented, audited argument that the frontier model is safe to deploy.",
+          "name": "Full safety proof",
+          "blurb": "An audited, written case that our best model is safe to release.",
           "cost": 150000000,
           "weeks": 24,
           "upkeep": 1500000
@@ -139,21 +139,21 @@
         },
         {
           "name": "Transparency reports",
-          "blurb": "Regular public reporting on data, evals and incidents.",
+          "blurb": "Regular public reports on our data, testing and mistakes.",
           "cost": 4000000,
           "weeks": 8,
           "upkeep": 100000
         },
         {
           "name": "Licensing office",
-          "blurb": "A legal team that handles licensing in each jurisdiction.",
+          "blurb": "A legal team that handles licenses in every country.",
           "cost": 25000000,
           "weeks": 12,
           "upkeep": 400000
         },
         {
           "name": "Frontier license",
-          "blurb": "Government approval to train and deploy frontier models.",
+          "blurb": "Government approval to build and release the most powerful models.",
           "cost": 100000000,
           "weeks": 20,
           "upkeep": 1000000
@@ -163,7 +163,7 @@
     {
       "id": "environmental",
       "name": "Environmental",
-      "missing": "Permit violation risk: water and carbon limits are being exceeded.",
+      "missing": "We are using too much water and power for our permits: fines are likely.",
       "levels": [
         {
           "name": "Site permit",
@@ -174,7 +174,7 @@
         },
         {
           "name": "Water recycling",
-          "blurb": "Closed-loop cooling cuts fresh-water use.",
+          "blurb": "Cooling that reuses its water, so we take less from rivers.",
           "cost": 500000,
           "weeks": 6,
           "upkeep": 10000
@@ -188,7 +188,7 @@
         },
         {
           "name": "Water reclaim + heat reuse",
-          "blurb": "Treated-wastewater cooling, and waste heat sold to district heating.",
+          "blurb": "Cool with recycled water, and sell our waste heat to warm nearby homes.",
           "cost": 50000000,
           "weeks": 16,
           "upkeep": 100000,

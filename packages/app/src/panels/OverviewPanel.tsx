@@ -15,7 +15,7 @@ export function OverviewPanel({ game }: { game: GameState }) {
 
   return (
     <>
-      <Advisor who="Chief of staff" color={LAYER.trust}>
+      <Advisor who="chief" color={LAYER.trust}>
         {hint(game)}
       </Advisor>
 
@@ -99,21 +99,21 @@ function FundingCard({ game }: { game: GameState }) {
 }
 
 function hint(game: GameState): string {
-  if (fundingCheck(game, content).canRaise) return 'Investors are calling. We qualify for the next funding round — see Funding below.';
-  if (!game.fleet.length) return 'We have no compute. Rent some Kite K1 chips in Compute — 64 is plenty for a first model.';
+  if (fundingCheck(game, content).canRaise) return 'Investors are calling! We qualify for the next funding round. See Funding below.';
+  if (!game.fleet.length) return 'Welcome to the garage! First we need chips to train on. Rent some Kite K1s in Compute: 64 is plenty for a first model.';
   if (game.training) {
     const t = game.training;
     const servingNote =
       game.liveModelId && game.lastWeek && game.lastWeek.servingCapacityTokens < game.lastWeek.demandTokens
-        ? ' Careful: training is using the chips we need for serving.'
+        ? ' Careful: training is using the chips we need to answer users.'
         : '';
-    return `${t.spec.name} is training: ${pct(t.flopsDone / t.flopsTotal)} done. Projected score ${t.projectedScore.toFixed(1)}.${servingNote}`;
+    return `${t.spec.name} is training: ${pct(t.flopsDone / t.flopsTotal)} done, expected smarts ${t.projectedScore.toFixed(1)}. Speed the clock up while we wait.${servingNote}`;
   }
-  if (!game.models.length) return 'Chips are ready. Design a first model in Models — a small dense model is the safe start.';
+  if (!game.models.length) return 'Chips are ready. Head to Models and pick a Quick model: it’s the safe first step.';
   const lw = game.lastWeek;
   if (lw && lw.demandTokens > lw.servingCapacityTokens)
-    return 'Demand is outrunning serving capacity. Users are churning — add chips or pick a cheaper-to-serve model.';
+    return 'More people want our model than we can answer, and they’re leaving. Add chips, or train a smaller model that’s cheaper to run.';
   if (lw && lw.revenue < lw.salaries + lw.rent + lw.power)
-    return 'We are burning cash. Either raise the API price, grow users with a better model, or trim idle rented chips.';
-  return 'Healthy week. Check Rivals for the next lab to beat, then plan the next, bigger training run.';
+    return 'We are spending more than we earn. Raise prices, win users with a smarter model, or return rented chips we don’t use.';
+  return 'A good week. Check Rivals for the next lab to beat, then plan a bigger training run.';
 }

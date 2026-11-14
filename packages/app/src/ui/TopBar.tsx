@@ -70,7 +70,7 @@ export function TopBar({ game }: { game: GameState }) {
                 <Line k="Chip rent" v={-lw.rent} />
                 <Line k="Power" v={-lw.power} />
                 <Line k="Office & rooms" v={-(lw.facilities ?? 0)} />
-                {(lw.colocation ?? 0) > 0 && <Line k="Colocation" v={-lw.colocation!} />}
+                {(lw.colocation ?? 0) > 0 && <Line k="Rented rack space" v={-lw.colocation!} />}
                 {(lw.sites ?? 0) > 0 && <Line k="Data centers" v={-lw.sites!} />}
                 {(lw.fabCosts ?? 0) > 0 && <Line k="Fab" v={-lw.fabCosts!} />}
                 <Line k="License upkeep" v={-lw.licenseUpkeep} />
@@ -161,7 +161,7 @@ export function TopBar({ game }: { game: GameState }) {
             k="Data"
             c={LAYER.models}
             v={big(game.dataTokensB * 1e9)}
-            sub="tokens"
+            sub="tokens to learn from"
             pop={
               <>
                 <h4>Training data</h4>

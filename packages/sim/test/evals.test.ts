@@ -44,7 +44,7 @@ describe('eval suite retirement', () => {
     expect(rival.score).toBeLessThan(TUNING.suiteSaturationScore);
     expect(rival.score).toBeGreaterThan(ours.score);
     expect(ours.capability).toBe(before.models[0]!.capability);
-    expect(after.log.some((l) => /Suite v1 is saturated/.test(l.text))).toBe(true);
+    expect(after.log.some((l) => /test v1 is too easy/.test(l.text))).toBe(true);
   });
 
   it('never changes tiers or market share', () => {
