@@ -491,6 +491,10 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
       if (!line) return fail('Unknown line.');
       line.mode = cmd.mode === 'sell' ? 'sell' : 'fleet';
+      if (cmd.fleetQuota !== undefined) {
+        if (!(cmd.fleetQuota >= 0)) return fail('Quota must be zero or more.');
+        line.fleetQuota = Math.floor(cmd.fleetQuota);
+      }
       return { state };
     }
 
@@ -1023,11 +1027,6 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
     score: round1(scoreNow(state, capability)),
     releasedWeek: state.week + 1,
   });
-  const live = liveModel(state);
-  if (!live || capability > live.capability) {
-    state.liveModelId = id;
-    state.hq.morale = Math.min(100, state.hq.morale + TUNING.moraleOnRelease);
-  }
   log(
     state,
     'good',
@@ -1039,6 +1038,17 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
     log(state, 'bad', `Researchers found eval questions in ${run.spec.name}'s training data. Contamination scandal: reputation −6.`);
   }
   state.training = null;
+
+  // A better model goes live, but only if our chips can actually serve it (weights must fit in one server).
+  const live = liveModel(state);
+  if (!live || capability > live.capability) {
+    const previous = state.liveModelId;
+    state.liveModelId = id;
+    if (live && previous && servingCapacityTokens(state, content) === 0 && servingCapacityTokens({ ...state, liveModelId: previous }, content) > 0) {
+      state.liveModelId = previous;
+      log(state, 'bad', `${run.spec.name} is too big to serve on our chips: its weights don't fit in one server. ${live.name} stays live. Get chips with more memory, then switch in Models.`);
+    } else state.hq.morale = Math.min(100, state.hq.morale + TUNING.moraleOnRelease);
+  }
 }
 
 function applyEffects(state: GameState, content: Content, e: Effects, fabLineId?: string): void {

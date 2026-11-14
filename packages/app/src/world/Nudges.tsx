@@ -85,6 +85,15 @@ export function nudgesFor(game: GameState): Nudge[] {
       tone: 'info',
     });
 
+  if (lw && (lw.fabCosts ?? 0) - (lw.fabSales ?? 0) > Math.max(20_000_000, lw.revenue * 0.3))
+    out.push({
+      key: `fab-spend-${game.week}`,
+      text: `The fab spent ${money((lw.fabCosts ?? 0) - (lw.fabSales ?? 0))} more than it sold last week, mostly on chips for our fleet. Lower line quotas if we don't need them.`,
+      tab: 'sites',
+      view: 'fab',
+      tone: 'bad',
+    });
+
   const idleLine = game.fab?.lines.find((l) => l.status === 'running' && !l.chipId);
   if (idleLine)
     out.push({

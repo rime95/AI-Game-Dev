@@ -258,8 +258,10 @@ export interface FabLine {
   wafers: number;
   /** Tool-group levels. */
   stages: Record<FabStageId, number>;
-  /** Fleet: chips join our fleet (surplus is sold). Sell: everything goes to the chip market. */
+  /** Fleet: up to fleetQuota chips a week join our fleet, the rest is sold. Sell: everything goes to the chip market. */
   mode: 'fleet' | 'sell';
+  /** Chips per week this line sends to our fleet in fleet mode. */
+  fleetQuota: number;
   pausedWeeks: number;
   yieldMult: number;
   speedMult: number;
@@ -412,7 +414,7 @@ export type Command =
   | { type: 'upgradeFabStage'; lineId: string; stage: FabStageId }
   | { type: 'retoolFabLine'; lineId: string; nodeId: string }
   | { type: 'setFabLineChip'; lineId: string; chipId: string }
-  | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell' }
+  | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell'; fleetQuota?: number }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

@@ -14,6 +14,9 @@ import { TUNING } from './tuning';
 
 export const FAB_STAGES: FabStageId[] = ['litho', 'etch', 'test', 'packaging'];
 
+/** Chips a week a new line sends to our fleet before selling the rest. */
+export const DEFAULT_FLEET_QUOTA = 2000;
+
 export function fabError(state: GameState, content: Content): string | null {
   const r = content.fab;
   if (state.fab) return 'We already have a fab.';
@@ -153,7 +156,8 @@ export function tickFab(state: GameState, content: Content, ownedMW: number): Fa
     const stacks = hbmStacks(chip, node);
     const byHbm = Math.floor(hbmLeft / stacks);
     const perChipMW = powerDrawMW(chip, 1);
-    const fleetRoom = line.mode === 'fleet' ? Math.max(0, Math.floor(powerLeft / perChipMW)) : 0;
+    const quota = line.fleetQuota ?? DEFAULT_FLEET_QUOTA;
+    const fleetRoom = line.mode === 'fleet' ? Math.max(0, Math.min(quota, Math.floor(powerLeft / perChipMW))) : 0;
     const demand = fleetRoom + marketLeft;
     const chips = Math.max(0, Math.min(cap.fromWafers, cap.packaging, byHbm, demand));
     let bottleneck: FabBottleneck = cap.slowest;
@@ -217,6 +221,7 @@ export function newLine(id: string, bay: number, nodeId: string, weeks: number):
     wafers: 0,
     stages: { litho: 1, etch: 1, test: 1, packaging: 1 },
     mode: 'fleet',
+    fleetQuota: DEFAULT_FLEET_QUOTA,
     pausedWeeks: 0,
     yieldMult: 1,
     speedMult: 1,

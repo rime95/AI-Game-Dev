@@ -16,6 +16,13 @@ import {
   serverLayout,
   stageDef,
   siteError,
+  fabError,
+  fabChipShare,
+  lineCost,
+  previewChip,
+  stageUpgradeCost,
+  FAB_STAGES,
+  type FabStageId,
   labSeating,
   moveCheck,
   freeChips,
@@ -33,6 +40,7 @@ import {
   type GameState,
   type TrainingSpec,
 } from '../src';
+import type { Chip } from '@stm/content';
 
 const WEEKS = Number(process.argv[2] ?? 260);
 const SEEDS = Number(process.argv[3] ?? 3);
@@ -53,11 +61,20 @@ const LADDER = [
 ];
 const TARGET_WEEKS = 8;
 
+/** The chip to buy in bulk: Kite K2 or our newest custom design, whichever is cheaper per FP8 TFLOP. */
+function bulkChip(s: GameState): Chip {
+  const k2 = getChip(content, 'kite-k2')!;
+  const ours = s.customChips.at(-1);
+  if (!ours) return k2;
+  const perTF = (c: Chip) => c.priceUsd / Math.max(1, c.tflops.fp8 || c.tflops.fp16);
+  return perTF(ours) < perTF(k2) ? ours : k2;
+}
+
 function acquireChips(s: GameState, need: number, keepCash: number): GameState {
   // 1) Rent K1 up to cloud supply. 2) Buy K2 if power and cash allow (upgrading power if needed).
   const k1 = getChip(content, 'kite-k1')!;
-  const k2 = getChip(content, 'kite-k2')!;
-  const free = () => content.chips.reduce((n, c) => n + freeChips(s, c.id), 0);
+  const k2 = bulkChip(s);
+  const free = () => [...content.chips, ...s.customChips].reduce((n, c) => n + freeChips(s, c.id), 0);
   let missing = need - free();
   if (missing <= 0) return s;
   const canRent = Math.max(0, cloudSupply(k1, s.week) - rentedChips(s, k1.id));
@@ -71,6 +88,59 @@ function acquireChips(s: GameState, need: number, keepCash: number): GameState {
     const buy = Math.min(missing, room, affordable, buyAllowance(s, k2));
     if (buy >= 8) s = act(s, { type: 'buyChips', chipId: k2.id, count: buy });
     if (room < missing && !s.license.power.upgrade) s = act(s, { type: 'upgradeLicense', track: 'power' });
+  }
+  return s;
+}
+
+const DESIGN_SPLIT = { compute: 0.6, sram: 0.12, memory: 0.2, interconnect: 0.08 };
+const tapedNodes = (s: GameState) => new Set(Object.values(s.customChipInfo).map((i) => i.design.nodeId));
+
+/** Hire hardware engineers once we have an office, and tape out a design on each new node. */
+function siliconProgram(s: GameState): GameState {
+  if (s.hq.stage === 'garage' || s.cash < 40_000_000) return s;
+  const wantEng = s.fab || s.roundsRaised >= 3 ? 6 : 4;
+  while (s.staff.hardwareEng < wantEng && s.cash > 40_000_000) s = furnish(act(s, { type: 'hire', discipline: 'hardwareEng' }));
+  if (s.chipProject) return s;
+  const open = content.nodes.filter((n) => s.week >= n.availableFromWeek && !tapedNodes(s).has(n.id));
+  const node = open.at(-1);
+  if (!node || s.cash < node.tapeoutCost * 3) return s;
+  const design = { name: `S${s.customChips.length + 1} ${node.name}`, nodeId: node.id, split: DESIGN_SPLIT, fp8: true, fp4: false };
+  if (previewChip(s, content, design).errors.length) return s;
+  return act(s, { type: 'startTapeout', design });
+}
+
+/** Build the fab when we qualify, fill bays, keep lines on our newest design, and widen bottlenecks. */
+function fabProgram(s: GameState): GameState {
+  const try_ = (cmd: Command) => {
+    const r = applyCommand(s, content, cmd);
+    if (!r.error) s = r.state;
+    return !r.error;
+  };
+  if (!s.fab) {
+    if (!fabError(s, content) && s.cash > content.fab.buildCost * 1.5) try_({ type: 'buildFab' });
+    return s;
+  }
+  if (s.fab.status !== 'online') return s;
+  // Newest design per node.
+  const newest = new Map<string, string>();
+  for (const c of s.customChips) newest.set(s.customChipInfo[c.id]!.design.nodeId, c.id);
+  const bestNode = [...newest.keys()].sort((a, b) => content.nodes.findIndex((n) => n.id === b) - content.nodes.findIndex((n) => n.id === a))[0];
+  if (!bestNode) return s;
+  if (s.fab.lines.length < 6 && s.cash > lineCost(content, bestNode) * 3) try_({ type: 'addFabLine', nodeId: bestNode });
+  for (const line of s.fab.lines) {
+    if (line.status !== 'running') continue;
+    if (line.nodeId !== bestNode && s.cash > lineCost(content, bestNode) * 2) {
+      try_({ type: 'retoolFabLine', lineId: line.id, nodeId: bestNode });
+      continue;
+    }
+    // Only order fab chips for the fleet when we can afford to; otherwise sell everything.
+    const quota = s.cash > 3_000_000_000 ? 1000 : 0;
+    if ((line.fleetQuota ?? 2000) !== quota) try_({ type: 'setFabLineMode', lineId: line.id, mode: 'fleet', fleetQuota: quota });
+    const want = newest.get(line.nodeId);
+    if (want && line.chipId !== want) try_({ type: 'setFabLineChip', lineId: line.id, chipId: want });
+    const b = line.lastWeek?.bottleneck;
+    if (b && (FAB_STAGES as string[]).includes(b) && s.cash > stageUpgradeCost(content, line) * 4)
+      try_({ type: 'upgradeFabStage', lineId: line.id, stage: b as FabStageId });
   }
   return s;
 }
@@ -165,7 +235,7 @@ function buildServers(s: GameState): GameState {
 }
 
 function bestTrainingChip(s: GameState): { id: string; free: number } {
-  const options = content.chips.map((c) => ({ id: c.id, free: freeChips(s, c.id), fp8: c.tflops.fp8 }));
+  const options = [...content.chips, ...s.customChips].map((c) => ({ id: c.id, free: freeChips(s, c.id), fp8: c.tflops.fp8 }));
   options.sort((a, b) => b.free * b.fp8 - a.free * a.fp8);
   return options[0]!;
 }
@@ -178,6 +248,8 @@ function play(seed: number) {
     if (s.pendingEvent) s = act(s, { type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id });
 
     s = furnish(s);
+    s = siliconProgram(s);
+    s = fabProgram(s);
 
     // Raise money whenever investors will take our call.
     const f = fundingCheck(s, content);
@@ -210,7 +282,7 @@ function play(seed: number) {
         }
         // A run uses one chip type: build up a K2 cluster (bought over several weeks if allocation-limited),
         // falling back to rented K1 early on.
-        const k2 = getChip(content, 'kite-k2')!;
+        const k2 = bulkChip(s);
         if (want > 256) {
           const missing = want - freeChips(s, k2.id);
           if (missing > 0) {
@@ -258,13 +330,15 @@ function play(seed: number) {
     if (weeklyNet(s) > 200_000 && s.staff.research < 20) s = act(s, { type: 'hire', discipline: 'research' });
 
     s = act(s, { type: 'advanceWeek' });
-    if (VERBOSE && s.week % 26 === 0) {
+    if (VERBOSE && s.week % 13 === 0) {
       const l = s.lastWeek!;
       const top = Math.max(...s.rivals.map((r) => r.score));
       console.log(
         `  wk ${s.week}: cash ${(s.cash / 1e6).toFixed(1)}M users ${(s.users / 1e6).toFixed(1)}M net/wk ${(weeklyNet(s) / 1e6).toFixed(2)}M ` +
           `best ${bestScore(s).toFixed(1)} top rival ${top.toFixed(1)} suite v${s.suite.version} served ${((l.servedTokens / Math.max(1, l.demandTokens)) * 100).toFixed(0)}% ` +
-          `chips ${s.fleet.reduce((n, x) => n + x.count, 0)} own ${(s.ownership * 100).toFixed(0)}%`,
+          `chips ${s.fleet.reduce((n, x) => n + x.count, 0)} own ${(s.ownership * 100).toFixed(0)}%` +
+          (s.fab ? ` fab -${(l.fabCosts / 1e6).toFixed(0)}M +${(l.fabSales / 1e6).toFixed(0)}M lines ${s.fab.lines.map((x) => `${x.nodeId}:${x.lastWeek?.chips ?? 0}/${x.lastWeek?.bottleneck ?? x.status}`).join(' ')}` : '') +
+          ` rev ${(l.revenue / 1e6).toFixed(0)}M power ${(l.power / 1e6).toFixed(1)}M sites ${(l.sites / 1e6).toFixed(1)}M colo ${(l.colocation / 1e6).toFixed(1)}M sal ${(l.salaries / 1e6).toFixed(1)}M upkeep ${(l.licenseUpkeep / 1e6).toFixed(1)}M`,
       );
     }
   }
@@ -280,6 +354,8 @@ function play(seed: number) {
     best: bestScore(s).toFixed(1),
     topRival: top.toFixed(1),
     rank: 1 + s.rivals.filter((r) => r.score > bestScore(s)).length,
+    silicon: `${s.customChips.length} designs (${s.customChips.map((c) => `${c.name} $${Math.round(c.priceUsd)}`).join(', ')}), fab ${s.fab ? `${s.fab.status} ${s.fab.lines.length} lines, ${Math.round(fabChipShare(s) * 100)}% of owned chips` : 'none'}`,
+    victory: s.victory ? `${s.victory.kind} wk${s.victory.week}` : 'none',
     sites: `${s.sites.length} campuses, ${s.sites.reduce((n, x) => n + x.halls.length, 0)} halls, colo ${serverLayout(s, content).colo}`,
     hq: `${s.hq.stage} ${deskStats(s, content).headcount}/${deskStats(s, content).capacity} morale ${s.hq.morale.toFixed(0)}`,
     milestones: milestones.join(', '),

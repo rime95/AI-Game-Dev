@@ -323,6 +323,22 @@ function BayCard({ game, bay, onClose }: { game: GameState; bay: number; onClose
               Sell on the market
             </button>
           </div>
+          {line.mode === 'fleet' && (
+            <div className="field">
+              <span className="small muted">Chips a week for our fleet (the rest is sold)</span>
+              <div className="seg">
+                {[500, 2000, 5000, 20000].map((q) => (
+                  <button
+                    key={q}
+                    aria-pressed={(line.fleetQuota ?? 2000) === q}
+                    onClick={() => send({ type: 'setFabLineMode', lineId: line.id, mode: 'fleet', fleetQuota: q })}
+                  >
+                    {big(q)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {lw && (
             <div className="small">
               Last week: {big(lw.chips)} chips ({big(lw.toFleet)} to fleet, {big(lw.sold)} sold) · yield {pct(lw.yieldRate)} ·{' '}

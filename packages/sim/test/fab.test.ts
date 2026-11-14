@@ -63,15 +63,25 @@ describe('the fab', () => {
     let s = week(running());
     const first = s.fab!.lines[0]!.lastWeek!;
     expect(first.chips).toBeGreaterThan(0);
-    expect(first.toFleet).toBe(first.chips);
+    expect(first.toFleet).toBe(Math.min(first.chips, 2000));
+    expect(first.sold).toBe(first.chips - first.toFleet);
     expect(first.yieldRate).toBeCloseTo(0.35, 1);
-    expect(s.fleet.find((f) => f.chipId === 'custom-fab' && f.owned)?.count).toBe(first.chips);
+    expect(s.fleet.find((f) => f.chipId === 'custom-fab' && f.owned)?.count).toBe(first.toFleet);
     expect(s.lastWeek!.fabCosts).toBeGreaterThan(first.chips * first.unitCost);
     s = week(s, 30);
     const later = s.fab!.lines[0]!.lastWeek!;
     expect(later.yieldRate).toBeGreaterThan(first.yieldRate + 0.2);
     expect(later.unitCost).toBeLessThan(first.unitCost);
     expect(fabChipShare(s)).toBe(1);
+  });
+
+  it('sends only the weekly fleet quota to our fleet and sells the rest', () => {
+    let s = running();
+    s = act(s, { type: 'setFabLineMode', lineId: s.fab!.lines[0]!.id, mode: 'fleet', fleetQuota: 500 });
+    s = week(s);
+    const lw = s.fab!.lines[0]!.lastWeek!;
+    expect(lw.toFleet).toBe(500);
+    expect(lw.sold).toBe(lw.chips - 500);
   });
 
   it('sells on the chip market, up to what the market will take', () => {

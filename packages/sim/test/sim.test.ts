@@ -138,3 +138,33 @@ describe('game', () => {
     expect(s.status).toBe('bankrupt');
   });
 });
+
+describe('going live', () => {
+  it('keeps the current model live when a bigger one is too big to serve on our chips', async () => {
+    const { applyCommand: apply, createGame: make, capabilityForScore } = await import('../src');
+    const { content: c } = await import('@stm/content');
+    let s = make(c, 3);
+    s = apply(s, c, { type: 'rentChips', chipId: 'kite-k1', count: 64 }).state;
+    s.models.push({ id: 'small', name: 'Small', archId: 'dense', paramsB: 7, tokensB: 140, precision: 'fp16', capability: 22, score: 20, releasedWeek: 0 });
+    s.liveModelId = 'small';
+    // A finished 5,000B run: far too big for one 8-chip server of Kite K1.
+    s.training = {
+      spec: { name: 'Giant', archId: 'dense', paramsB: 5000, tokensB: 100, precision: 'fp16', chipId: 'kite-k1', chipCount: 8 },
+      flopsTotal: 1,
+      flopsDone: 1,
+      startedWeek: 0,
+      projectedCapability: capabilityForScore(60, s.suite.mid),
+      projectedScore: 60,
+      tier: 1,
+      gaps: { power: 0, safety: 0, compliance: 0, environmental: 0 },
+      speedFactor: 1,
+      capabilityDelta: 0,
+      scandalChance: 0,
+      incidents: 0,
+    };
+    s = apply(s, c, { type: 'advanceWeek' }).state;
+    expect(s.models.some((m) => m.name === 'Giant')).toBe(true);
+    expect(s.liveModelId).toBe('small');
+    expect(s.log.some((l) => /too big to serve/.test(l.text))).toBe(true);
+  });
+});
