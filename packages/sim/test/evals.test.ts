@@ -57,9 +57,23 @@ describe('eval suite retirement', () => {
     expect(tierForCapability(content, cap)).toBe(3);
   });
 
-  it('happens on its own as rivals improve over a few years', () => {
+  it('waits for us: rivals never outgrow a player who stands still', () => {
     const s = advance(createGame(content, 9), 320);
-    expect(s.suite.version).toBeGreaterThanOrEqual(2);
-    for (const r of s.rivals) expect(r.score).toBeLessThan(TUNING.suiteSaturationScore);
+    expect(s.suite.version).toBe(1);
+    for (const r of s.rivals) expect(r.score).toBeLessThan(TUNING.rivalBaselineScore);
+  });
+});
+
+describe('rivals follow the player', () => {
+  it('climb toward our best model over time but stay behind it', () => {
+    const s = createGame(content, 5);
+    const ours = capabilityForScore(70, s.suite.mid);
+    s.models.push({ id: 'm1', name: 'Ours', archId: 'dense', paramsB: 70, tokensB: 1400, precision: 'fp8', capability: ours, score: 70, releasedWeek: 0 });
+    s.liveModelId = 'm1';
+    const later = advance(s, 156);
+    const best = Math.max(...later.rivals.map((r) => r.capability));
+    expect(best).toBeLessThan(ours);
+    expect(best).toBeGreaterThan(ours - 0.5);
+    for (const r of later.rivals) expect(r.capability).toBeLessThan(ours);
   });
 });

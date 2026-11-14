@@ -180,7 +180,7 @@ function furnish(s: GameState): GameState {
   };
   // Rooms that unlock funding rounds and license levels.
   const has = (id: string) => s.hq.rooms.some((r) => r.templateId === id);
-  if (s.roundsRaised >= 1 && !has('boardroom')) place('boardroom');
+  if ((s.roundsRaised >= 1 || s.hq.stage !== 'garage') && !has('boardroom')) place('boardroom');
   if (s.hq.stage !== 'garage' && s.cash > 5_000_000) {
     if (!has('legalOffice')) place('legalOffice');
     if (!has('secureVault')) place('secureVault');
@@ -405,6 +405,7 @@ function play(seed: number) {
     sites: `${s.sites.length} campuses, ${s.sites.reduce((n, x) => n + x.halls.length, 0)} halls, colo ${serverLayout(s, content).colo}`,
     hq: `${s.hq.stage} ${deskStats(s, content).headcount}/${deskStats(s, content).capacity} morale ${s.hq.morale.toFixed(0)}`,
     milestones: milestones.join(', '),
+    nextRound: fundingCheck(s, content).checks.filter((c) => !c.ok).map((c) => c.label).join('; ') || 'ready',
   };
 }
 

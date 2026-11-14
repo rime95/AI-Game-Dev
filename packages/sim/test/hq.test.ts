@@ -36,9 +36,9 @@ describe('HQ grid and rooms', () => {
     expect(placed.hq.rooms).toHaveLength(2);
     expect(placed.cash).toBe(s.cash - 60_000);
     expect(applyCommand(placed, content, { type: 'placeRoom', templateId: 'deskPod', x: 3, y: 1, rot: 0 }).error).toMatch(/already there/);
-    expect(applyCommand(s, content, { type: 'placeRoom', templateId: 'researchLab', x: 3, y: 0, rot: 0 }).error).toMatch(/doesn't fit/);
+    expect(applyCommand(s, content, { type: 'placeRoom', templateId: 'researchLab', x: 5, y: 0, rot: 0 }).error).toMatch(/doesn't fit/);
     // Rotated, the 4×3 lab becomes 3×4 and fits in the garage's right side.
-    expect(applyCommand(s, content, { type: 'placeRoom', templateId: 'researchLab', x: 3, y: 0, rot: 1 }).error).toBeUndefined();
+    expect(applyCommand(s, content, { type: 'placeRoom', templateId: 'researchLab', x: 5, y: 0, rot: 1 }).error).toBeUndefined();
   });
 
   it('refunds half of what was spent on demolish', () => {

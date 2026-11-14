@@ -3,6 +3,7 @@ import type { GameState } from './types';
 import { bestCapability } from './selectors';
 import { tierForCapability } from './license';
 import { totalUsers } from './products';
+import { TUNING } from './tuning';
 
 export interface FundingCheck {
   round: FundingRound | undefined;
@@ -27,6 +28,12 @@ export function fundingCheck(state: GameState, content: Content): FundingCheck {
     { label: `A Tier ${round.minTier}+ model released`, ok: tier >= round.minTier },
   ];
   if (round.requiresProfit) checks.push({ label: 'Profitable last week', ok: weeklyNet(state) > 0 });
+  // Investors want to see the last round put to work before the next one.
+  if (state.roundsRaised > 0) {
+    const since = state.week - (state.lastRoundWeek ?? -999);
+    const left = TUNING.minWeeksBetweenRounds - since;
+    checks.push({ label: left > 0 ? `Time since the last round (${Math.ceil(left / (52 / 12))} more months)` : 'Time since the last round', ok: left <= 0 });
+  }
   // Rooms investors expect to see (the boardroom from Series B).
   for (const t of content.hq.rooms) {
     const at = t.requiredFor?.fundingRound;

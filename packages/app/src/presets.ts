@@ -5,10 +5,10 @@ export const PARAM_OPTIONS = [1, 3, 7, 13, 34, 70, 180, 400, 1000, 2000];
 
 /** Size cards in the simple Models view, by how long the player is willing to wait. */
 const TARGETS = [
-  { id: 'quick', label: 'Quick', weeks: 4, blurb: 'Out the door fast. Good for a first model.' },
-  { id: 'standard', label: 'Standard', weeks: 10, blurb: 'A solid model in a couple of months.' },
-  { id: 'big', label: 'Big', weeks: 20, blurb: 'Takes a while. Worth it if we can wait.' },
-  { id: 'moonshot', label: 'Moonshot', weeks: 40, blurb: 'Our best shot at the top of the leaderboard.' },
+  { id: 'quick', label: 'Quick', weeks: 8, blurb: 'Done in a couple of months. Good for a first model.' },
+  { id: 'standard', label: 'Standard', weeks: 17, blurb: 'A solid model in about four months.' },
+  { id: 'big', label: 'Big', weeks: 26, blurb: 'Half a year. Worth it if we can wait.' },
+  { id: 'moonshot', label: 'Moonshot', weeks: 44, blurb: 'Most of a year, for a big leap ahead.' },
 ] as const;
 
 export interface ModelPreset {

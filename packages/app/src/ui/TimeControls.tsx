@@ -22,7 +22,7 @@ function useHold(): string | null {
 /**
  * The game clock: at speed > 0 a week passes every TICK_MS, waiting for the worker between weeks.
  * Anything that needs the player's attention holds it; it resumes at the same speed once cleared.
- * Space toggles pause, Shift+Space (or Enter) steps one week.
+ * Space toggles pause, Shift+Space (or Enter) plays one month.
  */
 export function useClock() {
   const speed = useStore((s) => s.speed);
@@ -77,7 +77,7 @@ export function TimeControls({ game }: { game: GameState }) {
     <div className="clock">
       <div className="clock-date" title={hold && speed ? `Held: ${hold}` : undefined}>
         <span className="k">
-          Week {game.week}
+          Month {Math.floor(game.week / 4) + 1}
           {speed > 0 && hold ? <span className="held"> · held</span> : null}
         </span>
         <span className="v">{dateLabel(dateForWeek(game.week))}</span>
@@ -104,10 +104,10 @@ export function TimeControls({ game }: { game: GameState }) {
       <button
         className="btn primary step"
         disabled={!!game.pendingEvent || game.status !== 'playing' || inFlight}
-        title={game.pendingEvent ? 'Decide on the open event first' : 'Advance one week (Shift+Space)'}
+        title={game.pendingEvent ? 'Decide on the open event first' : 'Play one month (Shift+Space)'}
         onClick={step}
       >
-        Next week
+        Next month
       </button>
     </div>
   );

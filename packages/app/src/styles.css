@@ -199,9 +199,9 @@ kbd {
 .clock-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .clock-progress::after { content: ''; position: absolute; inset: 0; background: var(--silicon); transform: scaleX(0); transform-origin: left; }
 .clock-progress.run::after { animation: clock-fill linear forwards; }
-.clock-progress.s1::after { animation-duration: 3s; }
-.clock-progress.s2::after { animation-duration: 1.5s; }
-.clock-progress.s4::after { animation-duration: 0.75s; }
+.clock-progress.s1::after { animation-duration: 4s; }
+.clock-progress.s2::after { animation-duration: 2s; }
+.clock-progress.s4::after { animation-duration: 1s; }
 @keyframes clock-fill { to { transform: scaleX(1); } }
 .speeds { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
 .speeds button {

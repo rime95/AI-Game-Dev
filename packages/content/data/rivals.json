@@ -4,39 +4,43 @@
     "name": "Helix Dynamics",
     "personality": "Scale at all costs. Burns cash, ships fast.",
     "modelPrefix": "Helix",
-    "startScore": 34,
-    "releaseEveryWeeks": 11,
+    "startScore": 13,
+    "releaseEveryWeeks": 22,
     "apiPrice": 12,
-    "capabilityGain": 0.18
+    "capabilityGain": 0.18,
+    "trail": 0.15
   },
   {
     "id": "aurora",
     "name": "Aurora Collective",
     "personality": "Open weights. Undercuts everyone on price.",
     "modelPrefix": "Aurora",
-    "startScore": 28,
-    "releaseEveryWeeks": 13,
+    "startScore": 9,
+    "releaseEveryWeeks": 26,
     "apiPrice": 4,
-    "capabilityGain": 0.16
+    "capabilityGain": 0.16,
+    "trail": 0.6
   },
   {
     "id": "kestrel",
     "name": "Kestrel Research",
     "personality": "Safety-first. Slow, trusted by governments.",
     "modelPrefix": "Kestrel",
-    "startScore": 31,
-    "releaseEveryWeeks": 17,
+    "startScore": 11,
+    "releaseEveryWeeks": 34,
     "apiPrice": 10,
-    "capabilityGain": 0.24
+    "capabilityGain": 0.24,
+    "trail": 0.4
   },
   {
     "id": "tessellate",
     "name": "Tessellate",
     "personality": "Big-tech incumbent. Huge distribution, slow on the frontier.",
     "modelPrefix": "Tess",
-    "startScore": 36,
-    "releaseEveryWeeks": 15,
+    "startScore": 12,
+    "releaseEveryWeeks": 30,
     "apiPrice": 8,
-    "capabilityGain": 0.2
+    "capabilityGain": 0.2,
+    "trail": 0.25
   }
 ]

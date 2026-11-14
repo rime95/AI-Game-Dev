@@ -32,8 +32,10 @@ export const TUNING = {
   capabilityScale: 1.2,
   suiteSaturationScore: 90,
   suiteStep: 2.5,
-  /** Rival release gain multiplier per capability unit behind the leader. */
-  rivalCatchUp: 0.6,
+  /** Rivals close this share of the gap to their target (just behind our best model) per release. */
+  rivalCatchUpShare: 0.5,
+  /** Before we release anything, rivals hover around this score. */
+  rivalBaselineScore: 14,
   /** Market pull: capability units per e-fold of user preference. */
   capabilitySoftness: 0.3,
 
@@ -51,7 +53,7 @@ export const TUNING = {
   marketCapUsers: 4_000_000_000,
   priceElasticity: 1.3,
   referencePrice: 8,
-  userConvergencePerWeek: 0.15,
+  userConvergencePerWeek: 0.08,
   underServedReputationLoss: 0.5,
   /** Weekly reputation recovery while demand is fully served, up to the ceiling below. */
   reputationRecoveryPerWeek: 0.25,
@@ -142,8 +144,16 @@ export const TUNING = {
   /** Colocation: rented rack space for owned chips with no room at HQ, $ per chip per week. */
   colocationPerChipWeek: 80,
 
-  randomEventChance: 0.06,
-  rivalPressEventChance: 0.6,
+  randomEventChance: 0.04,
+  rivalPressEventChance: 0.4,
+  /** At least this many weeks between press and random events. */
+  eventCooldownWeeks: 8,
+  /** Even small training runs take about two months. */
+  minTrainingWeeks: 8,
+  /** One turn on the clock. */
+  weeksPerTurn: 4,
+  /** Investors wait about half a year between rounds. */
+  minWeeksBetweenRounds: 26,
   bankruptAfterNegativeWeeks: 4,
   logLimit: 200,
 } as const;

@@ -88,10 +88,13 @@ describe('AGI Program', () => {
 });
 
 describe('other victories', () => {
-  it('Market Leader after two years with the most users', () => {
-    // (A stagnant leader gets caught by rivals within ~1.5 years, so start near the end of a streak.)
+  it('Market Leader: a public company with the most users, two years running', () => {
     let s = frontierLab();
     s.users = 3e8;
+    // Not public yet: the streak doesn't count.
+    const early = step({ ...structuredClone(s), leaderStreak: 0 });
+    expect(early.leaderStreak).toBe(0);
+    s.roundsRaised = content.funding.length;
     s.leaderStreak = TUNING.marketLeaderWeeks - 3;
     for (let i = 0; i < 5 && s.status === 'playing'; i++) s = step(s);
     expect(s.victory?.kind).toBe('marketLeader');

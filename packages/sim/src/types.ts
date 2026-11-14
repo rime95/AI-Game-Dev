@@ -319,7 +319,7 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 16;
+  version: 17;
   fab: Fab | null;
   sites: Site[];
   companyName: string;
@@ -372,6 +372,10 @@ export interface GameState {
   rivals: RivalState[];
   modifiers: Modifier[];
   pendingEvent: PendingEvent | null;
+  /** Week the last funding round closed. */
+  lastRoundWeek?: number;
+  /** Week the last press or random event fired (they need a breather in between). */
+  lastEventWeek?: number;
   log: LogEntry[];
   history: HistoryPoint[];
   lastWeek: WeekReport | null;
@@ -415,7 +419,8 @@ export type Command =
   | { type: 'retoolFabLine'; lineId: string; nodeId: string }
   | { type: 'setFabLineChip'; lineId: string; chipId: string }
   | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell'; fleetQuota?: number }
-  | { type: 'resolveEvent'; choiceId: string };
+  | { type: 'resolveEvent'; choiceId: string }
+  | { type: 'advanceMonth' };
 
 export interface CommandResult {
   state: GameState;

@@ -202,7 +202,7 @@ export const useStore = create<Store>((set, get) => ({
   step: () => {
     if (get().inFlight) return;
     set({ inFlight: true });
-    post({ type: 'command', cmd: { type: 'advanceWeek' } });
+    post({ type: 'command', cmd: { type: 'advanceMonth' } });
   },
   setSubTab: (tab, id) => set({ subTabs: { ...get().subTabs, [tab]: id } }),
   toggleDetails: (tab) => set({ detailTabs: { ...get().detailTabs, [tab]: !get().detailTabs[tab] } }),

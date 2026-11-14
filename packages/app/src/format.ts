@@ -50,6 +50,10 @@ export function riskLabel(p: number): 'Low' | 'Some' | 'High' {
 
 export function weeks(n: number): string {
   if (n >= 104) return `${(n / 52).toFixed(1)} years`;
+  if (n >= 8) {
+    const m = Math.round(n / (52 / 12));
+    return `${m} month${m === 1 ? '' : 's'}`;
+  }
   return `${Math.round(n)} week${Math.round(n) === 1 ? '' : 's'}`;
 }
 

@@ -15,7 +15,7 @@ export const VICTORY_TEXT: Record<VictoryKind, { title: string; body: string }> 
   },
   marketLeader: {
     title: 'Market Leader',
-    body: 'Two straight years as the lab with the most users. Everyone else is building on our platform.',
+    body: 'A public company with the most users of any lab, two years running. Everyone else is building on our platform.',
   },
   fullStack: {
     title: 'Full Stack',
@@ -69,6 +69,11 @@ export function isUserLeader(state: GameState, content: Content): boolean {
   return ours > 0 && others.every((u) => ours > u);
 }
 
+/** We've raised every round, IPO included. */
+export function isPublic(state: GameState, content: Content): boolean {
+  return state.roundsRaised >= content.funding.length;
+}
+
 export function leadsEval(state: GameState): boolean {
   const mine = bestCapability(state);
   return mine > 0 && state.rivals.every((r) => mine > r.capability);
@@ -95,6 +100,7 @@ export function goalProgress(state: GameState, content: Content): GoalProgress[]
     {
       kind: 'marketLeader',
       checks: [
+        { label: 'Go public (IPO)', ok: isPublic(state, content) },
         { label: 'Most users of any lab', ok: isUserLeader(state, content) },
         {
           label: `Hold it ${TUNING.marketLeaderWeeks} weeks in a row`,

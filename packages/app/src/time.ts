@@ -37,8 +37,8 @@ export function viewForTab(tab: Tab, game: GameState | null, current: WorldView,
   }
 }
 
-/** Milliseconds between weeks at each speed. */
-export const TICK_MS: Record<Exclude<Speed, 0>, number> = { 1: 3000, 2: 1500, 4: 750 };
+/** Milliseconds between turns (one month) at each speed. */
+export const TICK_MS: Record<Exclude<Speed, 0>, number> = { 1: 4000, 2: 2000, 4: 1000 };
 
 export interface ClockBlockers {
   game: GameState | null;

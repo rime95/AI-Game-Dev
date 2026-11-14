@@ -202,7 +202,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     TUNING.secondsPerWeek *
     speedFactor *
     chipEfficiency(state, content, chip.id);
-  const weeks = Math.max(1, Math.ceil(flops / flopsPerWeek));
+  const weeks = Math.max(TUNING.minTrainingWeeks, Math.ceil(flops / flopsPerWeek));
   const ownedShare = Math.min(1, totalChips(state, chip.id) > 0 ? ownedCount(state, chip.id) / totalChips(state, chip.id) : 0);
   const weeklyChipCost =
     spec.chipCount * (ownedShare * (chip.watts / 1e6) * TUNING.pue * 168 * TUNING.powerPricePerMWh + (1 - ownedShare) * chip.rentPerWeekUsd);

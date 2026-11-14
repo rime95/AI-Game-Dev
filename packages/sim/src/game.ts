@@ -36,7 +36,7 @@ import {
 } from './selectors';
 import { capabilityForScore } from './formulas';
 import { fundingCheck } from './funding';
-import { isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
+import { isPublic, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
 import type { Integration, TrainingRun, VictoryKind } from './types';
 import { checkpointCapability, runFlopsPerWeek, runIncidentRates, runProgress } from './training';
 import { availableDeals } from './acquisitions';
@@ -66,7 +66,7 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 16,
+    version: 17,
     sites: [],
     fab: null,
     companyName: companyName.trim() || 'Your lab',
@@ -238,6 +238,13 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
     case 'advanceWeek': {
       if (state.pendingEvent) return fail('Decide on the open event first.');
       advanceWeek(state, content);
+      return { state };
+    }
+
+    // One turn: a month of weeks. A decision that comes up mid-month stops the turn there.
+    case 'advanceMonth': {
+      if (state.pendingEvent) return fail('Decide on the open event first.');
+      for (let i = 0; i < TUNING.weeksPerTurn && !state.pendingEvent && state.status === 'playing'; i++) advanceWeek(state, content);
       return { state };
     }
 
@@ -589,6 +596,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       state.cash += f.round.cash;
       state.ownership -= f.equitySold;
       state.roundsRaised += 1;
+      state.lastRoundWeek = state.week;
       state.reputation = clampRep(state.reputation + 2);
       log(
         state,
@@ -817,18 +825,22 @@ function advanceWeek(state: GameState, content: Content): void {
     if (state.week + 1 < rival.nextReleaseWeek) continue;
     const def = content.rivals.find((r) => r.id === rival.id);
     if (!def) continue;
-    rival.version += 1;
-    // Labs that fall behind the leader scale harder (they're well funded too).
-    const leader = Math.max(bestCapability(state), ...state.rivals.map((r) => r.capability));
-    const catchUp = 1 + TUNING.rivalCatchUp * Math.max(0, leader - rival.capability);
-    rival.capability += def.capabilityGain * catchUp * (0.7 + rand(state) * 0.6);
-    rival.score = round1(scoreNow(state, rival.capability));
     rival.nextReleaseWeek = state.week + 1 + randInt(state, Math.ceil(def.releaseEveryWeeks * 0.7), Math.ceil(def.releaseEveryWeeks * 1.3));
+    // Rivals follow us: each aims a set distance behind our best model and never passes it.
+    const ceiling = rivalCeiling(state, def.trail);
+    const gain = TUNING.rivalCatchUpShare * (ceiling - rival.capability) * (0.7 + rand(state) * 0.6);
+    if (gain < 0.02) continue; // nothing new worth shipping yet
+    rival.version += 1;
+    rival.capability = Math.min(ceiling, rival.capability + gain);
+    rival.score = round1(scoreNow(state, rival.capability));
     const modelName = `${def.modelPrefix} ${rival.version}`;
     log(state, 'rival', `${def.name} released ${modelName} (smarts ${rival.score}).`);
-    if (!state.pendingEvent && rand(state) < TUNING.rivalPressEventChance) {
+    if (!state.pendingEvent && eventReady(state) && rand(state) < TUNING.rivalPressEventChance) {
       const ev = pickWeighted(state, content.events.filter((e) => e.trigger === 'rivalRelease'));
-      if (ev) state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
+      if (ev) {
+        state.pendingEvent = instantiate(ev, { rival: def.name, model: modelName, score: String(rival.score) });
+        state.lastEventWeek = state.week;
+      }
     }
   }
 
@@ -836,10 +848,13 @@ function advanceWeek(state: GameState, content: Content): void {
   retireSaturatedSuite(state);
 
   // 6. Random events
-  if (!state.pendingEvent && rand(state) < TUNING.randomEventChance) {
+  if (!state.pendingEvent && eventReady(state) && rand(state) < TUNING.randomEventChance) {
     const pool = content.events.filter((e) => e.trigger === 'random' && (!e.requiresLiveModel || state.liveModelId));
     const ev = pickWeighted(state, pool);
-    if (ev) state.pendingEvent = instantiate(ev, {});
+    if (ev) {
+      state.pendingEvent = instantiate(ev, {});
+      state.lastEventWeek = state.week;
+    }
   }
 
   // 7. Modifiers tick down
@@ -905,7 +920,8 @@ function checkEndgame(state: GameState, content: Content): void {
     }
   }
 
-  state.leaderStreak = isUserLeader(state, content) ? state.leaderStreak + 1 : 0;
+  // Market Leader is a big-company goal: the streak only counts once we're public.
+  state.leaderStreak = isPublic(state, content) && isUserLeader(state, content) ? state.leaderStreak + 1 : 0;
   if (state.victory) return; // already won once; keep playing freely
   if (state.leaderStreak >= TUNING.marketLeaderWeeks) return win(state, 'marketLeader');
   const maxPower = trackDef(content, 'power').levels.length;
@@ -1115,6 +1131,17 @@ function log(state: GameState, kind: LogKind, text: string): void {
 }
 
 const clampRep = (r: number) => Math.max(0, Math.min(100, r));
+
+/** Press and random events wait their turn, so decisions don't pile up. */
+function eventReady(state: GameState): boolean {
+  return state.week - (state.lastEventWeek ?? -999) >= TUNING.eventCooldownWeeks;
+}
+
+/** The best a rival may reach: a set distance behind our best model (or a modest baseline before we have one). */
+export function rivalCeiling(state: GameState, trail: number): number {
+  const baseline = capabilityForScore(TUNING.rivalBaselineScore, state.suite.mid);
+  return Math.max(bestCapability(state), baseline) - trail;
+}
 
 /** How far reputation recovers on its own: a base, plus each Safety and Compliance level above 1. */
 export function reputationCeiling(state: GameState): number {

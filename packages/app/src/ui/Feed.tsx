@@ -56,7 +56,7 @@ export function Ticker({ game }: { game: GameState }) {
   const [shown, setShown] = useState<LogEntry[]>([]);
   const week = game.week;
   useEffect(() => {
-    const fresh = game.log.filter((e) => e.week === week - 1 || e.week === week).filter((e) => e.kind !== 'info');
+    const fresh = game.log.filter((e) => e.week >= week - 4).filter((e) => e.kind !== 'info');
     setShown(fresh.slice(-2));
     const t = setTimeout(() => setShown([]), 4500);
     return () => clearTimeout(t);

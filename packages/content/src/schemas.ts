@@ -60,6 +60,8 @@ export const RivalSchema = z.object({
   capabilityGain: z.number().positive(),
   releaseEveryWeeks: z.number().int().positive(),
   apiPrice: z.number().positive(),
+  /** How far (capability units) this lab stays behind our best model. Smaller = closer on our heels. */
+  trail: z.number().positive().default(0.3),
 });
 export type Rival = z.infer<typeof RivalSchema>;
 
