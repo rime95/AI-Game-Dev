@@ -11,6 +11,7 @@ export * from './training';
 export * from './hq';
 export * from './servers';
 export * from './sites';
+export * from './fab';
 export { TUNING } from './tuning';
 export * from './migrate';
 export { createGame, applyCommand, targetUsers, DISCIPLINE_LABEL } from './game';

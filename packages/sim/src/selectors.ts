@@ -4,6 +4,7 @@ import { TUNING } from './tuning';
 import { effectiveStaff } from './hq';
 import { chipEfficiency, serverLayout } from './servers';
 import { siteFailureFactor } from './sites';
+import { fabPowerMW } from './fab';
 import {
   archFit,
   capabilityIndex,
@@ -79,7 +80,7 @@ export function ownedPowerMW(state: GameState, content: Content): number {
     .reduce((mw, f) => {
       const chip = getChip(content, f.chipId, state);
       return chip ? mw + powerDrawMW(chip, f.count) : mw;
-    }, 0);
+    }, fabPowerMW(state, content));
 }
 
 export function liveModel(state: GameState): ReleasedModel | undefined {

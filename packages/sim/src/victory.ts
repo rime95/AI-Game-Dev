@@ -2,6 +2,7 @@ import type { Content } from '@stm/content';
 import type { GameState, VictoryKind } from './types';
 import { TUNING } from './tuning';
 import { bestCapability, getChip, liveModel, marketSize, freeChips } from './selectors';
+import { fabChipShare } from './fab';
 
 export const VICTORY_TEXT: Record<VictoryKind, { title: string; body: string }> = {
   safeFrontier: {
@@ -18,7 +19,7 @@ export const VICTORY_TEXT: Record<VictoryKind, { title: string; body: string }> 
   },
   fullStack: {
     title: 'Full Stack',
-    body: 'Our own silicon, our own power, and the best model on the planet. We own the whole stack, from sand to mind.',
+    body: 'Our own fab, our own power, and the best model on the planet. We own the whole stack, from sand to mind.',
   },
 };
 
@@ -73,13 +74,6 @@ export function leadsEval(state: GameState): boolean {
   return mine > 0 && state.rivals.every((r) => mine > r.capability);
 }
 
-export function customChipShare(state: GameState): number {
-  const owned = state.fleet.filter((f) => f.owned);
-  const total = owned.reduce((n, f) => n + f.count, 0);
-  if (!total) return 0;
-  const custom = owned.filter((f) => state.customChips.some((c) => c.id === f.chipId)).reduce((n, f) => n + f.count, 0);
-  return custom / total;
-}
 
 export interface GoalProgress {
   kind: VictoryKind;
@@ -113,9 +107,9 @@ export function goalProgress(state: GameState, content: Content): GoalProgress[]
       kind: 'fullStack',
       checks: [
         {
-          label: `${Math.round(TUNING.fullStackCustomShare * 100)}%+ of owned chips are our own designs`,
-          ok: customChipShare(state) >= TUNING.fullStackCustomShare,
-          detail: `${Math.round(customChipShare(state) * 100)}%`,
+          label: `${Math.round(TUNING.fullStackCustomShare * 100)}%+ of owned chips made in our own fab`,
+          ok: fabChipShare(state) >= TUNING.fullStackCustomShare,
+          detail: `${Math.round(fabChipShare(state) * 100)}%`,
         },
         { label: `Power level ${maxPower} (own generation)`, ok: state.license.power.level >= maxPower, detail: `level ${state.license.power.level}` },
         { label: '#1 on the frontier eval', ok: leadsEval(state) },

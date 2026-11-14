@@ -111,6 +111,8 @@ export interface PendingEvent {
   title: string;
   body: string;
   choices: { id: string; label: string; detail: string; effects: Effects }[];
+  /** Fab incidents: the line affected. */
+  fabLineId?: string;
 }
 
 export type LogKind = 'info' | 'good' | 'bad' | 'rival';
@@ -136,6 +138,9 @@ export interface WeekReport {
   colocation: number;
   /** Data center campuses: land, halls and ops centers. */
   sites: number;
+  /** Fab running costs (upkeep, power, wafers and HBM) and chip sales. */
+  fabCosts: number;
+  fabSales: number;
   power: number;
   licenseUpkeep: number;
   licenseRevenue: number;
@@ -236,6 +241,44 @@ export interface PlacedEquipment {
   spent: number;
 }
 
+export type FabStageId = 'litho' | 'etch' | 'test' | 'packaging';
+/** What limited a line last week. */
+export type FabBottleneck = FabStageId | 'hbm' | 'demand' | 'design' | 'paused';
+
+/** A production line in one fab bay, built for one process node. */
+export interface FabLine {
+  id: string;
+  bay: number;
+  nodeId: string;
+  /** The custom chip this line makes (must be on the line's node). */
+  chipId: string | null;
+  status: 'building' | 'running' | 'retooling';
+  weeksLeft: number;
+  /** Wafers made on this node (drives yield learning). */
+  wafers: number;
+  /** Tool-group levels. */
+  stages: Record<FabStageId, number>;
+  /** Fleet: chips join our fleet (surplus is sold). Sell: everything goes to the chip market. */
+  mode: 'fleet' | 'sell';
+  pausedWeeks: number;
+  yieldMult: number;
+  speedMult: number;
+  /** Weeks left on the yield/speed multipliers from an incident. */
+  modWeeks: number;
+  lastWeek: { chips: number; sold: number; toFleet: number; bottleneck: FabBottleneck; yieldRate: number; unitCost: number } | null;
+}
+
+export interface Fab {
+  status: 'building' | 'online';
+  weeksLeft: number;
+  totalWeeks: number;
+  lines: FabLine[];
+  hbmMult: number;
+  hbmWeeks: number;
+  /** Fab-made chips that joined our fleet (Full Stack victory). */
+  madeForFleet: number;
+}
+
 /** A data hall: a 20×12 grid of racks, cooling and power units inside a campus. */
 export interface Hall {
   id: string;
@@ -274,7 +317,8 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 15;
+  version: 16;
+  fab: Fab | null;
   sites: Site[];
   companyName: string;
   hq: HqState;
@@ -363,6 +407,12 @@ export type Command =
   | { type: 'buildOpsCenter'; siteId: string }
   | { type: 'fillHall'; hallId: string; coolingId: string }
   | { type: 'clearHall'; hallId: string }
+  | { type: 'buildFab' }
+  | { type: 'addFabLine'; nodeId: string }
+  | { type: 'upgradeFabStage'; lineId: string; stage: FabStageId }
+  | { type: 'retoolFabLine'; lineId: string; nodeId: string }
+  | { type: 'setFabLineChip'; lineId: string; chipId: string }
+  | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell' }
   | { type: 'resolveEvent'; choiceId: string };
 
 export interface CommandResult {

@@ -101,13 +101,17 @@ describe('other victories', () => {
     expect(step(t).leaderStreak).toBe(0);
   });
 
-  it('Full Stack with custom silicon, own generation and the top model', () => {
+  it('Full Stack with fab-made silicon, own generation and the top model', () => {
     let s = frontierLab();
     const n7 = content.nodes[0]!;
     const chip = deriveChip(n7, { name: 'Ours', nodeId: 'n7', split: { compute: 0.55, sram: 0.15, memory: 0.2, interconnect: 0.1 }, fp8: true, fp4: false }, 'custom-1');
     s.customChips.push(chip);
     s.fleet.push({ id: 'f-own', chipId: chip.id, count: 80_000, owned: true });
     s.license.power.level = 5;
+    // Designing our own chips isn't enough: the fab has to make them.
+    expect(goalProgress(s, content).find((g) => g.kind === 'fullStack')!.checks[0]!.ok).toBe(false);
+    s.fab = { status: 'online', weeksLeft: 0, totalWeeks: 30, lines: [], hbmMult: 1, hbmWeeks: 0, madeForFleet: 80_000 };
+    s.powerCapMW = 2000;
     const goals = goalProgress(s, content).find((g) => g.kind === 'fullStack')!;
     expect(goals.checks.every((c) => c.ok)).toBe(true);
     s = step(s);

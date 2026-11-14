@@ -16,7 +16,7 @@ import {
 
 export type Tab = 'overview' | 'hq' | 'sites' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
 export type Screen = 'menu' | 'game';
-export type WorldView = 'hq' | 'campus' | 'map' | 'site';
+export type WorldView = 'hq' | 'campus' | 'map' | 'site' | 'fab';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {

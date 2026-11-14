@@ -59,7 +59,7 @@ export function SiteView({ game }: { game: GameState }) {
   );
 }
 
-function Fit({ w, h, k = 1 }: { w: number; h: number; k?: number }) {
+export function Fit({ w, h, k = 1 }: { w: number; h: number; k?: number }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const controls = useThree((s) => s.controls) as unknown as {

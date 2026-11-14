@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { locationDef, serverLayout, siteError, sitesUpkeep, TUNING, type GameState } from '@stm/sim';
+import { fabChipShare, fabError, locationDef, serverLayout, siteError, sitesUpkeep, TUNING, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { money, pct } from '../format';
 import { LAYER } from '../ui/layers';
@@ -109,6 +109,8 @@ export function SitesPanel({ game }: { game: GameState }) {
         );
       })}
 
+      <FabCard game={game} />
+
       <div className="card">
         <h3>Where we could build</h3>
         <div className="small muted">
@@ -153,4 +155,57 @@ function hint(game: GameState, colo: number, throttled: boolean): string {
   if (colo > 0)
     return `${colo.toLocaleString('en-US')} chips sit in colocation for ${money(colo * TUNING.colocationPerChipWeek)} a week. Our own halls are cheaper: build a campus or add halls.`;
   return 'Every owned chip has a home. Cold sites cool for less; cheap power keeps the bill down.';
+}
+
+/** Our own fab: requirements, construction and a summary of its lines. */
+function FabCard({ game }: { game: GameState }) {
+  const send = useStore((s) => s.send);
+  const setWorldView = useStore((s) => s.setWorldView);
+  const fab = game.fab;
+  const r = content.fab;
+  if (!fab) {
+    const err = fabError(game, content);
+    return (
+      <div className="card" style={{ ['--c' as string]: LAYER.silicon }}>
+        <h3>Our own fab</h3>
+        <div className="small muted">
+          Make our chip designs ourselves: lines of lithography, etch, test and packaging. Cheaper chips, surplus to sell, and the road to
+          Full Stack. Needs Series D, Power level {r.requiresPowerLevel}, Environmental level {r.requiresEnvironmentalLevel} and{' '}
+          {r.requiresHardwareEng} seated hardware engineers.
+        </div>
+        {err && (
+          <div className="small" style={{ color: 'var(--bad)' }}>
+            {err}
+          </div>
+        )}
+        <button className="btn primary" disabled={!!err || game.cash < r.buildCost} onClick={() => send({ type: 'buildFab' })}>
+          Build the fab ({money(r.buildCost)}, {r.buildWeeks} wk)
+        </button>
+      </div>
+    );
+  }
+  const chips = fab.lines.reduce((n, l) => n + (l.lastWeek?.chips ?? 0), 0);
+  return (
+    <div className="card" style={{ ['--c' as string]: LAYER.silicon }}>
+      <div className="row between">
+        <h3>Our fab</h3>
+        <button className="btn" onClick={() => setWorldView('fab')}>
+          Open
+        </button>
+      </div>
+      {fab.status === 'building' ? (
+        <>
+          <div className="small">Under construction: {fab.weeksLeft} wk left</div>
+          <Bar value={1 - fab.weeksLeft / fab.totalWeeks} color={LAYER.silicon} />
+        </>
+      ) : (
+        <div className="grid2">
+          <Stat k="Lines" v={`${fab.lines.length} / ${r.bays} bays`} />
+          <Stat k="Chips last week" v={chips.toLocaleString('en-US')} c={LAYER.silicon} />
+          <Stat k="Fleet made by us" v={pct(fabChipShare(game))} />
+          <Stat k="Sales last week" v={money(game.lastWeek?.fabSales ?? 0)} c={LAYER.products} />
+        </div>
+      )}
+    </div>
+  );
 }

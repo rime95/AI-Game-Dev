@@ -5,6 +5,7 @@ import { pickWeighted, rand, randInt } from './rng';
 import { clusterFlopsPerSecond, powerDrawMW } from './formulas';
 import { equipmentDef, equipmentPlacement, ownedChipCosts } from './servers';
 import { fillPlan, findHall, hallPlacementError, locationDef, siteError, sitesUpkeep, tickSites } from './sites';
+import { fabChipShare, fabError, fabPowerMW, lineCost, newFab, newLine, stageUpgradeCost, tickFab } from './fab';
 import { bugChance, deriveChip, previewChip, RESPIN_COST_SHARE, RESPIN_TIME_SHARE } from './chipDesign';
 import {
   initialLicense,
@@ -35,7 +36,7 @@ import {
 } from './selectors';
 import { capabilityForScore } from './formulas';
 import { fundingCheck } from './funding';
-import { customChipShare, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
+import { isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
 import type { Integration, TrainingRun, VictoryKind } from './types';
 import { checkpointCapability, runFlopsPerWeek, runIncidentRates, runProgress } from './training';
 import { availableDeals } from './acquisitions';
@@ -65,8 +66,9 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 15,
+    version: 16,
     sites: [],
+    fab: null,
     companyName: companyName.trim() || 'Your lab',
     hq: initialHq(content),
     consumer: { launched: false, subPrice: TUNING.startSubPrice, users: 0 },
@@ -422,6 +424,76 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       return { state };
     }
 
+    case 'buildFab': {
+      const err = fabError(state, content);
+      if (err) return fail(err);
+      if (state.cash < content.fab.buildCost) return fail('Not enough cash.');
+      state.cash -= content.fab.buildCost;
+      state.fab = newFab(content);
+      log(state, 'good', `Construction of our own fab has begun: ${content.fab.buildWeeks} weeks to the first cleanroom.`);
+      return { state };
+    }
+
+    case 'addFabLine': {
+      const fab = state.fab;
+      if (!fab || fab.status !== 'online') return fail('The fab isn\'t online yet.');
+      if (fab.lines.length >= content.fab.bays) return fail(`All ${content.fab.bays} bays have lines.`);
+      const node = content.nodes.find((n) => n.id === cmd.nodeId);
+      if (!node) return fail('Unknown process node.');
+      if (state.week < node.availableFromWeek) return fail(`${node.name} isn't available until week ${node.availableFromWeek}.`);
+      const cost = lineCost(content, node.id);
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      const bay = [...Array(content.fab.bays).keys()].find((b) => !fab.lines.some((l) => l.bay === b))!;
+      fab.lines.push(newLine(`line-${state.nextId++}`, bay, node.id, content.fab.line.weeks));
+      log(state, 'info', `Installing a ${node.name} line in bay ${bay + 1} (${content.fab.line.weeks} weeks).`);
+      return { state };
+    }
+
+    case 'upgradeFabStage': {
+      const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
+      if (!line) return fail('Unknown line.');
+      if (!(cmd.stage in line.stages)) return fail('Unknown stage.');
+      if (line.stages[cmd.stage] >= content.fab.line.maxStageLevel) return fail('That stage is fully built out.');
+      const cost = stageUpgradeCost(content, line);
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      line.stages[cmd.stage] += 1;
+      return { state };
+    }
+
+    case 'retoolFabLine': {
+      const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
+      if (!line) return fail('Unknown line.');
+      const node = content.nodes.find((n) => n.id === cmd.nodeId);
+      if (!node) return fail('Unknown process node.');
+      if (node.id === line.nodeId) return fail('The line is already on that node.');
+      if (state.week < node.availableFromWeek) return fail(`${node.name} isn't available until week ${node.availableFromWeek}.`);
+      const cost = lineCost(content, node.id) * content.fab.line.retoolShare;
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      Object.assign(line, { nodeId: node.id, chipId: null, status: 'retooling', weeksLeft: content.fab.line.retoolWeeks, wafers: 0 });
+      log(state, 'info', `Retooling fab line ${line.bay + 1} for ${node.name} (${content.fab.line.retoolWeeks} weeks). Yield learning starts over.`);
+      return { state };
+    }
+
+    case 'setFabLineChip': {
+      const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
+      if (!line) return fail('Unknown line.');
+      const info = state.customChipInfo[cmd.chipId];
+      if (!info) return fail('Fab lines make our own chip designs.');
+      if (info.design.nodeId !== line.nodeId) return fail('That chip was designed for a different process node.');
+      line.chipId = cmd.chipId;
+      return { state };
+    }
+
+    case 'setFabLineMode': {
+      const line = state.fab?.lines.find((l) => l.id === cmd.lineId);
+      if (!line) return fail('Unknown line.');
+      line.mode = cmd.mode === 'sell' ? 'sell' : 'fleet';
+      return { state };
+    }
+
     case 'clearHall': {
       const found = findHall(state, cmd.hallId);
       if (!found) return fail('Unknown data hall.');
@@ -569,7 +641,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (!ev) return fail('No open event.');
       const choice = ev.choices.find((c) => c.id === cmd.choiceId);
       if (!choice) return fail('Unknown choice.');
-      applyEffects(state, content, choice.effects);
+      applyEffects(state, content, choice.effects, ev.fabLineId);
       log(state, 'info', `${ev.title}: ${choice.label}.`);
       state.pendingEvent = null;
       return { state };
@@ -690,10 +762,17 @@ function advanceWeek(state: GameState, content: Content): void {
   const colocation = owned.colocation;
   const upkeep = licenseUpkeep(state, content);
   const licenseIncome = licenseRevenue(state, content);
+  const fab = tickFab(state, content, ownedPowerMW(state, content) - fabPowerMW(state, content));
+  for (const l of fab.logs) log(state, l.kind, l.text);
+  if (fab.incident && !state.pendingEvent) {
+    const ev = content.events.find((x) => x.trigger === 'fab' && x.fabIncident === fab.incident!.kind);
+    const line = state.fab?.lines.find((l) => l.id === fab.incident!.lineId);
+    if (ev && line) state.pendingEvent = { ...instantiate(ev, { line: `fab line ${line.bay + 1}` }), fabLineId: line.id };
+  }
   const fac = facilitiesCost(state, content);
   const facilities = fac.rent + fac.upkeep;
   const siteCosts = sitesUpkeep(state, content);
-  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities - colocation - siteCosts;
+  state.cash += revenue + licenseIncome - salaries - rent - power - upkeep - facilities - colocation - siteCosts - fab.costs + fab.sales;
 
   // 3b. HQ: morale drifts, move-in ends; sites: construction
   tickHq(state, content);
@@ -785,6 +864,8 @@ function advanceWeek(state: GameState, content: Content): void {
     facilities,
     colocation,
     sites: siteCosts,
+    fabCosts: fab.costs,
+    fabSales: fab.sales,
     power,
     licenseUpkeep: upkeep,
     licenseRevenue: licenseIncome,
@@ -821,7 +902,7 @@ function checkEndgame(state: GameState, content: Content): void {
   if (state.victory) return; // already won once; keep playing freely
   if (state.leaderStreak >= TUNING.marketLeaderWeeks) return win(state, 'marketLeader');
   const maxPower = trackDef(content, 'power').levels.length;
-  if (customChipShare(state) >= TUNING.fullStackCustomShare && state.license.power.level >= maxPower && leadsEval(state)) {
+  if (fabChipShare(state) >= TUNING.fullStackCustomShare && state.license.power.level >= maxPower && leadsEval(state)) {
     win(state, 'fullStack');
   }
 }
@@ -960,7 +1041,18 @@ function releaseRun(state: GameState, content: Content, run: TrainingRun, capabi
   state.training = null;
 }
 
-function applyEffects(state: GameState, content: Content, e: Effects): void {
+function applyEffects(state: GameState, content: Content, e: Effects, fabLineId?: string): void {
+  const line = fabLineId ? state.fab?.lines.find((l) => l.id === fabLineId) : undefined;
+  if (line) {
+    if (e.fabPauseWeeks) line.pausedWeeks = Math.max(line.pausedWeeks, e.fabPauseWeeks);
+    if (e.fabYieldMult) line.yieldMult = e.fabYieldMult;
+    if (e.fabSpeedMult) line.speedMult = e.fabSpeedMult;
+    if ((e.fabYieldMult || e.fabSpeedMult) && e.fabWeeks) line.modWeeks = e.fabWeeks;
+  }
+  if (e.fabHbmMult && state.fab) {
+    state.fab.hbmMult = e.fabHbmMult;
+    state.fab.hbmWeeks = e.fabWeeks ?? 4;
+  }
   const run = state.training;
   if (run) {
     if (e.runProgressWeeks) {

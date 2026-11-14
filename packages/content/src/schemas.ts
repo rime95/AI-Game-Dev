@@ -90,6 +90,14 @@ export const EffectsSchema = z.object({
   runCostPerChip: z.number().nonnegative().optional(),
   /** Chance of a reputation scandal when the model is released. */
   runScandalChance: z.number().min(0).max(1).optional(),
+
+  // Fab-incident effects, applied to the affected line (or the whole fab for HBM):
+  fabPauseWeeks: z.number().int().nonnegative().optional(),
+  fabYieldMult: z.number().positive().optional(),
+  fabSpeedMult: z.number().positive().optional(),
+  fabHbmMult: z.number().positive().optional(),
+  /** How long the yield, speed or HBM multiplier lasts. */
+  fabWeeks: z.number().int().positive().optional(),
 });
 export type Effects = z.infer<typeof EffectsSchema>;
 
@@ -99,7 +107,9 @@ export type Deck = z.infer<typeof DeckSchema>;
 export const EventSchema = z.object({
   id: z.string(),
   deck: DeckSchema,
-  trigger: z.enum(['rivalRelease', 'random', 'training']),
+  trigger: z.enum(['rivalRelease', 'random', 'training', 'fab']),
+  /** For fab incidents: which kind. */
+  fabIncident: z.enum(['cleanroom', 'litho', 'hbm']).optional(),
   /** For training incidents: which risk this event represents. */
   incident: z.enum(['hardware', 'lossSpike', 'contamination']).optional(),
   requiresLiveModel: z.boolean().default(false),
@@ -328,7 +338,43 @@ export const SitesSchema = z.object({
 });
 export type Sites = z.infer<typeof SitesSchema>;
 
+const FabStage = z.object({ name: z.string(), wafersPerLevel: z.number().positive().optional(), chipsPerLevel: z.number().positive().optional() });
+
+/** Our own fab (world-and-facilities §7). */
+export const FabSchema = z.object({
+  requiresRounds: z.number().int().nonnegative(),
+  requiresPowerLevel: z.number().int().positive(),
+  requiresEnvironmentalLevel: z.number().int().positive(),
+  requiresHardwareEng: z.number().int().nonnegative(),
+  buildCost: z.number().positive(),
+  buildWeeks: z.number().int().positive(),
+  upkeepPerWeek: z.number().nonnegative(),
+  basePowerMW: z.number().nonnegative(),
+  bays: z.number().int().positive(),
+  line: z.object({
+    costByNode: z.record(z.string(), z.number().positive()),
+    weeks: z.number().int().positive(),
+    upkeepPerWeek: z.number().nonnegative(),
+    powerMW: z.number().nonnegative(),
+    retoolShare: z.number().positive(),
+    retoolWeeks: z.number().int().positive(),
+    maxStageLevel: z.number().int().positive(),
+    stageUpgradeShare: z.number().positive(),
+  }),
+  stages: z.object({ litho: FabStage, etch: FabStage, test: FabStage, packaging: FabStage }),
+  waferAreaMm2: z.number().positive(),
+  edgeLoss: z.number().positive().max(1),
+  startYield: z.number().positive().max(1),
+  yieldLearningWafers: z.number().positive(),
+  dieCostShare: z.number().positive(),
+  hbm: z.object({ stacksPerWeek: z.number().positive(), growthPerWeek: z.number().nonnegative() }),
+  market: z.object({ priceMarkup: z.number().positive(), chipsPerWeek: z.number().positive(), growthPerWeek: z.number().nonnegative() }),
+  incidentChancePerLine: z.number().min(0).max(1),
+});
+export type FabRules = z.infer<typeof FabSchema>;
+
 export const ContentSchema = z.object({
+  fab: FabSchema,
   sites: SitesSchema,
   hq: HqSchema,
   chips: z.array(ChipSchema).min(1),

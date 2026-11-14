@@ -21,6 +21,7 @@ import { Diorama } from './Diorama';
 import { HqView } from './HqView';
 import { WorldMap } from './WorldMap';
 import { SiteView } from './SiteView';
+import { FabView } from './FabView';
 import { Blueprint } from './blueprint/Blueprint';
 import { WaferReveal } from './blueprint/WaferReveal';
 
@@ -59,6 +60,8 @@ export function World({ game }: { game: GameState }) {
         <Diorama game={game} />
       ) : view === 'map' ? (
         <WorldMap game={game} />
+      ) : view === 'fab' ? (
+        <FabView game={game} />
       ) : (
         <SiteView game={game} />
       )}
@@ -74,6 +77,11 @@ export function World({ game }: { game: GameState }) {
           <button role="tab" aria-selected={view === 'map' || view === 'site'} onClick={() => setView('map')}>
             World map
           </button>
+          {game.fab && (
+            <button role="tab" aria-selected={view === 'fab'} onClick={() => setView('fab')}>
+              Fab
+            </button>
+          )}
         </div>
         {view === 'hq' && <HqBanner game={game} />}
       </div>

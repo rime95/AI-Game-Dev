@@ -666,3 +666,6 @@ table.t tr.you td { background: color-mix(in srgb, var(--models) 8%, transparent
 }
 .map-card { top: 60px; }
 .hall-banner { position: absolute; top: 56px; right: 12px; }
+
+.fab-card { width: min(380px, calc(100% - 24px)); max-height: calc(100% - 180px); overflow: auto; }
+.fab-card .t td, .fab-card .t th { padding: 4px; }
