@@ -168,3 +168,18 @@ describe('going live', () => {
     expect(s.log.some((l) => /too big to serve/.test(l.text))).toBe(true);
   });
 });
+
+describe('reputation', () => {
+  it('recovers slowly while demand is served, up to a ceiling raised by Safety and Compliance', async () => {
+    const { applyCommand: apply, createGame: make, reputationCeiling } = await import('../src');
+    const { content: c } = await import('@stm/content');
+    let s = { ...make(c, 4), reputation: 10 };
+    for (let i = 0; i < 8; i++) {
+      if (s.pendingEvent) s = apply(s, c, { type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id }).state;
+      s = apply(s, c, { type: 'advanceWeek' }).state;
+    }
+    expect(s.reputation).toBeGreaterThan(10);
+    expect(reputationCeiling(s)).toBe(50);
+    expect(reputationCeiling({ ...s, license: { ...s.license, safety: { level: 3, upgrade: null } } })).toBe(60);
+  });
+});

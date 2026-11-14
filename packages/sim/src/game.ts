@@ -793,6 +793,9 @@ function advanceWeek(state: GameState, content: Content): void {
   if (servedRatio < 0.95 && demand > 0) {
     state.reputation = clampRep(state.reputation - TUNING.underServedReputationLoss);
     if (servedRatio < 0.8) log(state, 'bad', `Serving capacity covers only ${Math.round(servedRatio * 100)}% of demand.`);
+  } else if (state.reputation < reputationCeiling(state)) {
+    // Serving people well slowly rebuilds trust, up to a ceiling that our Safety and Compliance levels raise.
+    state.reputation = Math.min(reputationCeiling(state), state.reputation + TUNING.reputationRecoveryPerWeek);
   }
 
   // 4b. Enterprise: contracts run their term; new offers arrive, old ones expire
@@ -1112,5 +1115,10 @@ function log(state: GameState, kind: LogKind, text: string): void {
 }
 
 const clampRep = (r: number) => Math.max(0, Math.min(100, r));
+
+/** How far reputation recovers on its own: a base, plus each Safety and Compliance level above 1. */
+export function reputationCeiling(state: GameState): number {
+  return TUNING.reputationRecoveryBase + TUNING.reputationPerTrustLevel * (state.license.safety.level - 1 + state.license.compliance.level - 1);
+}
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const formatM = (n: number) => (n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : `$${(n / 1e6).toFixed(1)}M`);

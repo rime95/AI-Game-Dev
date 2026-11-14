@@ -18,6 +18,8 @@ export const TUNING = {
   baseUtilization: 0.45,
   /** Cluster size at which fabric scaling efficiency halves. */
   fabricHalfEfficiencyChips: 50_000,
+  /** Each data center campus we run adds this much to the half-efficiency cluster size (our own fabric). */
+  fabricHalfPerCampus: 50_000,
   /** Each researcher adds this much effective compute, up to the cap. */
   researcherComputeBonus: 0.03,
   researcherComputeBonusCap: 0.6,
@@ -51,6 +53,11 @@ export const TUNING = {
   referencePrice: 8,
   userConvergencePerWeek: 0.15,
   underServedReputationLoss: 0.5,
+  /** Weekly reputation recovery while demand is fully served, up to the ceiling below. */
+  reputationRecoveryPerWeek: 0.25,
+  reputationRecoveryBase: 50,
+  /** Extra recovery ceiling per Safety or Compliance level above 1. */
+  reputationPerTrustLevel: 5,
 
   /** Endgame: the AGI Program. */
   agiCapability: 27,

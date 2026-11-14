@@ -32,20 +32,20 @@ export function archFit(chip: Chip, arch: Arch): ArchFit {
   return { memory, interconnect, fit: Math.sqrt(memory) * Math.sqrt(interconnect) };
 }
 
-/** Scaling efficiency across many chips (1 → 0.5 at the half-efficiency size). */
-export function fabricScaling(chipCount: number): number {
-  return 1 / (1 + chipCount / TUNING.fabricHalfEfficiencyChips);
+/** Scaling efficiency across many chips (1 → 0.5 at the half-efficiency size, which our own data centers raise). */
+export function fabricScaling(chipCount: number, halfChips: number = TUNING.fabricHalfEfficiencyChips): number {
+  return 1 / (1 + chipCount / halfChips);
 }
 
 /** Share of peak FLOPS the cluster actually delivers for this arch. */
-export function utilization(chip: Chip, arch: Arch, chipCount: number): number {
-  return TUNING.baseUtilization * archFit(chip, arch).fit * fabricScaling(chipCount);
+export function utilization(chip: Chip, arch: Arch, chipCount: number, halfChips?: number): number {
+  return TUNING.baseUtilization * archFit(chip, arch).fit * fabricScaling(chipCount, halfChips);
 }
 
 /** Delivered training FLOP/s for a cluster. */
-export function clusterFlopsPerSecond(chip: Chip, arch: Arch, precision: Precision, chipCount: number): number {
+export function clusterFlopsPerSecond(chip: Chip, arch: Arch, precision: Precision, chipCount: number, halfChips?: number): number {
   const p = effectivePrecision(chip, precision);
-  return chipCount * chip.tflops[p] * 1e12 * utilization(chip, arch, chipCount);
+  return chipCount * chip.tflops[p] * 1e12 * utilization(chip, arch, chipCount, halfChips);
 }
 
 /** Penalty for straying from ~20 tokens per parameter (compute-optimal ratio). */

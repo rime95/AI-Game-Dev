@@ -26,6 +26,14 @@ export function nudgesFor(game: GameState): Nudge[] {
   if (lw && lw.demandTokens > 0 && lw.servedTokens / lw.demandTokens < 0.95)
     out.push({ key: 'serving', text: 'Users are waiting: serving capacity is short. Add chips.', tab: 'compute', tone: 'bad' });
 
+  if (game.reputation < 20)
+    out.push({
+      key: `rep-${Math.floor(game.week / 13)}`,
+      text: `Reputation is ${Math.round(game.reputation)}: users stay away. Serve demand fully and raise Safety and Compliance to rebuild it.`,
+      tab: 'license',
+      tone: 'bad',
+    });
+
   const hot = layout.rooms.find((r) => r.throttle < 1);
   if (hot) {
     const site = game.sites.find((s) => s.id === hot.siteId);

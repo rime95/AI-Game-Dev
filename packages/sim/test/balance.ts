@@ -20,6 +20,9 @@ import {
   fabChipShare,
   lineCost,
   previewChip,
+  previewAgi,
+  bestCapability,
+  modelFitsOnServer,
   stageUpgradeCost,
   FAB_STAGES,
   type FabStageId,
@@ -40,7 +43,7 @@ import {
   type GameState,
   type TrainingSpec,
 } from '../src';
-import type { Chip } from '@stm/content';
+import type { Chip, Precision } from '@stm/content';
 
 const WEEKS = Number(process.argv[2] ?? 260);
 const SEEDS = Number(process.argv[3] ?? 3);
@@ -48,18 +51,33 @@ const VERBOSE = SEEDS === 1;
 
 const act = (s: GameState, cmd: Command): GameState => applyCommand(s, content, cmd).state;
 
-// Model ladder: each step roughly 5-10x the compute of the last.
-const LADDER = [
-  { paramsB: 7, tokensB: 140 },
-  { paramsB: 13, tokensB: 260 },
-  { paramsB: 34, tokensB: 680 },
-  { paramsB: 70, tokensB: 1400 },
-  { paramsB: 180, tokensB: 3600 },
-  { paramsB: 400, tokensB: 8000 },
-  { paramsB: 1000, tokensB: 20000 },
-  { paramsB: 2000, tokensB: 40000 },
-];
 const TARGET_WEEKS = 8;
+/** Training budget for rung r: the first run's FLOPs × 6^r, with no end. */
+const BASE_FLOPS = 6 * 7e9 * 140e9;
+const rungFlops = (r: number) => BASE_FLOPS * Math.pow(6, r);
+const PARAM_OPTIONS = [1, 3, 7, 13, 34, 70, 180, 400, 700, 1000, 1500, 2000, 3000, 5000];
+
+/**
+ * Best run for a FLOP budget on this chip: try dense and MoE at every size our chips can still serve
+ * (weights must fit in one 8-chip server), spend the budget on tokens, keep the highest projected capability.
+ */
+function planRun(s: GameState, flops: number, chipId: string, chipCount: number, name: string): TrainingSpec | null {
+  const chip = getChip(content, chipId, s);
+  if (!chip) return null;
+  const precisions: Precision[] = chip.tflops.fp8 > 0 ? ['fp8'] : ['fp16'];
+  let best: { spec: TrainingSpec; cap: number } | null = null;
+  for (const arch of content.archs)
+    for (const precision of precisions)
+      for (const paramsB of PARAM_OPTIONS) {
+        if (!modelFitsOnServer(chip, paramsB, precision)) continue;
+        const tokensB = Math.round(flops / (6 * paramsB * 1e9 * arch.activeParamFraction) / 1e9);
+        if (tokensB < paramsB) continue; // badly undertrained
+        const spec: TrainingSpec = { name, archId: arch.id, paramsB, tokensB, precision, chipId, chipCount };
+        const cap = previewTraining({ ...s, dataTokensB: Math.max(s.dataTokensB, tokensB) }, content, spec).projectedCapability;
+        if (!best || cap > best.cap) best = { spec, cap };
+      }
+  return best?.spec ?? null;
+}
 
 /** The chip to buy in bulk: Kite K2 or our newest custom design, whichever is cheaper per FP8 TFLOP. */
 function bulkChip(s: GameState): Chip {
@@ -92,7 +110,7 @@ function acquireChips(s: GameState, need: number, keepCash: number): GameState {
   return s;
 }
 
-const DESIGN_SPLIT = { compute: 0.6, sram: 0.12, memory: 0.2, interconnect: 0.08 };
+const DESIGN_SPLIT = { compute: 0.52, sram: 0.12, memory: 0.28, interconnect: 0.08 };
 const tapedNodes = (s: GameState) => new Set(Object.values(s.customChipInfo).map((i) => i.design.nodeId));
 
 /** Hire hardware engineers once we have an office, and tape out a design on each new node. */
@@ -185,7 +203,7 @@ function buildSites(s: GameState): GameState {
   };
   const colo = serverLayout(s, content).colo;
   const building = s.sites.some((x) => x.status === 'building' || x.halls.some((h) => h.status === 'building'));
-  if (colo > 2000 && !building && s.cash > 300_000_000) {
+  if (colo > 2000 && !building && s.cash > 120_000_000) {
     const site = s.sites.find((x) => x.status === 'online' && x.halls.length < content.sites.maxHalls);
     if (site) try_({ type: 'addHall', siteId: site.id });
     else {
@@ -243,6 +261,7 @@ function bestTrainingChip(s: GameState): { id: string; free: number } {
 function play(seed: number) {
   let s = createGame(content, seed);
   let rung = 0;
+  let waited = 0;
   const milestones: string[] = [];
   for (let w = 0; w < WEEKS && s.status === 'playing'; w++) {
     if (s.pendingEvent) s = act(s, { type: 'resolveEvent', choiceId: s.pendingEvent.choices.at(-1)!.id });
@@ -250,6 +269,31 @@ function play(seed: number) {
     s = furnish(s);
     s = siliconProgram(s);
     s = fabProgram(s);
+
+    // Endgame: max out Safety, then commit to the AGI Program.
+    if (!s.agi && !s.victory && bestCapability(s) >= TUNING.agiCapability - 0.3) {
+      const maxSafety = content.license.tracks.find((t) => t.id === 'safety')!.levels.length;
+      if (s.license.safety.level < maxSafety && !s.license.safety.upgrade) s = act(s, { type: 'upgradeLicense', track: 'safety' });
+      const chip = bestTrainingChip(s);
+      const count = Math.max(TUNING.agiMinChips, Math.min(chip.free, 100_000));
+      if (
+        s.license.safety.level >= maxSafety &&
+        !s.training &&
+        s.cash > TUNING.agiCost + 1_000_000_000 &&
+        !previewAgi(s, content, chip.id, count).errors.length
+      ) {
+        s = act(s, { type: 'startAgiProgram', chipId: chip.id, chipCount: count });
+        milestones.push(`wk${s.week} AGI Program`);
+      }
+    }
+
+    // Pricing: when hosting and power eat most of the API revenue, charge more (and ease off when users leave).
+    const lwk = s.lastWeek;
+    if (lwk && s.week % 4 === 0 && lwk.revenue > 0) {
+      const hosting = lwk.colocation + lwk.power + lwk.sites + lwk.rent;
+      if (hosting > lwk.revenue * 0.5 && s.apiPrice < 40) s = act(s, { type: 'setApiPrice', price: Math.round(s.apiPrice * 1.15 * 100) / 100 });
+      else if (hosting < lwk.revenue * 0.15 && s.apiPrice > 6) s = act(s, { type: 'setApiPrice', price: Math.round(s.apiPrice * 0.95 * 100) / 100 });
+    }
 
     // Raise money whenever investors will take our call.
     const f = fundingCheck(s, content);
@@ -267,51 +311,53 @@ function play(seed: number) {
       s = acquireChips(s, freeNow + Math.min(extra, 20000), 2_000_000);
     }
 
-    // Next training run on the ladder, sized to finish in ~TARGET_WEEKS.
-    const next = LADDER[rung];
-    if (!s.training && next) {
-      const dataCost = Math.max(0, next.tokensB - s.dataTokensB) * TUNING.dataCostPerBillionTokens;
-      if (s.cash > dataCost * 1.5 + 1_000_000) {
-        if (dataCost > 0) s = act(s, { type: 'buyData', billions: next.tokensB - s.dataTokensB });
-        const flops = 6 * next.paramsB * 1e9 * next.tokensB * 1e9;
-        const perChipWeek = 2000e12 * 0.45 * TUNING.secondsPerWeek; // K2-class at FP8
-        const want = Math.max(64, Math.ceil(flops / (perChipWeek * TARGET_WEEKS)));
-        for (let before = -1; maxClusterChips(s) < want && maxClusterChips(s) > before && s.cash > 1_000_000; ) {
-          before = maxClusterChips(s);
-          s = furnish(act(s, { type: 'hire', discipline: 'modelEng' }));
+    // Next training run: the next rung's FLOP budget, sized to finish in ~TARGET_WEEKS, shaped by the planner.
+    if (!s.training) {
+      const flops = rungFlops(rung);
+      const bulk = bulkChip(s);
+      const perChipWeek = bulk.tflops.fp8 * 1e12 * 0.45 * TUNING.secondsPerWeek;
+      const want = Math.max(64, Math.ceil(flops / (perChipWeek * TARGET_WEEKS)));
+      for (let before = -1; maxClusterChips(s) < want && maxClusterChips(s) > before && s.cash > 1_000_000; ) {
+        before = maxClusterChips(s);
+        s = furnish(act(s, { type: 'hire', discipline: 'modelEng' }));
+      }
+      // A run uses one chip type: build up a cluster of our bulk chip (bought over several weeks if
+      // allocation-limited), falling back to rented K1 early on.
+      if (want > 256) {
+        const missing = want - freeChips(s, bulk.id);
+        if (missing > 0) {
+          const room = Math.floor((s.powerCapMW - ownedPowerMW(s, content)) / powerDrawMW(bulk, 1));
+          const buy = Math.min(missing, room, buyAllowance(s, bulk), Math.floor((s.cash - 50_000_000) / bulk.priceUsd));
+          if (buy >= 8) s = act(s, { type: 'buyChips', chipId: bulk.id, count: buy });
+          if (room < missing && !s.license.power.upgrade) s = act(s, { type: 'upgradeLicense', track: 'power' });
         }
-        // A run uses one chip type: build up a K2 cluster (bought over several weeks if allocation-limited),
-        // falling back to rented K1 early on.
-        const k2 = bulkChip(s);
-        if (want > 256) {
-          const missing = want - freeChips(s, k2.id);
-          if (missing > 0) {
-            const room = Math.floor((s.powerCapMW - ownedPowerMW(s, content)) / powerDrawMW(k2, 1));
-            const buy = Math.min(missing, room, buyAllowance(s, k2), Math.floor((s.cash - dataCost - 2_000_000) / k2.priceUsd));
-            if (buy >= 8) s = act(s, { type: 'buyChips', chipId: k2.id, count: buy });
-            if (room < missing && !s.license.power.upgrade) s = act(s, { type: 'upgradeLicense', track: 'power' });
+      } else {
+        s = acquireChips(s, want, 2_000_000);
+      }
+      const chip = bestTrainingChip(s);
+      const spec = planRun(s, flops, chip.id, Math.min(chip.free, maxClusterChips(s)), `G${rung + 1}`);
+      if (spec) {
+        const dataCost = Math.max(0, spec.tokensB - s.dataTokensB) * TUNING.dataCostPerBillionTokens;
+        if (s.cash > dataCost * 1.5 + 1_000_000) {
+          if (dataCost > 0) s = act(s, { type: 'buyData', billions: spec.tokensB - s.dataTokensB });
+          let p = previewTraining(s, content, spec);
+          for (const r of p.requirements) if (r.gap > 0 && !s.license[r.track].upgrade) s = act(s, { type: 'upgradeLicense', track: r.track });
+          p = previewTraining(s, content, spec);
+          // Wait (up to 12 weeks) for license upgrades rather than ship into incidents.
+          const gapped = p.requirements.some((r) => r.gap > 0 && s.license[r.track].upgrade);
+          if (gapped && waited < 12) {
+            waited++;
+            p = { ...p, errors: [...p.errors, 'waiting for license upgrades'] };
           }
-        } else {
-          s = acquireChips(s, want, 2_000_000);
-        }
-        const chip = bestTrainingChip(s);
-        const spec: TrainingSpec = {
-          name: `G${rung + 1}`,
-          archId: 'dense',
-          ...next,
-          precision: 'fp8',
-          chipId: chip.id,
-          chipCount: Math.min(chip.free, maxClusterChips(s)),
-        };
-        let p = previewTraining(s, content, spec);
-        for (const r of p.requirements) if (r.gap > 0 && !s.license[r.track].upgrade) s = act(s, { type: 'upgradeLicense', track: r.track });
-        p = previewTraining(s, content, spec);
-        if (VERBOSE && s.week % 13 === 0 && (p.errors.length || p.weeks > TARGET_WEEKS * 3))
-          console.log(`  wk ${s.week}: waiting on ${spec.name}: ${p.errors.join('; ') || `${p.weeks} wk on ${spec.chipCount} chips`} (power ${ownedPowerMW(s, content).toFixed(1)}/${s.powerCapMW} MW, cash ${(s.cash / 1e6).toFixed(1)}M)`);
-        if (!p.errors.length && p.weeks <= TARGET_WEEKS * 3) {
-          s = act(s, { type: 'startTraining', spec });
-          if (VERBOSE) console.log(`  wk ${s.week}: start ${spec.name} ${next.paramsB}B on ${spec.chipCount} ${spec.chipId} → ${p.projectedScore.toFixed(1)}, ${p.weeks} wk`);
-          rung++;
+          if (VERBOSE && s.week % 13 === 0 && (p.errors.length || p.weeks > TARGET_WEEKS * 3))
+            console.log(`  wk ${s.week}: waiting on ${spec.name}: ${p.errors.join('; ') || `${p.weeks} wk on ${spec.chipCount} chips`} (power ${ownedPowerMW(s, content).toFixed(1)}/${s.powerCapMW} MW, cash ${(s.cash / 1e6).toFixed(1)}M)`);
+          if (!p.errors.length && p.weeks <= TARGET_WEEKS * 3) {
+            s = act(s, { type: 'startTraining', spec });
+            if (VERBOSE)
+              console.log(`  wk ${s.week}: start ${spec.name} ${spec.archId} ${spec.paramsB}B×${spec.tokensB}B on ${spec.chipCount} ${spec.chipId} → ${p.projectedScore.toFixed(1)}, ${p.weeks} wk`);
+            rung++;
+            waited = 0;
+          }
         }
       }
     }
@@ -338,7 +384,7 @@ function play(seed: number) {
           `best ${bestScore(s).toFixed(1)} top rival ${top.toFixed(1)} suite v${s.suite.version} served ${((l.servedTokens / Math.max(1, l.demandTokens)) * 100).toFixed(0)}% ` +
           `chips ${s.fleet.reduce((n, x) => n + x.count, 0)} own ${(s.ownership * 100).toFixed(0)}%` +
           (s.fab ? ` fab -${(l.fabCosts / 1e6).toFixed(0)}M +${(l.fabSales / 1e6).toFixed(0)}M lines ${s.fab.lines.map((x) => `${x.nodeId}:${x.lastWeek?.chips ?? 0}/${x.lastWeek?.bottleneck ?? x.status}`).join(' ')}` : '') +
-          ` rev ${(l.revenue / 1e6).toFixed(0)}M power ${(l.power / 1e6).toFixed(1)}M sites ${(l.sites / 1e6).toFixed(1)}M colo ${(l.colocation / 1e6).toFixed(1)}M sal ${(l.salaries / 1e6).toFixed(1)}M upkeep ${(l.licenseUpkeep / 1e6).toFixed(1)}M`,
+          ` live ${s.models.find((m) => m.id === s.liveModelId)?.name} rep ${s.reputation.toFixed(0)} price ${s.apiPrice} rev ${(l.revenue / 1e6).toFixed(0)}M power ${(l.power / 1e6).toFixed(1)}M sites ${(l.sites / 1e6).toFixed(1)}M colo ${(l.colocation / 1e6).toFixed(1)}M sal ${(l.salaries / 1e6).toFixed(1)}M upkeep ${(l.licenseUpkeep / 1e6).toFixed(1)}M`,
       );
     }
   }

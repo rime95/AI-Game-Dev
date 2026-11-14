@@ -58,7 +58,7 @@ What a data center campus contains:
 | Water reclaim | The Environmental license track |
 | Operations center (small building) | A few technicians; their seats cut hardware failures at that site |
 | Security fence and gate | Safety: weight security at scale |
-| Fiber line to HQ | Visual link, plus the network tier that affects cluster scaling |
+| Fiber line to HQ | Visual link, plus our own network fabric: each campus online adds 50K chips to the cluster size at which training efficiency halves (base 50K) |
 
 Each site has its own **location stats**: power price, climate (cold sites cool for less), and water availability (affects environmental rules).
 
@@ -195,6 +195,6 @@ The simulation stays authoritative and testable. The layout is game state, and t
 6. ✅ **Fab:** lines, nodes, yield, HBM and packaging bottlenecks, selling surplus chips. Built as: $2.5B, 30 weeks, needs Series D, Power 4, Environmental 3 and 4 seated hardware engineers; draws 60 MW + 15 MW per line. 12 bays; a line ($300M–$800M by node) has four tool groups you upgrade to level 4; yield climbs from 35% toward the node's mature yield over ~4,000 wafers; HBM supply and the chip market (1.3× unit cost, capped per week) limit output. Lines send up to a weekly quota of chips to our fleet (default 2,000; the rest is sold, as is anything site power can't take) or sell everything. Fleet chips are paid for at unit cost, so quotas are the fab's spending dial. Contamination, lithography and HBM incidents. Full Stack now needs 50% of owned chips made in our fab.. The balance bot now tapes out a design on each new node, buys whichever chip is cheaper per TFLOP, builds the fab, keeps up to 6 lines on its newest node, widens bottlenecks and orders 1,000 fleet chips per line when cash allows: across 4 seeds its fab makes 44–74% of owned chips by year 5, with no bankruptcies.
 7. ✅ **Product visuals and polish:** transitions, the garage memorial, nudges. Built as: opening Products shows the consumer app on a phone (company and live model), an API console with live pricing and traffic, and enterprise clients as lit buildings (offers dashed); big moves (leaving the garage, new HQ stages, each data center coming online, the fab, the IPO) get a newspaper card over a construction timelapse; up to two advisor nudges in the world point at the worst problems and jump to the fix; clicking the garage memorial on the campus shows a then-and-now card.
 
-The full build order is done. Next candidates: a bot strategy that can still win after the eval suite retires (its model ladder ends at 2000B), real art via the asset pipeline, tutorial, audio, Steam packaging.
+The full build order is done. Late-game balance after the bot overhaul: the bot plans each run from an open-ended compute budget (dense or MoE, sized to what its chips can serve), prices its API against hosting costs, and wins by Market Leader in weeks 149–193 on 12 of 12 seeds. Reputation now recovers while demand is served (ceiling 50, +5 per Safety/Compliance level). AGI and Full Stack wins are never reached by the bot because Market Leader comes first; worth watching in human playtests. Next candidates: real art via the asset pipeline, tutorial, audio, Steam packaging.
 
 Each step brings its own tests and a balance runner pass, like earlier features.

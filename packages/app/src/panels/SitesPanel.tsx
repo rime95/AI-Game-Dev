@@ -115,7 +115,8 @@ export function SitesPanel({ game }: { game: GameState }) {
         <h3>Where we could build</h3>
         <div className="small muted">
           Campuses need Power level {rules.requiresPowerLevel}. Each starts with {rules.startHalls} halls (up to {rules.maxHalls}). Dry
-          places need Environmental levels.
+          places need Environmental levels. Every campus online also adds {(TUNING.fabricHalfPerCampus / 1000).toFixed(0)}K chips to how big
+          a training cluster scales efficiently.
         </div>
         {content.sites.locations
           .filter((l) => !game.sites.some((s) => s.locationId === l.id))

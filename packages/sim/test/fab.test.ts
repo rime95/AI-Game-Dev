@@ -93,12 +93,12 @@ describe('the fab', () => {
       s = act(s, { type: 'upgradeFabStage', lineId: s.fab!.lines[0]!.id, stage: st });
     }
     s.fab!.lines[0]!.wafers = 200_000; // a mature line
-    s.week = 60; // HBM supply has grown past what the market takes
+    s.week = 120; // HBM supply has grown past what the market takes
     s = week(s);
     const lw = s.fab!.lines[0]!.lastWeek!;
     expect(lw.sold).toBe(lw.chips);
     expect(lw.bottleneck).toBe('demand');
-    expect(s.lastWeek!.fabSales).toBeCloseTo(lw.sold * lw.unitCost * 1.3, -2);
+    expect(s.lastWeek!.fabSales).toBeCloseTo(lw.sold * lw.unitCost * 1.15, -2);
   });
 
   it('the slowest tool group sets throughput; upgrading it moves the bottleneck', () => {

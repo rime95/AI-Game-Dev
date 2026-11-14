@@ -9,7 +9,11 @@
   "basePowerMW": 60,
   "bays": 12,
   "line": {
-    "costByNode": { "n7": 300000000, "n5": 500000000, "n3": 800000000 },
+    "costByNode": {
+      "n7": 300000000,
+      "n5": 500000000,
+      "n3": 800000000
+    },
     "weeks": 12,
     "upkeepPerWeek": 300000,
     "powerMW": 15,
@@ -19,17 +23,36 @@
     "stageUpgradeShare": 0.25
   },
   "stages": {
-    "litho": { "name": "Lithography", "wafersPerLevel": 120 },
-    "etch": { "name": "Deposition & etch", "wafersPerLevel": 150 },
-    "test": { "name": "Test", "wafersPerLevel": 180 },
-    "packaging": { "name": "Advanced packaging", "chipsPerLevel": 6000 }
+    "litho": {
+      "name": "Lithography",
+      "wafersPerLevel": 120
+    },
+    "etch": {
+      "name": "Deposition & etch",
+      "wafersPerLevel": 150
+    },
+    "test": {
+      "name": "Test",
+      "wafersPerLevel": 180
+    },
+    "packaging": {
+      "name": "Advanced packaging",
+      "chipsPerLevel": 6000
+    }
   },
   "waferAreaMm2": 70000,
   "edgeLoss": 0.85,
   "startYield": 0.35,
   "yieldLearningWafers": 4000,
   "dieCostShare": 0.6,
-  "hbm": { "stacksPerWeek": 40000, "growthPerWeek": 0.02 },
-  "market": { "priceMarkup": 1.3, "chipsPerWeek": 8000, "growthPerWeek": 0.01 },
+  "hbm": {
+    "stacksPerWeek": 40000,
+    "growthPerWeek": 0.02
+  },
+  "market": {
+    "priceMarkup": 1.15,
+    "chipsPerWeek": 8000,
+    "growthPerWeek": 0.004
+  },
   "incidentChancePerLine": 0.02
 }

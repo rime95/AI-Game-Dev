@@ -2,7 +2,7 @@ import type { Chip, Content, Precision } from '@stm/content';
 import type { GameState, TrainingRun } from './types';
 import { TUNING } from './tuning';
 import { clusterFlopsPerSecond } from './formulas';
-import { getArch, getChip } from './selectors';
+import { fabricHalfChips, getArch, getChip } from './selectors';
 import { effectiveStaff } from './hq';
 import { chipEfficiency } from './servers';
 import { siteFailureFactor } from './sites';
@@ -57,7 +57,7 @@ export function runFlopsPerWeek(state: GameState, content: Content, run: Trainin
   const chip = getChip(content, run.spec.chipId, state);
   if (!arch || !chip) return 0;
   return (
-    clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount) *
+    clusterFlopsPerSecond(chip, arch, run.spec.precision, run.spec.chipCount, fabricHalfChips(state)) *
     TUNING.secondsPerWeek *
     run.speedFactor *
     chipEfficiency(state, content, chip.id)

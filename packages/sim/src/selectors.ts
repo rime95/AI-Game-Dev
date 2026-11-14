@@ -74,6 +74,12 @@ export function freeChips(state: GameState, chipId: string): number {
   return Math.max(0, totalChips(state, chipId) - reservedChips(state, chipId));
 }
 
+/** Cluster size at which training efficiency halves: the base, plus our own data center fabric. */
+export function fabricHalfChips(state: GameState): number {
+  const campuses = (state.sites ?? []).filter((s) => s.status === 'online').length;
+  return TUNING.fabricHalfEfficiencyChips + campuses * TUNING.fabricHalfPerCampus;
+}
+
 export function ownedPowerMW(state: GameState, content: Content): number {
   return state.fleet
     .filter((f) => f.owned)
@@ -192,7 +198,10 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
   const requirements = requirementsFor(state, content, tier);
   const speedFactor = powerSpeedFactor(content, requirements.find((r) => r.track === 'power')!.gap);
   const flopsPerWeek =
-    clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount) * TUNING.secondsPerWeek * speedFactor * chipEfficiency(state, content, chip.id);
+    clusterFlopsPerSecond(chip, arch, spec.precision, spec.chipCount, fabricHalfChips(state)) *
+    TUNING.secondsPerWeek *
+    speedFactor *
+    chipEfficiency(state, content, chip.id);
   const weeks = Math.max(1, Math.ceil(flops / flopsPerWeek));
   const ownedShare = Math.min(1, totalChips(state, chip.id) > 0 ? ownedCount(state, chip.id) / totalChips(state, chip.id) : 0);
   const weeklyChipCost =
@@ -205,7 +214,7 @@ export function previewTraining(state: GameState, content: Content, spec: Traini
     projectedCapability,
     projectedScore,
     fit: archFit(chip, arch),
-    utilization: utilization(chip, arch, spec.chipCount),
+    utilization: utilization(chip, arch, spec.chipCount, fabricHalfChips(state)),
     flopsPerWeek,
     weeks,
     chipsFree,
