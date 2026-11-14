@@ -23,7 +23,7 @@ import { WorldMap } from './WorldMap';
 import { SiteView } from './SiteView';
 import { FabView } from './FabView';
 import { ProductsShowcase } from './ProductsShowcase';
-import { Nudges } from './Nudges';
+import { AlertFlag } from './Nudges';
 import { MilestoneCard } from './Milestone';
 import { MemorialCard } from './Memorial';
 import { Blueprint } from './blueprint/Blueprint';
@@ -32,7 +32,6 @@ import { WaferReveal } from './blueprint/WaferReveal';
 /** The world area: the HQ (people) or the campus overview (machines), plus build-mode overlays. */
 export function World({ game }: { game: GameState }) {
   const view = useStore((s) => s.worldView);
-  const setView = useStore((s) => s.setWorldView);
   const build = useStore((s) => s.build);
   const rotateBuild = useStore((s) => s.rotateBuild);
   const tab = useStore((s) => s.tab);
@@ -79,63 +78,69 @@ export function World({ game }: { game: GameState }) {
       )}
       <WaferReveal game={game} />
       <MilestoneCard game={game} />
-      <Nudges game={game} />
       {view === 'campus' && <MemorialCard game={game} />}
       <div className="world-top">
-        <div className="view-switch" role="tablist" aria-label="World view">
-          <button role="tab" aria-selected={view === 'hq'} onClick={() => setView('hq')}>
-            HQ · {stageDef(content, game.hq.stage).name}
-          </button>
-          <button role="tab" aria-selected={view === 'campus'} onClick={() => setView('campus')}>
-            Campus
-          </button>
-          <button role="tab" aria-selected={view === 'map' || view === 'site'} onClick={() => setView('map')}>
-            World map
-          </button>
-          {game.fab && (
-            <button role="tab" aria-selected={view === 'fab'} onClick={() => setView('fab')}>
-              Fab
-            </button>
-          )}
+        <div className="world-top-left">
+          <Breadcrumb game={game} />
+          {view === 'hq' && <FloorTabs game={game} />}
         </div>
-        {view === 'hq' && <HqBanner game={game} />}
+        <AlertFlag game={game} />
       </div>
-      {view === 'hq' && <FloorTabs game={game} />}
-      {view === 'hq' && (
-        <>
-          <BuildBar game={game} />
-          <SelectionCard game={game} />
-        </>
-      )}
+      {view === 'hq' && tab === 'hq' && <BuildBar game={game} />}
+      {view === 'hq' && tab !== 'hq' && <BuildHint />}
     </>
   );
 }
 
-function HqBanner({ game }: { game: GameState }) {
-  const d = deskStats(game, content);
-  const move = moveCheck(game, content);
+/** Where we are in the world; each crumb goes back up. Replaces the old view switch. */
+function Breadcrumb({ game }: { game: GameState }) {
+  const view = useStore((s) => s.worldView);
+  const siteId = useStore((s) => s.siteId);
+  const hallId = useStore((s) => s.hallId);
   const setTab = useStore((s) => s.setTab);
-  const layout = serverLayout(game, content);
-  const throttled = layout.rooms.some((r) => r.throttle < 1);
-  const crowded = d.crowding > 1;
+  const setView = useStore((s) => s.setWorldView);
+  const openSite = useStore((s) => s.openSite);
+  const crumbs: { label: string; go?: () => void }[] = [];
+  if (view === 'hq') {
+    crumbs.push({ label: 'HQ', go: () => setTab('hq') }, { label: stageDef(content, game.hq.stage).name });
+  } else if (view === 'campus') {
+    crumbs.push({ label: 'Compute' }, { label: 'Campus overview' });
+  } else if (view === 'fab') {
+    crumbs.push({ label: 'Fab', go: () => setTab('fab') }, { label: game.fab?.status === 'building' ? 'Under construction' : 'Production floor' });
+  } else {
+    crumbs.push({ label: 'Data centers', go: () => setTab('sites') }, { label: 'World map', go: () => setView('map') });
+    const site = view === 'site' ? game.sites.find((x) => x.id === siteId) : undefined;
+    if (site) {
+      crumbs.push({ label: site.name, go: () => openSite(site.id, null) });
+      const hall = site.halls.findIndex((h) => h.id === hallId);
+      if (hall >= 0) crumbs.push({ label: `Hall ${hall + 1}` });
+    }
+  }
   return (
-    <div className="hq-banner">
-      <span className={crowded ? 'neg' : undefined} title="People / seats (desks plus filled specialist seats)">
-        Desks {d.headcount}/{d.capacity}
-      </span>
-      <span title="Team morale (0–100)">Morale {Math.round(game.hq.morale)}</span>
-      <span title="Crowding × morale × move-in">Productivity ×{game.hq.productivity.toFixed(2)}</span>
-      {layout.rooms.length > 0 && (
-        <span className={throttled ? 'neg' : undefined} title="Powered IT load at HQ / what the building can supply">
-          Servers {Math.round(layout.hqKW)}/{layout.buildingKW} kW{throttled ? ' · throttling' : ''}
-        </span>
-      )}
-      {move.stage && !move.error && (
-        <button className="btn primary" style={{ ['--c' as string]: LAYER.gold }} onClick={() => setTab('hq')}>
-          {move.stage.name} available
-        </button>
-      )}
-    </div>
+    <nav className="crumbs" aria-label="Location">
+      {crumbs.map((c, i) => {
+        const last = i === crumbs.length - 1;
+        return (
+          <span key={i} className="crumb">
+            {c.go && !last ? <button onClick={c.go}>{c.label}</button> : <span aria-current={last ? 'location' : undefined}>{c.label}</span>}
+            {!last && (
+              <span className="sep" aria-hidden="true">
+                ›
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
+function BuildHint() {
+  const setTab = useStore((s) => s.setTab);
+  return (
+    <button className="build-hint" onClick={() => setTab('hq')}>
+      Build and arrange rooms in the <strong>HQ</strong> tab (5)
+    </button>
   );
 }
 
@@ -161,6 +166,19 @@ function BuildBar({ game }: { game: GameState }) {
     </button>
   );
   return (
+    <div className="dock">
+      <div className="dock-tip">
+        {build ? (
+          <>
+            <button className="btn sm" onClick={rotateBuild}>
+              Rotate (R)
+            </button>
+            <span>Click to place · right-click or Esc to stop</span>
+          </>
+        ) : (
+          <span>{hasServerRoom ? 'Pick something to build · click a room or rack to manage it' : 'Pick a room to build · click a room to manage it'}</span>
+        )}
+      </div>
     <div className="build-bar">
       <div className="build-cats" role="tablist" aria-label="Build category">
         {CATEGORIES.map((c) => (
@@ -198,20 +216,7 @@ function BuildBar({ game }: { game: GameState }) {
           )}
         </>
       )}
-      {build ? (
-        <div className="build-help">
-          <button className="btn" onClick={rotateBuild}>
-            Rotate (R)
-          </button>
-          <span className="small muted">Click to place · right-click or Esc to stop</span>
-        </div>
-      ) : (
-        <span className="small muted build-help">
-          {hasServerRoom
-            ? 'Pick something to build · click a room or rack to manage it'
-            : 'Pick a room to build · click a room to manage it'}
-        </span>
-      )}
+    </div>
     </div>
   );
 }
@@ -260,7 +265,7 @@ function FloorTabs({ game }: { game: GameState }) {
 }
 
 /** Card for whatever is selected in the HQ: a room or a piece of server equipment. */
-function SelectionCard({ game }: { game: GameState }) {
+export function SelectionCard({ game }: { game: GameState }) {
   const selected = useStore((s) => s.selectedRoom);
   if (!selected) return null;
   if (game.hq.equipment.some((e) => e.id === selected)) return <EquipmentCard game={game} id={selected} />;
@@ -294,7 +299,7 @@ function EquipmentCard({ game, id }: { game: GameState; id: string }) {
   }
   return (
     <div
-      className="room-card card"
+      className="card selection"
       style={{ ['--c' as string]: def.kind === 'cooling' ? LAYER.env : def.kind === 'power' ? LAYER.power : LAYER.compute }}
     >
       <div className="row between">
@@ -365,7 +370,7 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
 
   return (
     <div
-      className="room-card card"
+      className="card selection"
       style={{
         ['--c' as string]:
           t.kind === 'lab' ? LAYER.models : t.kind === 'break' ? LAYER.gold : t.kind === 'server' ? LAYER.compute : LAYER.trust,

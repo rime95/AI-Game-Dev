@@ -38,12 +38,18 @@ const bayPos = (b: number): [number, number] => [-15 + (b % 6) * BAY_W, -3 + Mat
 export function FabView({ game }: { game: GameState }) {
   const fab = game.fab;
   const [bay, setBay] = useState<number | null>(null);
-  if (!fab) return <div className="bp-empty">No fab yet. See the Sites panel.</div>;
+  if (!fab)
+    return (
+      <div className="world-empty">
+        <strong>No fab yet</strong>
+        <span>An empty lot, waiting. The panel on the right shows what it takes to build one.</span>
+      </div>
+    );
   const building = fab.status === 'building';
   return (
     <>
       <Canvas orthographic shadows camera={{ position: [30, 30, 30], zoom: 20, near: 0.1, far: 400 }}>
-        <color attach="background" args={['#f4efe4']} />
+        <color attach="background" args={['#0e141c']} />
         <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.95]} />
         <directionalLight
           position={[14, 24, 8]}

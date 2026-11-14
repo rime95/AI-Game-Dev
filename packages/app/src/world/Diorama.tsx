@@ -16,7 +16,7 @@ export function Diorama({ game }: { game: GameState }) {
   return (
     <>
       <Canvas orthographic shadows camera={{ position: [24, 22, 24], zoom: 32, near: 0.1, far: 300 }}>
-        <color attach="background" args={['#f4efe4']} />
+        <color attach="background" args={['#0e141c']} />
         <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.9]} />
         <directionalLight
           position={[12, 22, 8]}
@@ -246,7 +246,8 @@ function ExpansionScaffold({ game, onClick }: { game: GameState; onClick: () => 
           style={{
             padding: '3px 8px',
             borderRadius: 999,
-            background: '#fffdf8',
+            background: 'rgb(14 19 27 / 0.9)',
+            color: '#e8edf4',
             border: `2px solid ${LAYER.trust}`,
             fontSize: 12,
             fontWeight: 600,
@@ -324,13 +325,13 @@ function Building({ tab, setTab, label, position, size, color, pulse, glow = 0, 
           style={{
             padding: '3px 8px',
             borderRadius: 999,
-            background: '#fffdf8',
+            background: 'rgb(14 19 27 / 0.9)',
+            color: '#e8edf4',
             border: `2px solid ${color}`,
             fontSize: 12,
             fontWeight: 600,
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
-            color: '#22232a',
           }}
         >
           {label}
@@ -408,7 +409,8 @@ function Skyline({ share, onClick }: { share: number; onClick: () => void }) {
           style={{
             padding: '3px 8px',
             borderRadius: 999,
-            background: '#fffdf8',
+            background: 'rgb(14 19 27 / 0.9)',
+            color: '#e8edf4',
             border: `2px solid ${LAYER.products}`,
             fontSize: 12,
             fontWeight: 600,

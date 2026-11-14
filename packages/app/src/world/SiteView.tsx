@@ -35,7 +35,7 @@ export function SiteView({ game }: { game: GameState }) {
   return (
     <>
       <Canvas orthographic shadows camera={{ position: [30, 30, 30], zoom: 18, near: 0.1, far: 400 }}>
-        <color attach="background" args={['#f4efe4']} />
+        <color attach="background" args={['#0e141c']} />
         <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.95]} />
         <directionalLight
           position={[14, 24, 8]}
@@ -366,16 +366,12 @@ function HallInterior({ game, site, hall, servers }: { game: GameState; site: Si
 }
 
 function SiteBar({ game, site, servers }: { game: GameState; site: Site; servers: ServerLayout }) {
-  const setWorldView = useStore((s) => s.setWorldView);
   const loc = locationDef(content, site.locationId)!;
   const rooms = servers.rooms.filter((r) => r.siteId === site.id);
   const chips = rooms.reduce((n, r) => n + r.racks.reduce((m, k) => m + k.count, 0), 0);
   const kw = rooms.reduce((n, r) => n + r.itKW, 0);
   return (
-    <div className="build-bar">
-      <button className="btn" onClick={() => setWorldView('map')}>
-        ← World map
-      </button>
+    <div className="build-bar info">
       <span className="small">
         <strong>{site.name}</strong> · {loc.region} ·{' '}
         {site.status === 'building'
@@ -388,7 +384,6 @@ function SiteBar({ game, site, servers }: { game: GameState; site: Site; servers
 }
 
 function HallBar({ game, site, hall, servers }: { game: GameState; site: Site; hall: Hall; servers: ServerLayout }) {
-  const openHall = useStore((s) => s.openHall);
   const build = useStore((s) => s.build);
   const startBuild = useStore((s) => s.startBuild);
   const cancelBuild = useStore((s) => s.cancelBuild);
@@ -406,9 +401,6 @@ function HallBar({ game, site, hall, servers }: { game: GameState; site: Site; h
   return (
     <>
       <div className="build-bar">
-        <button className="btn" onClick={() => openHall(null)}>
-          ← {site.name}
-        </button>
         {content.hq.equipment.map((e) => {
           const locked = game.license.power.level < e.requiresPowerLevel;
           return (

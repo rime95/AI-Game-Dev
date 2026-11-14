@@ -97,7 +97,7 @@ export function nudgesFor(game: GameState): Nudge[] {
     out.push({
       key: `fab-spend-${game.week}`,
       text: `The fab spent ${money((lw.fabCosts ?? 0) - (lw.fabSales ?? 0))} more than it sold last week, mostly on chips for our fleet. Lower line quotas if we don't need them.`,
-      tab: 'sites',
+      tab: 'fab',
       view: 'fab',
       tone: 'bad',
     });
@@ -107,7 +107,7 @@ export function nudgesFor(game: GameState): Nudge[] {
     out.push({
       key: `fab-${idleLine.id}`,
       text: `Fab bay ${idleLine.bay + 1} is idle: pick a chip design for it.`,
-      tab: 'sites',
+      tab: 'fab',
       view: 'fab',
       tone: 'info',
     });
@@ -129,35 +129,81 @@ export function nudgesFor(game: GameState): Nudge[] {
   return out;
 }
 
-export function Nudges({ game }: { game: GameState }) {
-  const dismissed = useStore((s) => s.dismissedNudges);
-  const dismiss = useStore((s) => s.dismissNudge);
+/** Go wherever an alert points. */
+function useGo() {
   const setTab = useStore((s) => s.setTab);
   const setWorldView = useStore((s) => s.setWorldView);
   const openSite = useStore((s) => s.openSite);
+  return (n: Nudge) => {
+    if (n.tab) setTab(n.tab);
+    if (n.site) openSite(n.site.siteId, n.site.hallId);
+    else if (n.view) setWorldView(n.view);
+  };
+}
+
+/** The alerts tray (top bar ⚠): everything that needs attention, worst first. */
+export function AlertsTray({ game }: { game: GameState }) {
+  const open = useStore((s) => s.alertsOpen);
+  const setOpen = useStore((s) => s.setAlertsOpen);
+  const dismissed = useStore((s) => s.dismissedNudges);
+  const dismiss = useStore((s) => s.dismissNudge);
+  const go = useGo();
+  if (!open) return null;
   const list = nudgesFor(game)
     .filter((n) => !dismissed.includes(n.key))
-    .slice(0, 2);
-  if (!list.length) return null;
+    .sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'bad' ? -1 : 1));
   return (
-    <div className="nudges" role="status">
+    <div className="tray-panel alerts" role="dialog" aria-label="Alerts">
+      <div className="tray-head">
+        <h3>Alerts</h3>
+        <button className="icon-btn sm" aria-label="Close" onClick={() => setOpen(false)}>
+          ×
+        </button>
+      </div>
+      {list.length === 0 && <div className="muted small pad">All clear. Nothing needs you right now.</div>}
       {list.map((n) => (
         <div key={n.key} className={`nudge ${n.tone}`}>
-          <button
-            className="nudge-go"
-            onClick={() => {
-              if (n.tab) setTab(n.tab);
-              if (n.site) openSite(n.site.siteId, n.site.hallId);
-              else if (n.view) setWorldView(n.view);
-            }}
-          >
-            {n.text}
-          </button>
-          <button className="nudge-x" aria-label="Dismiss" onClick={() => dismiss(n.key)}>
-            ×
-          </button>
+          <div className="nudge-text">{n.text}</div>
+          <div className="row">
+            {n.tab && (
+              <button
+                className="btn sm primary"
+                onClick={() => {
+                  go(n);
+                  setOpen(false);
+                }}
+              >
+                Go there
+              </button>
+            )}
+            <button className="btn sm ghost" onClick={() => dismiss(n.key)}>
+              Dismiss
+            </button>
+          </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Corner flag in the world for the single worst problem, so it can't be missed while the tray is shut. */
+export function AlertFlag({ game }: { game: GameState }) {
+  const open = useStore((s) => s.alertsOpen);
+  const dismissed = useStore((s) => s.dismissedNudges);
+  const dismiss = useStore((s) => s.dismissNudge);
+  const go = useGo();
+  if (open) return null;
+  const worst = nudgesFor(game).find((n) => n.tone === 'bad' && !dismissed.includes(n.key));
+  if (!worst) return null;
+  return (
+    <div className="alert-flag" role="status">
+      <button className="alert-go" onClick={() => go(worst)}>
+        <span className="alert-icon" aria-hidden="true">!</span>
+        {worst.text}
+      </button>
+      <button className="nudge-x" aria-label="Dismiss" onClick={() => dismiss(worst.key)}>
+        ×
+      </button>
     </div>
   );
 }

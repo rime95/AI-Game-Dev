@@ -132,7 +132,7 @@ export function WorldMap({ game }: { game: GameState }) {
     <div className="map-view">
       <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" role="img" aria-label="World map of our HQ and data center sites">
         {dots.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={2.4} fill="#cbbf9f" />
+          <circle key={i} cx={d.x} cy={d.y} r={2.4} fill="#2f4058" />
         ))}
         {/* Fiber lines from HQ to each campus */}
         {game.sites.map((s) => {
@@ -161,7 +161,7 @@ export function WorldMap({ game }: { game: GameState }) {
               role="button"
               aria-label={`${l.name}, ${l.region}`}
             >
-              <circle r={site ? 9 : 7} fill={site ? LAYER.compute : '#fffdf8'} stroke={color} strokeWidth={site ? 3 : 2.5} />
+              <circle r={site ? 9 : 7} fill={site ? LAYER.compute : '#121821'} stroke={color} strokeWidth={site ? 3 : 2.5} />
               {site && <rect x={-3.5} y={-3.5} width={7} height={7} fill="#fff" />}
               <text x={LEFT_LABEL.has(l.id) ? -11 : 11} y={4} textAnchor={LEFT_LABEL.has(l.id) ? 'end' : 'start'} className="map-label">
                 {l.name}
@@ -170,7 +170,7 @@ export function WorldMap({ game }: { game: GameState }) {
           );
         })}
         <g transform={`translate(${px(HQ.lon)},${py(HQ.lat)})`}>
-          <circle r={8} fill={LAYER.gold} stroke="#fff" strokeWidth={2} />
+          <circle r={8} fill={LAYER.gold} stroke="#0b1119" strokeWidth={2} />
           <text x={-11} y={4} textAnchor="end" className="map-label">
             HQ
           </text>

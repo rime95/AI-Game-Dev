@@ -3,15 +3,15 @@ import { bestScore, fundingCheck, liveModel, marketSize, totalUsers, type GameSt
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
 import { LAYER } from '../ui/layers';
-import { Advisor, Bar, Stat } from './Panel';
+import { Advisor, Bar, Stat, useSubTab } from './Panel';
 import { GoalsCard } from './GoalsCard';
+import { weekTotals } from '../ui/TopBar';
 
 export function OverviewPanel({ game }: { game: GameState }) {
   const lw = game.lastWeek;
-  const costs = lw ? lw.salaries + lw.rent + lw.power + lw.licenseUpkeep + (lw.facilities ?? 0) + (lw.colocation ?? 0) + (lw.sites ?? 0) + (lw.fabCosts ?? 0) : 0;
-  const income = lw ? lw.revenue + lw.licenseRevenue + (lw.fabSales ?? 0) : 0;
+  const { income, costs } = weekTotals(lw);
   const live = liveModel(game);
-  const setPauseOpen = useStore((s) => s.setPauseOpen);
+  const sub = useSubTab('overview');
 
   return (
     <>
@@ -19,31 +19,24 @@ export function OverviewPanel({ game }: { game: GameState }) {
         {hint(game)}
       </Advisor>
 
-      <div className="card">
-        <h3>Last week</h3>
-        {lw ? (
-          <div className="grid2">
-            <Stat k="API revenue" v={money(lw.apiRevenue)} c={LAYER.products} />
-            <Stat k="App subscriptions" v={money(lw.consumerRevenue)} c={LAYER.products} />
-            <Stat k="Enterprise" v={money(lw.enterpriseRevenue)} c={LAYER.products} />
-            {lw.slaPenalty > 0 && <Stat k="SLA credits" v={money(-lw.slaPenalty)} c="var(--bad)" />}
-            <Stat k="Costs" v={money(costs)} />
-            <Stat k="Salaries" v={money(lw.salaries)} />
-            <Stat k="Chip rent" v={money(lw.rent)} />
-            <Stat k="Power" v={money(lw.power)} />
-            <Stat k="Office & rooms" v={money(lw.facilities ?? 0)} c={LAYER.gold} />
-            {(lw.colocation ?? 0) > 0 && <Stat k="Colocation" v={money(lw.colocation)} c={LAYER.compute} />}
-            {(lw.sites ?? 0) > 0 && <Stat k="Data centers" v={money(lw.sites)} c={LAYER.compute} />}
-            {(lw.fabCosts ?? 0) > 0 && <Stat k="Fab costs" v={money(lw.fabCosts)} c={LAYER.silicon} />}
-            {(lw.fabSales ?? 0) > 0 && <Stat k="Chip sales" v={money(lw.fabSales)} c={LAYER.products} />}
-            <Stat k="License upkeep" v={money(lw.licenseUpkeep)} c={LAYER.trust} />
-            {lw.licenseRevenue > 0 && <Stat k="Heat sales" v={money(lw.licenseRevenue)} c={LAYER.env} />}
-            <Stat k="Net" v={money(income - costs)} c={income - costs >= 0 ? 'var(--good)' : 'var(--bad)'} />
+      {sub === 'summary' && (
+        <>
+          <div className="card">
+            <h3>Last week</h3>
+            {lw ? (
+              <>
+                <div className="grid3">
+                  <Stat k="Income" v={money(income)} c={LAYER.products} />
+                  <Stat k="Costs" v={money(costs)} />
+                  <Stat k="Net" v={money(income - costs)} c={income - costs >= 0 ? 'var(--good)' : 'var(--bad)'} />
+                </div>
+                <Bar value={income / Math.max(1, income, costs)} color={income >= costs ? 'var(--good)' : 'var(--bad)'} />
+                <div className="small muted">Hover Cash in the top bar for the full breakdown.</div>
+              </>
+            ) : (
+              <div className="muted">Advance a week to see results.</div>
+            )}
           </div>
-        ) : (
-          <div className="muted">Advance a week to see results.</div>
-        )}
-      </div>
 
       <div className="card">
         <h3>Position</h3>
@@ -57,20 +50,13 @@ export function OverviewPanel({ game }: { game: GameState }) {
       </div>
 
       <FundingCard game={game} />
+          <div className="small muted">
+            Seed {game.seed} · {content.rivals.length} rival labs in the race · save, load and settings are in the menu (Esc).
+          </div>
+        </>
+      )}
 
-      <GoalsCard game={game} />
-
-      <div className="card">
-        <h3>Game</h3>
-        <div className="small muted">
-          Seed {game.seed}. {content.rivals.length} rival labs started the race. Save, load and settings are in the menu.
-        </div>
-        <div className="row">
-          <button className="btn" onClick={() => setPauseOpen(true)}>
-            Open menu (Esc)
-          </button>
-        </div>
-      </div>
+      {sub === 'goals' && <GoalsCard game={game} />}
     </>
   );
 }
@@ -94,7 +80,7 @@ function FundingCard({ game }: { game: GameState }) {
           </div>
           <div className="chips">
             {f.checks.map((c) => (
-              <span key={c.label} className="chip" style={{ ['--c' as string]: c.ok ? LAYER.env : '#c2413b' }}>
+              <span key={c.label} className="chip" style={{ ['--c' as string]: c.ok ? LAYER.env : 'var(--bad)' }}>
                 {c.ok ? '✓' : '✗'} {c.label}
               </span>
             ))}

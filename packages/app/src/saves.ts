@@ -161,17 +161,29 @@ export function cleanupLegacySaves(): void {
 export interface Settings {
   /** 0 = off. */
   autosaveEveryWeeks: number;
+  /** Whole-UI zoom in percent (90, 100, 115, 130). */
+  uiScale: number;
+  /** Width of the right panel in pixels. */
+  panelWidth: number;
+  /** Pause automatically when a big milestone is announced. */
+  pauseOnMilestones: boolean;
+  /** Speed the clock starts at when a game opens (0 = paused). */
+  defaultSpeed: Speed;
 }
+
+export type Speed = 0 | 1 | 2 | 4;
+
+export const DEFAULT_SETTINGS: Settings = { autosaveEveryWeeks: 1, uiScale: 100, panelWidth: 480, pauseOnMilestones: true, defaultSpeed: 0 };
 
 const SETTINGS_KEY = 'stm.settings';
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { autosaveEveryWeeks: 1, ...(JSON.parse(raw) as Partial<Settings>) };
+    if (raw) return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) };
   } catch {
     /* defaults */
   }
-  return { autosaveEveryWeeks: 1 };
+  return { ...DEFAULT_SETTINGS };
 }
 
 export function storeSettings(s: Settings): void {

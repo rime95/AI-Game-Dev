@@ -43,7 +43,7 @@ const STAGE_LOOK: Record<string, { floor: string; wall: string; backWall: number
 export function HqView({ game }: { game: GameState }) {
   return (
     <Canvas orthographic shadows camera={{ position: [20, 20, 20], zoom: 40, near: 0.1, far: 300 }}>
-      <color attach="background" args={['#f4efe4']} />
+      <color attach="background" args={['#0e141c']} />
       <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.95]} />
       <directionalLight
         position={[10, 18, 6]}

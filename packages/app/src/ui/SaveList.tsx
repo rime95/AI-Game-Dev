@@ -40,6 +40,40 @@ export function SettingsForm() {
   const settings = useStore((s) => s.settings);
   const update = useStore((s) => s.updateSettings);
   return (
+    <div className="settings">
+      <div className="field">
+        <span className="label">Interface size</span>
+        <div className="seg">
+          {[90, 100, 115, 130].map((v) => (
+            <button key={v} aria-pressed={settings.uiScale === v} onClick={() => update({ uiScale: v })}>
+              {v}%
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label">Game speed when a game opens</span>
+        <div className="seg">
+          {([0, 1, 2, 4] as const).map((v) => (
+            <button key={v} aria-pressed={settings.defaultSpeed === v} onClick={() => update({ defaultSpeed: v })}>
+              {v === 0 ? 'Paused' : `${v}×`}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={settings.pauseOnMilestones} onChange={(e) => update({ pauseOnMilestones: e.target.checked })} />
+        Pause on news cards (big milestones)
+      </label>
+      <AutosaveField />
+    </div>
+  );
+}
+
+function AutosaveField() {
+  const settings = useStore((s) => s.settings);
+  const update = useStore((s) => s.updateSettings);
+  return (
     <div className="field">
       <label htmlFor="autosave">Autosave</label>
       <select

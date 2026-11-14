@@ -15,11 +15,12 @@ import {
   storeSettings,
   type SaveMeta,
   type Settings,
+  type Speed,
 } from './saves';
 
-export type Tab = 'overview' | 'hq' | 'sites' | 'compute' | 'silicon' | 'license' | 'models' | 'products' | 'team' | 'deals' | 'rivals';
+import { viewForTab, type Tab, type WorldView } from './time';
+export type { Tab, WorldView };
 export type Screen = 'menu' | 'game';
-export type WorldView = 'hq' | 'campus' | 'map' | 'site' | 'fab';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {
@@ -54,6 +55,16 @@ interface Store {
   dismissedNudges: string[];
   memorialOpen: boolean;
   pauseOpen: boolean;
+  /** Clock speed (0 = paused). */
+  speed: Speed;
+  /** An advanceWeek is with the worker; the clock waits for it. */
+  inFlight: boolean;
+  /** Sub-tab picked in each panel. */
+  subTabs: Partial<Record<Tab, string>>;
+  activityOpen: boolean;
+  /** Week when the activity drawer was last opened (for the unread count). */
+  seenWeek: number;
+  alertsOpen: boolean;
   saves: SaveMeta[];
   settings: Settings;
   send: (cmd: Command) => void;
@@ -79,6 +90,11 @@ interface Store {
   dismissNudge: (key: string) => void;
   setMemorialOpen: (open: boolean) => void;
   setPauseOpen: (open: boolean) => void;
+  setSpeed: (speed: Speed) => void;
+  step: () => void;
+  setSubTab: (tab: Tab, id: string) => void;
+  setActivityOpen: (open: boolean) => void;
+  setAlertsOpen: (open: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   clearError: () => void;
   clearNotice: () => void;
@@ -106,13 +122,19 @@ export const useStore = create<Store>((set, get) => ({
   dismissedNudges: [],
   memorialOpen: false,
   pauseOpen: false,
+  speed: 0,
+  inFlight: false,
+  subTabs: {},
+  activityOpen: false,
+  seenWeek: 0,
+  alertsOpen: false,
   saves: [],
   settings: loadSettings(),
 
   send: (cmd) => post({ type: 'command', cmd }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false, speed: get().settings.defaultSpeed, inFlight: false, activityOpen: false, alertsOpen: false, seenWeek: 0 });
     post({ type: 'newGame', seed, companyName });
   },
 
@@ -122,7 +144,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: res.error });
       return;
     }
-    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false });
+    set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false, speed: get().settings.defaultSpeed, inFlight: false, activityOpen: false, alertsOpen: false, seenWeek: 0 });
     post({ type: 'load', state: res.state });
     if (res.migratedFrom) set({ notice: `Save upgraded from version ${res.migratedFrom}.` });
   },
@@ -149,7 +171,11 @@ export const useStore = create<Store>((set, get) => ({
     await get().refreshSaves();
   },
 
-  setTab: (tab) => set({ tab }),
+  setTab: (tab) => {
+    const st = get();
+    const worldView = viewForTab(tab, st.game, st.worldView, st.siteId);
+    set(worldView === st.worldView ? { tab } : { tab, worldView, build: null, selectedRoom: null });
+  },
   setWorldView: (worldView) => set({ worldView, build: null, selectedRoom: null }),
   startBuild: (templateId, kind = 'room') => set({ build: { kind, templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
   rotateBuild: () => {
@@ -168,6 +194,15 @@ export const useStore = create<Store>((set, get) => ({
   dismissNudge: (key) => set({ dismissedNudges: [...get().dismissedNudges, key] }),
   setMemorialOpen: (memorialOpen) => set({ memorialOpen }),
   setPauseOpen: (open) => set({ pauseOpen: open }),
+  setSpeed: (speed) => set({ speed }),
+  step: () => {
+    if (get().inFlight) return;
+    set({ inFlight: true });
+    post({ type: 'command', cmd: { type: 'advanceWeek' } });
+  },
+  setSubTab: (tab, id) => set({ subTabs: { ...get().subTabs, [tab]: id } }),
+  setActivityOpen: (activityOpen) => set({ activityOpen, alertsOpen: false, seenWeek: get().game?.week ?? 0 }),
+  setAlertsOpen: (alertsOpen) => set({ alertsOpen, activityOpen: false }),
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };
     storeSettings(settings);
@@ -180,7 +215,7 @@ export const useStore = create<Store>((set, get) => ({
 worker.onmessage = (e: MessageEvent<FromWorker>) => {
   const { state, error } = e.data;
   const prev = useStore.getState().game;
-  useStore.setState({ game: state, error: error ?? null });
+  useStore.setState({ game: state, error: error ?? null, inFlight: false, ...(prev ? {} : { seenWeek: state.week }) });
   // Big moves get a news card.
   // (prev is null right after a new game or a load, so switching games never triggers one.)
   const milestone = prev ? detectMilestone(prev, state) : null;

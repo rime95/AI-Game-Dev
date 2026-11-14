@@ -28,7 +28,6 @@ const SPECIALISTS = [
 
 export function HqPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
-  const startBuild = useStore((s) => s.startBuild);
   const stage = stageDef(content, game.hq.stage);
   const d = deskStats(game, content);
   const p = productivity(game, content);
@@ -161,23 +160,6 @@ export function HqPanel({ game }: { game: GameState }) {
           /chip/week. The {lowerName(stage.name)} can supply {stage.maxServerKW} kW and {stage.maxRacks} rack{stage.maxRacks > 1 ? 's' : ''}
           .
         </div>
-      </div>
-
-      <div className="card">
-        <h3>Build</h3>
-        {content.hq.rooms.map((t) => (
-          <div className="row between" key={t.id}>
-            <div>
-              <div style={{ fontWeight: 600 }}>{t.name}</div>
-              <div className="small muted">
-                {t.w}×{t.h} · {money(t.upkeepPerWeek)}/wk · {t.blurb}
-              </div>
-            </div>
-            <button className="btn" disabled={game.cash < t.cost} onClick={() => startBuild(t.id, 'room')}>
-              {money(t.cost)}
-            </button>
-          </div>
-        ))}
       </div>
 
       <div className="card">

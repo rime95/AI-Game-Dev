@@ -3,17 +3,17 @@ import { fabChipShare, fabError, locationDef, serverLayout, siteError, sitesUpke
 import { useStore } from '../store';
 import { money, pct } from '../format';
 import { LAYER } from '../ui/layers';
-import { Advisor, Bar, Stat } from './Panel';
+import { Advisor, Bar, Stat, useSubTab } from './Panel';
 
 /** Sites track (world-and-facilities §2.2): our data center campuses and where we could build next. */
 export function SitesPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const openSite = useStore((s) => s.openSite);
-  const setWorldView = useStore((s) => s.setWorldView);
   const layout = serverLayout(game, content);
   const siteRooms = layout.rooms.filter((r) => r.siteId);
   const siteChips = siteRooms.reduce((n, r) => n + r.racks.reduce((m, k) => m + k.count, 0), 0);
   const rules = content.sites;
+  const sub = useSubTab('sites');
 
   return (
     <>
@@ -25,13 +25,9 @@ export function SitesPanel({ game }: { game: GameState }) {
         )}
       </Advisor>
 
+      {sub === 'campuses' && (<>
       <div className="card">
-        <div className="row between">
-          <h3>Fleet hosting</h3>
-          <button className="btn" onClick={() => setWorldView('map')}>
-            World map
-          </button>
-        </div>
+        <h3>Fleet hosting</h3>
         <div className="grid2">
           <Stat k="Campuses" v={`${game.sites.length} · ${game.sites.reduce((n, s) => n + s.halls.length, 0)} halls`} />
           <Stat k="Chips in our halls" v={siteChips.toLocaleString('en-US')} c={LAYER.compute} />
@@ -108,9 +104,10 @@ export function SitesPanel({ game }: { game: GameState }) {
           </div>
         );
       })}
+      {game.sites.length === 0 && <div className="empty">No campuses yet. See <strong>Build new</strong> for where we could go.</div>}
+      </>)}
 
-      <FabCard game={game} />
-
+      {sub === 'build' && (
       <div className="card">
         <h3>Where we could build</h3>
         <div className="small muted">
@@ -139,6 +136,23 @@ export function SitesPanel({ game }: { game: GameState }) {
             );
           })}
       </div>
+      )}
+    </>
+  );
+}
+
+/** Fab tab: our own fab. Lines are managed by clicking bays in the fab view. */
+export function FabPanel({ game }: { game: GameState }) {
+  return (
+    <>
+      <Advisor who="Fab manager" color={LAYER.silicon}>
+        {!game.fab
+          ? 'A fab of our own turns our chip designs into chips at cost, and surplus sells on the market.'
+          : game.fab.status === 'building'
+            ? `The fab is under construction: ${game.fab.weeksLeft} weeks to go.`
+            : 'Click a bay in the fab to start a line, upgrade its stages or set how many chips go to our fleet.'}
+      </Advisor>
+      <FabCard game={game} />
     </>
   );
 }

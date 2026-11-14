@@ -17,8 +17,8 @@ import {
 import { TRACK_COLOR } from './LicensePanel';
 import { useStore } from '../store';
 import { big, money, pct, sci } from '../format';
-import { LAYER } from '../ui/layers';
-import { Advisor, Bar, Stat } from './Panel';
+import { BAD, LAYER } from '../ui/layers';
+import { Advisor, Bar, Stat, useSubTab } from './Panel';
 
 /** The run in progress: progress, what incidents did to it, and the early-release option. */
 function RunCard({ game }: { game: GameState }) {
@@ -44,16 +44,16 @@ function RunCard({ game }: { game: GameState }) {
           {run.incidents} incident{run.incidents === 1 ? '' : 's'} so far
         </span>
         {run.capabilityDelta < 0 && (
-          <span className="chip" style={{ ['--c' as string]: '#c2413b' }}>
+          <span className="chip" style={{ ['--c' as string]: BAD }}>
             Damaged: −{(scoreNow(game, run.projectedCapability) - finalScore).toFixed(1)} score
           </span>
         )}
         {run.scandalChance > 0 && (
-          <span className="chip" style={{ ['--c' as string]: '#c2413b' }}>
+          <span className="chip" style={{ ['--c' as string]: BAD }}>
             {pct(run.scandalChance)} contamination scandal risk
           </span>
         )}
-        <span className="chip" style={{ ['--c' as string]: '#6f7079' }}>
+        <span className="chip" style={{ ['--c' as string]: LAYER.trust }}>
           Weekly risk: hardware {pct(rates.hardware)} · instability {pct(rates.lossSpike)} · data {pct(rates.contamination)}
         </span>
       </div>
@@ -92,6 +92,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
   useEffect(() => setModelDraft(spec), [spec, setModelDraft]);
   const chip = allChips(game, content).find((c) => c.id === spec.chipId);
   const precisionSupported = chip ? chip.tflops[spec.precision] > 0 : true;
+  const sub = useSubTab('models');
 
   return (
     <>
@@ -102,6 +103,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
 
       {game.training && <RunCard game={game} />}
 
+      {sub === 'train' && (<>
       <div className="card">
         <h3>Design a training run</h3>
         <div className="field">
@@ -200,9 +202,9 @@ export function ModelsPanel({ game }: { game: GameState }) {
         {preview.fit && (
           <>
             <div className="small">Memory fit {pct(preview.fit.memory)}</div>
-            <Bar value={preview.fit.memory} color={preview.fit.memory < 0.6 ? '#c2413b' : LAYER.compute} />
+            <Bar value={preview.fit.memory} color={preview.fit.memory < 0.6 ? BAD : LAYER.compute} />
             <div className="small">Interconnect fit {pct(preview.fit.interconnect)}</div>
-            <Bar value={preview.fit.interconnect} color={preview.fit.interconnect < 0.6 ? '#c2413b' : LAYER.compute} />
+            <Bar value={preview.fit.interconnect} color={preview.fit.interconnect < 0.6 ? BAD : LAYER.compute} />
           </>
         )}
         <div className="grid3">
@@ -226,7 +228,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
         </div>
         <div className="chips">
           {preview.requirements.map((r) => (
-            <span key={r.track} className="chip" style={{ ['--c' as string]: r.gap === 0 ? TRACK_COLOR[r.track] : '#c2413b' }}>
+            <span key={r.track} className="chip" style={{ ['--c' as string]: r.gap === 0 ? TRACK_COLOR[r.track] : BAD }}>
               {r.gap === 0
                 ? `✓ ${trackDef(content, r.track).name}`
                 : r.track === 'power'
@@ -267,7 +269,9 @@ export function ModelsPanel({ game }: { game: GameState }) {
           ))}
         </div>
       </div>
+      </>)}
 
+      {sub === 'library' && (
       <div className="card">
         <h3>Released models</h3>
         {game.models.length === 0 ? (
@@ -305,6 +309,7 @@ export function ModelsPanel({ game }: { game: GameState }) {
           </table>
         )}
       </div>
+      )}
     </>
   );
 }

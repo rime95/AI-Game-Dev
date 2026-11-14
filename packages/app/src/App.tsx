@@ -1,14 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { useStore } from './store';
 import { TopBar } from './ui/TopBar';
 import { NavRail } from './ui/NavRail';
-import { Feed } from './ui/Feed';
+import { ActivityDrawer, Ticker } from './ui/Feed';
 import { DecisionModal } from './ui/DecisionModal';
 import { GameOver } from './ui/GameOver';
 import { MainMenu } from './ui/MainMenu';
 import { PauseMenu } from './ui/PauseMenu';
+import { useClock } from './ui/TimeControls';
+import { HOTKEYS, NAV_ORDER } from './ui/layers';
 import { Panel } from './panels/Panel';
 import { World } from './world/World';
+import { AlertsTray } from './world/Nudges';
 
 export function App() {
   const screen = useStore((s) => s.screen);
@@ -19,6 +22,9 @@ export function App() {
   const clearError = useStore((s) => s.clearError);
   const clearNotice = useStore((s) => s.clearNotice);
   const setPauseOpen = useStore((s) => s.setPauseOpen);
+  const settings = useStore((s) => s.settings);
+
+  useClock();
 
   useEffect(() => {
     if (!error) return;
@@ -32,23 +38,31 @@ export function App() {
     return () => clearTimeout(t);
   }, [notice, clearNotice]);
 
-  // Esc opens and closes the pause menu during play.
+  // Esc closes the innermost thing first, then opens the pause menu. Number keys jump between sections.
   useEffect(() => {
     if (screen !== 'game') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
       const st = useStore.getState();
-      // Esc leaves build mode or closes a room card before it opens the menu.
-      if (!st.pauseOpen && st.build) return st.cancelBuild();
-      if (!st.pauseOpen && st.selectedRoom) return st.selectRoom(null);
-      setPauseOpen(!st.pauseOpen);
+      const el = e.target as HTMLElement;
+      const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName);
+      if (e.key === 'Escape') {
+        if (st.pauseOpen) return setPauseOpen(false);
+        if (st.build) return st.cancelBuild();
+        if (st.activityOpen) return st.setActivityOpen(false);
+        if (st.alertsOpen) return st.setAlertsOpen(false);
+        if (st.selectedRoom) return st.selectRoom(null);
+        return setPauseOpen(true);
+      }
+      if (typing || st.pauseOpen || e.ctrlKey || e.altKey || e.metaKey || st.game?.pendingEvent) return;
+      const i = HOTKEYS.indexOf(e.key);
+      if (i >= 0 && NAV_ORDER[i]) st.setTab(NAV_ORDER[i]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [screen, setPauseOpen]);
 
   const toasts = (
-    <>
+    <div className="toasts">
       {error && (
         <button className="toast" onClick={clearError}>
           {error}
@@ -59,32 +73,42 @@ export function App() {
           {notice}
         </button>
       )}
-    </>
+    </div>
   );
+
+  // CSS zoom scales the whole UI (Settings › Interface size).
+  const style = {
+    zoom: settings.uiScale / 100,
+    ['--panel-w' as string]: `${settings.panelWidth}px`,
+  } as CSSProperties;
 
   if (screen === 'menu') {
     return (
-      <>
+      <div className="app-root" style={style}>
         <MainMenu />
         {toasts}
-      </>
+      </div>
     );
   }
   if (!game) return null;
 
   return (
-    <div className="shell">
-      <TopBar game={game} />
-      <NavRail />
-      <div className="world">
-        <World game={game} />
+    <div className="app-root" style={style}>
+      <div className="shell">
+        <TopBar game={game} />
+        <NavRail game={game} />
+        <div className="world">
+          <World game={game} />
+          <Ticker game={game} />
+          <AlertsTray game={game} />
+          <ActivityDrawer game={game} />
+        </div>
+        <Panel game={game} />
+        {game.pendingEvent && !pauseOpen && <DecisionModal event={game.pendingEvent} />}
+        {game.status !== 'playing' && !pauseOpen && <GameOver game={game} />}
+        {pauseOpen && <PauseMenu game={game} />}
+        {toasts}
       </div>
-      <Panel game={game} />
-      <Feed game={game} />
-      {game.pendingEvent && !pauseOpen && <DecisionModal event={game.pendingEvent} />}
-      {game.status !== 'playing' && !pauseOpen && <GameOver game={game} />}
-      {pauseOpen && <PauseMenu game={game} />}
-      {toasts}
     </div>
   );
 }

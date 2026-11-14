@@ -4,7 +4,7 @@ import { archFit, normalizeSplit, previewChip, type ChipDesign, type DieSplit, t
 import { useStore } from '../store';
 import { money, pct } from '../format';
 import { LAYER } from '../ui/layers';
-import { Advisor, Bar } from './Panel';
+import { Advisor, Bar, useSubTab } from './Panel';
 
 const BLOCKS: { key: keyof DieSplit; label: string; does: string }[] = [
   { key: 'compute', label: 'Compute cores', does: 'Raw TFLOPS' },
@@ -34,6 +34,7 @@ export function SiliconPanel({ game }: { game: GameState }) {
   const split = normalizeSplit(design.split);
   const setBlock = (key: keyof DieSplit, value: number) => setDesign((d) => ({ ...d, split: { ...d.split, [key]: value } }));
   const project = game.chipProject;
+  const sub = useSubTab('silicon');
 
   return (
     <>
@@ -54,6 +55,7 @@ export function SiliconPanel({ game }: { game: GameState }) {
         </div>
       )}
 
+      {sub === 'design' && (<>
       <div className="blueprint">
         <div className="row between">
           <h3>Chip designer</h3>
@@ -121,8 +123,6 @@ export function SiliconPanel({ game }: { game: GameState }) {
         </div>
       </div>
 
-      {preview.chip && <Comparison mine={preview.chip} />}
-
       <div className="card" style={{ ['--c' as string]: LAYER.silicon }}>
         <h3>Tape-out</h3>
         <div className="grid3">
@@ -162,7 +162,10 @@ export function SiliconPanel({ game }: { game: GameState }) {
           Tape out
         </button>
       </div>
+      </>)}
 
+      {sub === 'chips' && (<>
+      {preview.chip && <Comparison mine={preview.chip} />}
       <div className="card">
         <h3>Our chips</h3>
         {game.customChips.length === 0 ? (
@@ -179,6 +182,7 @@ export function SiliconPanel({ game }: { game: GameState }) {
         )}
         {game.customChips.length > 0 && <div className="small muted">Buy units in Compute, then pick them when training.</div>}
       </div>
+      </>)}
     </>
   );
 }
@@ -234,7 +238,7 @@ function Comparison({ mine }: { mine: Chip }) {
   ];
   return (
     <div className="card">
-      <h3>Versus vendor chips</h3>
+      <h3>Current design versus vendor chips</h3>
       <table className="t">
         <thead>
           <tr>

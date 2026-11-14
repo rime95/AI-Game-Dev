@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { PendingEvent } from '@stm/sim';
 import { useStore } from '../store';
 import { EffectChips } from './EffectChips';
@@ -14,6 +15,16 @@ const DECK_TAG: Record<PendingEvent['deck'], string> = {
 
 export function DecisionModal({ event }: { event: PendingEvent }) {
   const send = useStore((s) => s.send);
+  // 1, 2, 3… pick a choice.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const i = Number(e.key) - 1;
+      const c = event.choices[i];
+      if (c && !e.ctrlKey && !e.altKey) send({ type: 'resolveEvent', choiceId: c.id });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [event, send]);
   return (
     <div className="overlay">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="ev-title">
@@ -31,9 +42,11 @@ export function DecisionModal({ event }: { event: PendingEvent }) {
               <div>{event.body}</div>
             </div>
           </div>
-          {event.choices.map((c) => (
+          {event.choices.map((c, i) => (
             <button key={c.id} className="choice" onClick={() => send({ type: 'resolveEvent', choiceId: c.id })}>
-              <span className="label">{c.label}</span>
+              <span className="label">
+                <kbd>{i + 1}</kbd> {c.label}
+              </span>
               <span className="detail">{c.detail}</span>
               <EffectChips effects={c.effects} />
             </button>

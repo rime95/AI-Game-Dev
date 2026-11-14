@@ -2,14 +2,15 @@ import { content } from '@stm/content';
 import { allChips, archFit, buyAllowance, cloudSupply, freeChips, ownedPowerMW, rentedChips, reservedChips, serverLayout, totalChips, TUNING, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { big, money, pct } from '../format';
-import { LAYER } from '../ui/layers';
-import { Advisor, Bar, Stat } from './Panel';
+import { BAD, LAYER } from '../ui/layers';
+import { Advisor, Bar, Stat, useSubTab } from './Panel';
 
 export function ComputePanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const power = ownedPowerMW(game, content);
   const servers = serverLayout(game, content);
   const ownedTotal = game.fleet.filter((f) => f.owned).reduce((n, f) => n + f.count, 0);
+  const sub = useSubTab('compute');
 
   return (
     <>
@@ -17,7 +18,7 @@ export function ComputePanel({ game }: { game: GameState }) {
         Rented chips cost rent every week. Bought chips cost cash up front, then power — they need site power, and a rack in an HQ server room (or colocation space).
         Match the chip to the model: check the fit chips below.
       </Advisor>
-      {ownedTotal > 0 && (
+      {sub === 'fleet' && ownedTotal > 0 && (
         <div className="card">
           <h3>Where owned chips live</h3>
           <div className="small">
@@ -27,9 +28,10 @@ export function ComputePanel({ game }: { game: GameState }) {
         </div>
       )}
 
+      {sub === 'market' && (<>
       <div className="card" style={{ ['--c' as string]: LAYER.power }}>
         <div className="row between">
-          <h3>Colo site power</h3>
+          <h3>Site power</h3>
           <span className="small muted">
             {power.toFixed(2)} / {game.powerCapMW} MW
           </span>
@@ -43,7 +45,7 @@ export function ComputePanel({ game }: { game: GameState }) {
         const moe = archFit(chip, content.archs.find((a) => a.id === 'moe')!);
         const custom = game.customChips.some((c) => c.id === chip.id);
         return (
-          <div className="card" key={chip.id} style={custom ? { borderColor: LAYER.silicon, borderWidth: 2 } : undefined}>
+          <div className="card" key={chip.id} style={custom ? { ['--c' as string]: LAYER.silicon, borderColor: LAYER.silicon } : undefined}>
             <div className="row between">
               <div>
                 <h3>{chip.name}</h3>
@@ -77,7 +79,7 @@ export function ComputePanel({ game }: { game: GameState }) {
               <span className="chip" style={{ ['--c' as string]: LAYER.models }}>
                 Dense fit {pct(dense.fit)}
               </span>
-              <span className="chip" style={{ ['--c' as string]: moe.fit < 0.6 ? '#c2413b' : LAYER.models }}>
+              <span className="chip" style={{ ['--c' as string]: moe.fit < 0.6 ? BAD : LAYER.models }}>
                 MoE fit {pct(moe.fit)}
               </span>
             </div>
@@ -96,7 +98,9 @@ export function ComputePanel({ game }: { game: GameState }) {
           </div>
         );
       })}
+      </>)}
 
+      {sub === 'fleet' && (
       <div className="card">
         <h3>Your fleet</h3>
         {game.fleet.length === 0 && <div className="muted">No chips yet.</div>}
@@ -124,6 +128,7 @@ export function ComputePanel({ game }: { game: GameState }) {
           );
         })}
       </div>
+      )}
     </>
   );
 }
