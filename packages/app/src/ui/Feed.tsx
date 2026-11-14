@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GameState, LogEntry } from '@stm/sim';
 import { useStore } from '../store';
+import { turnLabel } from './TimeControls';
 
 type Filter = 'all' | 'good' | 'bad' | 'rival';
 const FILTERS: { id: Filter; label: string }[] = [
@@ -40,7 +41,7 @@ export function ActivityDrawer({ game }: { game: GameState }) {
           lastWeek = e.week;
           return (
             <div key={`${e.week}-${i}`}>
-              {head && <div className="log-week">Week {e.week}</div>}
+              {head && <div className="log-week">{turnLabel(game, e.week)}</div>}
               <div className={`e ${e.kind}`}>{e.text}</div>
             </div>
           );

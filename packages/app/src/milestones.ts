@@ -2,7 +2,7 @@ import { content } from '@stm/content';
 import type { GameState } from '@stm/sim';
 
 export interface Milestone {
-  kind: 'hq' | 'site' | 'fab' | 'ipo' | 'model' | 'funding';
+  kind: 'hq' | 'site' | 'fab' | 'ipo' | 'model' | 'funding' | 'chapter' | 'ai';
   title: string;
   body: string;
   week: number;
@@ -13,6 +13,24 @@ export interface Milestone {
  * card announces it over a short construction timelapse.
  */
 export function detectMilestone(prev: GameState, next: GameState): Milestone | null {
+  if (prev.era === 'founding' && next.era === 'ai')
+    return {
+      kind: 'ai',
+      title: 'The AI chapter begins',
+      body: `Neural networks run beautifully on graphics chips, and ${next.companyName} makes the best ones. Time to build minds on our own silicon.`,
+      week: next.week,
+    };
+  if (prev.founding && next.founding && next.era === 'founding' && next.founding.chapter.index > prev.founding.chapter.index) {
+    const done = content.founding.chapters[prev.founding.chapter.index];
+    const upcoming = content.founding.chapters[next.founding.chapter.index];
+    if (done)
+      return {
+        kind: 'chapter',
+        title: `Chapter complete: ${done.name}`,
+        body: `${done.reward.text}${upcoming ? ` Next: ${upcoming.name}.` : ''}`,
+        week: next.week,
+      };
+  }
   if (prev.hq.stage !== next.hq.stage) {
     const stage = content.hq.stages.find((s) => s.id === next.hq.stage);
     const title =

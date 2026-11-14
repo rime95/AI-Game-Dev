@@ -244,7 +244,7 @@ export function SiliconPanel({ game }: { game: GameState }) {
 }
 
 /** Top-down die floorplan: block sizes track the split live. */
-function Floorplan({ split, dieMm2, stacks, details }: { split: DieSplit; dieMm2: number; stacks: number; details: boolean }) {
+export function Floorplan({ split, dieMm2, stacks, details }: { split: DieSplit; dieMm2: number; stacks: number; details: boolean }) {
   const top = split.compute + split.sram;
   const bottom = split.memory + split.interconnect;
   const w = (a: number, b: number) => `${(a / Math.max(0.0001, a + b)) * 100}%`;

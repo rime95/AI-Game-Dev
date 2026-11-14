@@ -1,0 +1,926 @@
+{
+  "startYear": 1991,
+  "startCash": 80000,
+  "rooms": [
+    "deskPod",
+    "workbench",
+    "breakRoom",
+    "researchLab",
+    "hardwareLab",
+    "productStudio",
+    "cafeteria",
+    "boardroom"
+  ],
+  "types": [
+    {
+      "id": "cpu",
+      "name": "Processor",
+      "short": "CPU",
+      "blurb": "The brain of a personal computer. Wants lots of cores and a big cache.",
+      "ideal": {
+        "compute": 0.55,
+        "sram": 0.3,
+        "memory": 0.1,
+        "interconnect": 0.05
+      },
+      "extraMonths": 0,
+      "unlocked": true
+    },
+    {
+      "id": "gpu",
+      "name": "Graphics chip",
+      "short": "GPU",
+      "blurb": "Draws the picture on screen. Wants raw speed and fast memory.",
+      "ideal": {
+        "compute": 0.6,
+        "sram": 0.05,
+        "memory": 0.3,
+        "interconnect": 0.05
+      },
+      "extraMonths": 0,
+      "unlocked": true
+    },
+    {
+      "id": "console",
+      "name": "Console chip",
+      "short": "Console",
+      "blurb": "The custom heart of a game console: a bit of everything.",
+      "ideal": {
+        "compute": 0.45,
+        "sram": 0.15,
+        "memory": 0.3,
+        "interconnect": 0.1
+      },
+      "extraMonths": 1
+    },
+    {
+      "id": "dcgpu",
+      "name": "Data center GPU",
+      "short": "DC GPU",
+      "blurb": "Graphics chips built for crunching numbers all day. Wants memory and fast links.",
+      "ideal": {
+        "compute": 0.5,
+        "sram": 0.1,
+        "memory": 0.25,
+        "interconnect": 0.15
+      },
+      "extraMonths": 2
+    }
+  ],
+  "segments": [
+    {
+      "id": "home",
+      "name": "Home PCs",
+      "blurb": "Families buying their first computer.",
+      "buys": "cpu",
+      "monthlySpend": 120000,
+      "growth": 0.25,
+      "fromYear": 1991,
+      "priceSensitivity": 1.6
+    },
+    {
+      "id": "business",
+      "name": "Office PCs",
+      "blurb": "Every desk in every office wants a computer.",
+      "buys": "cpu",
+      "monthlySpend": 90000,
+      "growth": 0.18,
+      "fromYear": 1991,
+      "priceSensitivity": 1
+    },
+    {
+      "id": "gamers",
+      "name": "Gamers",
+      "blurb": "Players who want the best pictures money can buy.",
+      "buys": "gpu",
+      "monthlySpend": 40000,
+      "growth": 0.32,
+      "fromYear": 1991,
+      "priceSensitivity": 1.8
+    },
+    {
+      "id": "studios",
+      "name": "Design studios",
+      "blurb": "Architects, animators and film studios.",
+      "buys": "gpu",
+      "monthlySpend": 50000,
+      "growth": 0.15,
+      "fromYear": 1991,
+      "priceSensitivity": 0.8
+    },
+    {
+      "id": "consoles",
+      "name": "Game consoles",
+      "blurb": "Console makers buying one chip for millions of machines.",
+      "buys": "console",
+      "monthlySpend": 300000,
+      "growth": 0.12,
+      "fromYear": 1995,
+      "priceSensitivity": 1.2
+    },
+    {
+      "id": "datacenter",
+      "name": "Data centers",
+      "blurb": "Server farms crunching science, finance and, soon, AI.",
+      "buys": "dcgpu",
+      "monthlySpend": 2000000,
+      "growth": 0.35,
+      "fromYear": 2007,
+      "priceSensitivity": 0.9
+    }
+  ],
+  "generations": [
+    {
+      "id": "g1000",
+      "name": "1 µm",
+      "year": 1991,
+      "perfPerMm2": 1,
+      "dieAreaMm2": 60,
+      "costPerMm2": 0.5,
+      "devCost": 30000,
+      "months": 4,
+      "bugChance": 0.25,
+      "baseYield": 0.7,
+      "unlocked": true
+    },
+    {
+      "id": "g800",
+      "name": "800 nm",
+      "year": 1992,
+      "perfPerMm2": 1.5,
+      "dieAreaMm2": 70,
+      "costPerMm2": 0.6,
+      "devCost": 60000,
+      "months": 4,
+      "bugChance": 0.28,
+      "baseYield": 0.72
+    },
+    {
+      "id": "g600",
+      "name": "600 nm",
+      "year": 1994,
+      "perfPerMm2": 2.25,
+      "dieAreaMm2": 80,
+      "costPerMm2": 0.7,
+      "devCost": 120000,
+      "months": 5,
+      "bugChance": 0.3,
+      "baseYield": 0.74
+    },
+    {
+      "id": "g350",
+      "name": "350 nm",
+      "year": 1996,
+      "perfPerMm2": 3.4,
+      "dieAreaMm2": 90,
+      "costPerMm2": 0.8,
+      "devCost": 250000,
+      "months": 5,
+      "bugChance": 0.32,
+      "baseYield": 0.75
+    },
+    {
+      "id": "g250",
+      "name": "250 nm",
+      "year": 1998,
+      "perfPerMm2": 5.1,
+      "dieAreaMm2": 100,
+      "costPerMm2": 0.9,
+      "devCost": 500000,
+      "months": 6,
+      "bugChance": 0.34,
+      "baseYield": 0.76
+    },
+    {
+      "id": "g180",
+      "name": "180 nm",
+      "year": 2000,
+      "perfPerMm2": 7.6,
+      "dieAreaMm2": 110,
+      "costPerMm2": 1,
+      "devCost": 900000,
+      "months": 6,
+      "bugChance": 0.35,
+      "baseYield": 0.77
+    },
+    {
+      "id": "g130",
+      "name": "130 nm",
+      "year": 2002,
+      "perfPerMm2": 11.4,
+      "dieAreaMm2": 120,
+      "costPerMm2": 1.2,
+      "devCost": 1600000,
+      "months": 6,
+      "bugChance": 0.36,
+      "baseYield": 0.78
+    },
+    {
+      "id": "g90",
+      "name": "90 nm",
+      "year": 2004,
+      "perfPerMm2": 17,
+      "dieAreaMm2": 130,
+      "costPerMm2": 1.4,
+      "devCost": 3000000,
+      "months": 7,
+      "bugChance": 0.38,
+      "baseYield": 0.78
+    },
+    {
+      "id": "g65",
+      "name": "65 nm",
+      "year": 2006,
+      "perfPerMm2": 26,
+      "dieAreaMm2": 140,
+      "costPerMm2": 1.6,
+      "devCost": 5000000,
+      "months": 7,
+      "bugChance": 0.4,
+      "baseYield": 0.79
+    },
+    {
+      "id": "g45",
+      "name": "45 nm",
+      "year": 2008,
+      "perfPerMm2": 38,
+      "dieAreaMm2": 150,
+      "costPerMm2": 1.8,
+      "devCost": 9000000,
+      "months": 7,
+      "bugChance": 0.42,
+      "baseYield": 0.8
+    },
+    {
+      "id": "g32",
+      "name": "32 nm",
+      "year": 2010,
+      "perfPerMm2": 58,
+      "dieAreaMm2": 160,
+      "costPerMm2": 2.1,
+      "devCost": 15000000,
+      "months": 8,
+      "bugChance": 0.44,
+      "baseYield": 0.8
+    },
+    {
+      "id": "g22",
+      "name": "22 nm",
+      "year": 2012,
+      "perfPerMm2": 86,
+      "dieAreaMm2": 170,
+      "costPerMm2": 2.5,
+      "devCost": 25000000,
+      "months": 8,
+      "bugChance": 0.46,
+      "baseYield": 0.8
+    },
+    {
+      "id": "g16",
+      "name": "16 nm",
+      "year": 2014,
+      "perfPerMm2": 130,
+      "dieAreaMm2": 180,
+      "costPerMm2": 3,
+      "devCost": 40000000,
+      "months": 8,
+      "bugChance": 0.48,
+      "baseYield": 0.8
+    }
+  ],
+  "research": [
+    {
+      "id": "r-tools",
+      "name": "Design software",
+      "blurb": "Catch mistakes on screen, not in silicon: 20% fewer factory bugs.",
+      "cost": 6,
+      "boost": {
+        "bugs": 0.2
+      }
+    },
+    {
+      "id": "r-marketing",
+      "name": "Ad campaigns",
+      "blurb": "Get our name out there: +15% sales on every chip.",
+      "cost": 10,
+      "boost": {
+        "sales": 0.15
+      }
+    },
+    {
+      "id": "r-testlab",
+      "name": "Test lab",
+      "blurb": "Test every batch properly: another 20% fewer factory bugs.",
+      "cost": 12,
+      "requires": [
+        "r-tools"
+      ],
+      "boost": {
+        "bugs": 0.2
+      }
+    },
+    {
+      "id": "r-g800",
+      "name": "800 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 8,
+      "year": 1992,
+      "unlocks": {
+        "generation": "g800"
+      }
+    },
+    {
+      "id": "r-g600",
+      "name": "600 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 14,
+      "year": 1994,
+      "unlocks": {
+        "generation": "g600"
+      }
+    },
+    {
+      "id": "r-3d",
+      "name": "3D graphics",
+      "blurb": "Graphics chips that draw 3D worlds. Gamers will go wild: +0.8 on graphics reviews.",
+      "cost": 18,
+      "year": 1995,
+      "boost": {
+        "type": "gpu",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "r-console",
+      "name": "Console deals",
+      "blurb": "Design the custom chip inside a home game console.",
+      "cost": 20,
+      "year": 1995,
+      "unlocks": {
+        "type": "console"
+      }
+    },
+    {
+      "id": "r-g350",
+      "name": "350 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 22,
+      "year": 1996,
+      "unlocks": {
+        "generation": "g350"
+      }
+    },
+    {
+      "id": "r-drivers",
+      "name": "In-house drivers",
+      "blurb": "Our own software gets the most out of our graphics chips: +0.5 on graphics reviews.",
+      "cost": 20,
+      "year": 1997,
+      "requires": [
+        "r-3d"
+      ],
+      "boost": {
+        "type": "gpu",
+        "score": 0.5
+      }
+    },
+    {
+      "id": "r-superscalar",
+      "name": "Smarter processors",
+      "blurb": "Processors that do several things at once: +0.6 on processor reviews.",
+      "cost": 26,
+      "year": 1998,
+      "boost": {
+        "type": "cpu",
+        "score": 0.6
+      }
+    },
+    {
+      "id": "r-g250",
+      "name": "250 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 30,
+      "year": 1998,
+      "unlocks": {
+        "generation": "g250"
+      }
+    },
+    {
+      "id": "r-sales",
+      "name": "Global sales team",
+      "blurb": "Offices around the world: +20% sales on every chip.",
+      "cost": 30,
+      "year": 1999,
+      "requires": [
+        "r-marketing"
+      ],
+      "boost": {
+        "sales": 0.2
+      }
+    },
+    {
+      "id": "r-g180",
+      "name": "180 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 36,
+      "year": 2000,
+      "unlocks": {
+        "generation": "g180"
+      }
+    },
+    {
+      "id": "r-shaders",
+      "name": "Programmable shaders",
+      "blurb": "Game makers can program our graphics chips: +0.6 on graphics reviews.",
+      "cost": 40,
+      "year": 2001,
+      "requires": [
+        "r-3d"
+      ],
+      "boost": {
+        "type": "gpu",
+        "score": 0.6
+      }
+    },
+    {
+      "id": "r-g130",
+      "name": "130 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 44,
+      "year": 2002,
+      "unlocks": {
+        "generation": "g130"
+      }
+    },
+    {
+      "id": "r-g90",
+      "name": "90 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 52,
+      "year": 2004,
+      "unlocks": {
+        "generation": "g90"
+      }
+    },
+    {
+      "id": "r-multicore",
+      "name": "Multi-core processors",
+      "blurb": "Two brains on one chip: +0.8 on processor reviews.",
+      "cost": 56,
+      "year": 2005,
+      "boost": {
+        "type": "cpu",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "r-g65",
+      "name": "65 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 60,
+      "year": 2006,
+      "unlocks": {
+        "generation": "g65"
+      }
+    },
+    {
+      "id": "r-gpgpu",
+      "name": "GPU computing",
+      "blurb": "Graphics chips that crunch any numbers. Opens data center GPUs.",
+      "cost": 70,
+      "year": 2007,
+      "requires": [
+        "r-shaders"
+      ],
+      "unlocks": {
+        "type": "dcgpu"
+      }
+    },
+    {
+      "id": "r-g45",
+      "name": "45 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 70,
+      "year": 2008,
+      "unlocks": {
+        "generation": "g45"
+      }
+    },
+    {
+      "id": "r-g32",
+      "name": "32 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 80,
+      "year": 2010,
+      "unlocks": {
+        "generation": "g32"
+      }
+    },
+    {
+      "id": "r-neural",
+      "name": "Neural networks on GPUs",
+      "blurb": "Researchers find our chips are perfect for teaching computers to learn. The AI chapter begins.",
+      "cost": 90,
+      "year": 2012,
+      "requires": [
+        "r-gpgpu"
+      ],
+      "opensAiEra": true
+    },
+    {
+      "id": "r-g22",
+      "name": "22 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 90,
+      "year": 2012,
+      "unlocks": {
+        "generation": "g22"
+      }
+    },
+    {
+      "id": "r-g16",
+      "name": "16 nm process",
+      "blurb": "Smaller transistors: faster chips, but each design costs more.",
+      "cost": 100,
+      "year": 2014,
+      "unlocks": {
+        "generation": "g16"
+      }
+    }
+  ],
+  "rivals": [
+    {
+      "id": "brightline",
+      "name": "Brightline Micro",
+      "personality": "The big name in processors.",
+      "type": "cpu",
+      "prefix": "Brightline",
+      "trail": 0.6
+    },
+    {
+      "id": "pennywise",
+      "name": "Pennywise Devices",
+      "personality": "Cheap and cheerful processors, everywhere.",
+      "type": "cpu",
+      "prefix": "Pennywise",
+      "trail": 1.4
+    },
+    {
+      "id": "orbis",
+      "name": "Orbis Graphics",
+      "personality": "Premium graphics for serious gamers.",
+      "type": "gpu",
+      "prefix": "Orbis",
+      "trail": 0.8
+    },
+    {
+      "id": "kettle",
+      "name": "Kettle Logic",
+      "personality": "Fast follower: copies whatever sells.",
+      "type": "gpu",
+      "prefix": "Kettle",
+      "trail": 1.6
+    },
+    {
+      "id": "halcyon",
+      "name": "Halcyon Systems",
+      "personality": "Console specialists with friends at every games company.",
+      "type": "console",
+      "prefix": "Halcyon",
+      "trail": 1
+    },
+    {
+      "id": "vector",
+      "name": "Vector Compute",
+      "personality": "Serious number crunchers for serious money.",
+      "type": "dcgpu",
+      "prefix": "Vector",
+      "trail": 1
+    }
+  ],
+  "reviewers": [
+    {
+      "id": "bytewise",
+      "name": "Bytewise Monthly",
+      "quotes": {
+        "low": [
+          "We wanted to like it. We really did.",
+          "Back to the drawing board."
+        ],
+        "mid": [
+          "Solid, if unremarkable.",
+          "It does the job and not much more."
+        ],
+        "high": [
+          "A genuinely clever piece of silicon.",
+          "The one to beat this season."
+        ]
+      }
+    },
+    {
+      "id": "circuit",
+      "name": "Circuit Weekly",
+      "quotes": {
+        "low": [
+          "Runs hot and slow.",
+          "A rough first draft."
+        ],
+        "mid": [
+          "Decent value for the money.",
+          "Competent work from a young team."
+        ],
+        "high": [
+          "Fast, cool and cheap. Pick of the month.",
+          "Engineers will be talking about this one."
+        ]
+      }
+    },
+    {
+      "id": "homecomp",
+      "name": "Home Computing",
+      "quotes": {
+        "low": [
+          "Our test machine kept crashing.",
+          "Hard to recommend."
+        ],
+        "mid": [
+          "Families won't be disappointed.",
+          "A sensible choice."
+        ],
+        "high": [
+          "Upgrade-worthy. Our readers will love it.",
+          "Instantly makes any computer better."
+        ]
+      }
+    },
+    {
+      "id": "signal",
+      "name": "The Signal",
+      "quotes": {
+        "low": [
+          "Another me-too chip.",
+          "Late to the party."
+        ],
+        "mid": [
+          "Promising signs from this upstart.",
+          "Not bad at all."
+        ],
+        "high": [
+          "Remember this company's name.",
+          "A small team out-thinking the giants."
+        ]
+      }
+    }
+  ],
+  "chapters": [
+    {
+      "id": "garage",
+      "name": "Garage startup",
+      "blurb": "One person, one bench, one idea.",
+      "goals": [
+        {
+          "id": "first-chip",
+          "label": "Ship your first chip",
+          "kind": "chips",
+          "value": 1
+        },
+        {
+          "id": "review-6",
+          "label": "Get a review of 6 or better",
+          "kind": "review",
+          "value": 6
+        },
+        {
+          "id": "sales-100k",
+          "label": "Sell $100K of chips",
+          "kind": "sales",
+          "value": 100000
+        }
+      ],
+      "reward": {
+        "researchPoints": 6,
+        "trust": 5,
+        "text": "Word is getting around about the garage that makes chips."
+      }
+    },
+    {
+      "id": "office",
+      "name": "Out of the garage",
+      "blurb": "A real office, a real team.",
+      "goals": [
+        {
+          "id": "office",
+          "label": "Move into an office",
+          "kind": "stage",
+          "ref": "office"
+        },
+        {
+          "id": "team-4",
+          "label": "Grow the team to 4 people",
+          "kind": "staff",
+          "value": 4
+        },
+        {
+          "id": "both",
+          "label": "Ship a processor and a graphics chip",
+          "kind": "typeShipped",
+          "ref": "cpu+gpu"
+        }
+      ],
+      "reward": {
+        "cash": 100000,
+        "text": "A local bank is impressed: $100K, no strings attached."
+      }
+    },
+    {
+      "id": "3d",
+      "name": "The 3D revolution",
+      "blurb": "Games are about to look completely different.",
+      "goals": [
+        {
+          "id": "research-3d",
+          "label": "Research 3D graphics",
+          "kind": "research",
+          "ref": "r-3d"
+        },
+        {
+          "id": "review-8",
+          "label": "Get a review of 8 or better",
+          "kind": "review",
+          "value": 8
+        },
+        {
+          "id": "lead-gamers",
+          "label": "Lead the gamers market",
+          "kind": "leadSegment",
+          "ref": "gamers"
+        }
+      ],
+      "reward": {
+        "researchPoints": 20,
+        "trust": 10,
+        "text": "Gamers put our logo on their T-shirts."
+      }
+    },
+    {
+      "id": "consoles",
+      "name": "Console wars",
+      "blurb": "Every living room wants a games machine, and every machine needs a chip.",
+      "goals": [
+        {
+          "id": "research-console",
+          "label": "Research console deals",
+          "kind": "research",
+          "ref": "r-console"
+        },
+        {
+          "id": "ship-console",
+          "label": "Ship a console chip",
+          "kind": "typeShipped",
+          "ref": "console"
+        },
+        {
+          "id": "lead-consoles",
+          "label": "Lead the game console market",
+          "kind": "leadSegment",
+          "ref": "consoles"
+        }
+      ],
+      "reward": {
+        "researchPoints": 15,
+        "trust": 5,
+        "text": "A console maker puts our logo on the box."
+      }
+    },
+    {
+      "id": "leader",
+      "name": "Industry leader",
+      "blurb": "Everyone in the business knows our name.",
+      "goals": [
+        {
+          "id": "hq",
+          "label": "Move into our own HQ building",
+          "kind": "stage",
+          "ref": "hqBuilding"
+        },
+        {
+          "id": "team-25",
+          "label": "Grow the team to 25 people",
+          "kind": "staff",
+          "value": 25
+        },
+        {
+          "id": "lead-home",
+          "label": "Lead the home PC market",
+          "kind": "leadSegment",
+          "ref": "home"
+        },
+        {
+          "id": "sales-50m",
+          "label": "Sell $50M of chips in total",
+          "kind": "sales",
+          "value": 50000000
+        }
+      ],
+      "reward": {
+        "cash": 2000000,
+        "text": "A business magazine names us Company of the Year."
+      }
+    },
+    {
+      "id": "shaders",
+      "name": "Graphics you can program",
+      "blurb": "Game makers want to write their own effects. Whoever gives them the tools wins.",
+      "goals": [
+        {
+          "id": "research-shaders",
+          "label": "Research programmable shaders",
+          "kind": "research",
+          "ref": "r-shaders"
+        },
+        {
+          "id": "lead-studios",
+          "label": "Lead the design studio market",
+          "kind": "leadSegment",
+          "ref": "studios"
+        },
+        {
+          "id": "team-35",
+          "label": "Grow the team to 35 people",
+          "kind": "staff",
+          "value": 35
+        }
+      ],
+      "reward": {
+        "researchPoints": 15,
+        "cash": 5000000,
+        "text": "Film studios render their blockbusters on our chips."
+      }
+    },
+    {
+      "id": "multicore",
+      "name": "The multi-core era",
+      "blurb": "Chips stop getting faster by the gigahertz. Now it is about doing many things at once.",
+      "goals": [
+        {
+          "id": "research-multicore",
+          "label": "Research multi-core processors",
+          "kind": "research",
+          "ref": "r-multicore"
+        },
+        {
+          "id": "review-9",
+          "label": "Get a review of 9 or better",
+          "kind": "review",
+          "value": 9
+        },
+        {
+          "id": "sales-500m",
+          "label": "Sell $500M of chips in total",
+          "kind": "sales",
+          "value": 500000000
+        }
+      ],
+      "reward": {
+        "cash": 20000000,
+        "researchPoints": 20,
+        "text": "We are one of the biggest chip companies in the world."
+      }
+    },
+    {
+      "id": "ai",
+      "name": "AI pioneer",
+      "blurb": "Our chips are about to teach computers to think.",
+      "goals": [
+        {
+          "id": "gpgpu",
+          "label": "Research GPU computing",
+          "kind": "research",
+          "ref": "r-gpgpu"
+        },
+        {
+          "id": "dcgpu",
+          "label": "Ship a data center GPU",
+          "kind": "typeShipped",
+          "ref": "dcgpu"
+        },
+        {
+          "id": "lead-dc",
+          "label": "Lead the data center market",
+          "kind": "leadSegment",
+          "ref": "datacenter"
+        },
+        {
+          "id": "neural",
+          "label": "Research neural networks on GPUs",
+          "kind": "research",
+          "ref": "r-neural"
+        }
+      ],
+      "reward": {
+        "researchPoints": 10,
+        "text": "The AI chapter is open. Head to Company to begin it."
+      }
+    }
+  ]
+}

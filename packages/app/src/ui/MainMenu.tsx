@@ -100,7 +100,7 @@ function NewGameForm({ onBack }: { onBack: () => void }) {
         <span className="small muted">Same seed, same rivals and events. Handy for sharing a challenge.</span>
       </div>
       <div className="small muted">
-        You start in 2026 with $8M, three people and no compute. Rent chips, train a model, and find a way to win.
+        You start in 1991: one founder, a garage and $80K. Design processors and graphics chips, grow into a giant, and one day build artificial intelligence on your own silicon.
       </div>
       <div className="row">
         <button type="submit" className="btn primary big" disabled={!name.trim()}>

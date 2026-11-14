@@ -12,6 +12,7 @@ import {
   templateDef,
   TUNING,
   upgradeCost,
+  roomCost,
   type GameState,
 } from '@stm/sim';
 import { useStore } from '../store';
@@ -25,6 +26,8 @@ import { FabView } from './FabView';
 import { ProductsShowcase } from './ProductsShowcase';
 import { AlertFlag } from './Nudges';
 import { MilestoneCard } from './Milestone';
+import { ReviewCard } from '../ui/ReviewCard';
+import { HOTKEYS, navOrder } from '../ui/layers';
 import { MemorialCard } from './Memorial';
 import { Blueprint } from './blueprint/Blueprint';
 import { WaferReveal } from './blueprint/WaferReveal';
@@ -54,6 +57,7 @@ export function World({ game }: { game: GameState }) {
         <Blueprint key={blueprint} game={game} kind={blueprint} />
         <WaferReveal game={game} />
         <MilestoneCard game={game} />
+      <ReviewCard game={game} />
       </>
     );
   if (tab === 'products')
@@ -79,6 +83,7 @@ export function World({ game }: { game: GameState }) {
       )}
       <WaferReveal game={game} />
       <MilestoneCard game={game} />
+      <ReviewCard game={game} />
       {view === 'campus' && <MemorialCard game={game} />}
       <div className="world-top">
         <div className="world-top-left">
@@ -114,7 +119,7 @@ function NextStepPill({ game }: { game: GameState }) {
         }}
         title={here ? 'You are in the right place' : 'Go there'}
       >
-        <span className="next-step-k">{step.n >= 1 && step.n <= GUIDE_STEPS ? `Next · ${step.n} of ${GUIDE_STEPS}` : 'Next'}</span>
+        <span className="next-step-k">{step.n >= 1 && step.n <= (step.of ?? GUIDE_STEPS) ? `Next · ${step.n} of ${step.of ?? GUIDE_STEPS}` : 'Next'}</span>
         <span className="next-step-t">{step.text}</span>
         {!here && <span aria-hidden="true">→</span>}
       </button>
@@ -170,9 +175,11 @@ function Breadcrumb({ game }: { game: GameState }) {
 
 function BuildHint() {
   const setTab = useStore((s) => s.setTab);
+  const era = useStore((s) => s.game?.era);
+  const key = HOTKEYS[navOrder(era).indexOf('hq')];
   return (
     <button className="build-hint" onClick={() => setTab('hq')}>
-      Build and arrange rooms in the <strong>HQ</strong> tab (5)
+      Build and arrange rooms in the <strong>HQ</strong> tab{key ? ` (${key})` : ''}
     </button>
   );
 }
@@ -185,6 +192,7 @@ function BuildBar({ game }: { game: GameState }) {
   const hasServerRoom = game.hq.rooms.some((r) => templateDef(content, r.templateId)?.kind === 'server');
   const [cat, setCat] = useState<Category>('people');
   const stageIndex = content.hq.stages.findIndex((s) => s.id === game.hq.stage);
+  const stage = stageDef(content, game.hq.stage);
   const item = (id: string, kind: 'room' | 'equipment', name: string, meta: string, cost: number, blurb: string, locked?: string) => (
     <button
       key={id}
@@ -214,7 +222,7 @@ function BuildBar({ game }: { game: GameState }) {
       </div>
     <div className="build-bar">
       <div className="build-cats" role="tablist" aria-label="Build category">
-        {CATEGORIES.map((c) => (
+        {CATEGORIES.filter((c) => game.era !== 'founding' || c.id !== 'servers').map((c) => (
           <button key={c.id} role="tab" aria-selected={cat === c.id} onClick={() => setCat(c.id)}>
             {c.label}
           </button>
@@ -222,13 +230,15 @@ function BuildBar({ game }: { game: GameState }) {
       </div>
       {content.hq.rooms
         .filter((t) => categoryOf(t.id, t.kind) === cat)
+        .filter((t) => game.era !== 'founding' || content.founding.rooms.includes(t.id))
+        .filter((t) => stageIndex < t.minStage || fitsStage(t, stage))
         .map((t) =>
           item(
             t.id,
             'room',
             t.name,
             `${t.w}×${t.h}`,
-            t.cost,
+            roomCost(game, t),
             t.blurb,
             stageIndex < t.minStage ? `Needs the ${content.hq.stages[t.minStage].name.toLowerCase()}` : undefined,
           ),
@@ -252,6 +262,11 @@ function BuildBar({ game }: { game: GameState }) {
     </div>
     </div>
   );
+}
+
+/** Fits the floor in either orientation. */
+function fitsStage(t: { w: number; h: number }, stage: { w: number; h: number }): boolean {
+  return (t.w <= stage.w && t.h <= stage.h) || (t.h <= stage.w && t.w <= stage.h);
 }
 
 type Category = 'people' | 'comfort' | 'office' | 'servers';
@@ -369,7 +384,7 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
   const t = room && templateDef(content, room.templateId);
   if (!room || !t) return null;
   const { mult, adjacentBreak } = roomMultiplier(game, content, room);
-  const up = upgradeCost(t, room.tier);
+  const up = upgradeCost(t, room.tier, game);
   const lab = labSeating(game, content).find((l) => l.roomId === room.id);
   const p = game.hq.productivity;
   const inRoom = game.hq.equipment.filter((e) => e.roomId === room.id);

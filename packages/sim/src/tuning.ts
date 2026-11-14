@@ -156,4 +156,25 @@ export const TUNING = {
   minWeeksBetweenRounds: 26,
   bankruptAfterNegativeWeeks: 4,
   logLimit: 200,
+
+  // Chip-company years (1991 → AI): monthly turns, 1990s money.
+  /** Room build and upkeep costs are scaled by this in the chip-company years. */
+  foundingCostScale: 0.25,
+  foundingSalaryPerMonth: 4000,
+  foundingHireCost: 5000,
+  foundingStartTrust: 30,
+  foundingEventCooldown: 3,
+  foundingEventChance: 0.25,
+  foundingBankruptMonths: 3,
+  /** Performance an average new chip has in January 1991, and how fast that rises each month. */
+  chipBarStart: 36,
+  chipBarGrowth: 0.022,
+  /** Default price: unit cost × this. Buyers judge price against it. */
+  chipMarkup: 2.2,
+  /** Research points a month from each seated researcher. */
+  researchPointsPerResearcher: 0.3,
+  /** Each extra chip of ours in a segment adds this much of its pull (the rest just splits our sales). */
+  chipShelfOverlap: 0.25,
+  /** Rival makers' brand loyalty: their pull × this. */
+  rivalBrand: 1.8,
 } as const;

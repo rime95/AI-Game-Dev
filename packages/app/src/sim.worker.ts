@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { applyCommand, createGame, type Command, type GameState } from '@stm/sim';
+import { applyCommand, createFoundingGame, type Command, type GameState } from '@stm/sim';
 
 export type ToWorker =
   | { type: 'newGame'; seed: number; companyName: string }
@@ -17,7 +17,7 @@ let state: GameState | null = null;
 ctx.onmessage = (e: MessageEvent<ToWorker>) => {
   const msg = e.data;
   let error: string | undefined;
-  if (msg.type === 'newGame') state = createGame(content, msg.seed, msg.companyName);
+  if (msg.type === 'newGame') state = createFoundingGame(content, msg.seed, msg.companyName);
   else if (msg.type === 'load') state = msg.state;
   else if (state) {
     const res = applyCommand(state, content, msg.cmd);

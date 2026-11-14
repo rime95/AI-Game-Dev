@@ -271,14 +271,33 @@ export function lowerName(name: string): string {
   return /^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name;
 }
 
-export function upgradeCost(t: RoomTemplate, tier: number): number | null {
-  return tier >= t.tierEffect.length ? null : t.cost * tier;
+export function upgradeCost(t: RoomTemplate, tier: number, state?: GameState): number | null {
+  return tier >= t.tierEffect.length ? null : roomCost(state, t) * tier;
+}
+
+/** What a room costs to build right now (1990s prices in the founding era). */
+export function roomCost(state: GameState | undefined, t: { cost: number }): number {
+  return state?.era === 'founding' ? Math.round(t.cost * TUNING.foundingCostScale) : t.cost;
+}
+
+/** What moving to a stage costs right now. */
+export function moveCost(state: GameState, stage: HqStage): number {
+  return state.era === 'founding' && stage.founding ? stage.founding.moveCost : stage.moveCost;
 }
 
 /** Can we move to the next HQ stage? Returns the stage and an error if not. */
 export function moveCheck(state: GameState, content: Content): { stage: HqStage | null; error?: string } {
   const stage = nextStage(content, state);
   if (!stage) return { stage, error: 'This is the biggest HQ available for now.' };
+  if (state.era === 'founding') {
+    const terms = stage.founding;
+    if (!terms) return { stage, error: 'The company needs to grow up before a move this big.' };
+    const shipped = state.founding?.products.length ?? 0;
+    if (shipped < terms.chipsShipped && state.cash < terms.orCash)
+      return { stage, error: `Ship ${terms.chipsShipped} chips (or have $${(terms.orCash / 1e6).toFixed(1)}M in the bank) to afford the ${lowerName(stage.name)}.` };
+    if (state.cash < terms.moveCost) return { stage, error: 'Not enough cash for the move.' };
+    return { stage };
+  }
   const unlocked = state.roundsRaised >= stage.requiresRounds || (stage.orCash !== undefined && state.cash >= stage.orCash);
   if (!unlocked) {
     const round = content.funding[stage.requiresRounds - 1]?.name ?? 'another funding round';

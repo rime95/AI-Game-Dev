@@ -1,4 +1,99 @@
-import type { AcquisitionGains, Deck, Discipline, Effects, Precision, TrackId } from '@stm/content';
+import type { AcquisitionGains, Deck, Discipline, Effects, Precision, ProductTypeId, TrackId } from '@stm/content';
+
+/** Which chapter of the company's story we're in: the chip-company years, or the AI era. */
+export type Era = 'founding' | 'ai';
+
+/** A chip we design and sell in the chip-company years. */
+export interface ProductDesign {
+  name: string;
+  type: ProductTypeId;
+  genId: string;
+  split: DieSplit;
+  /** Die size against the generation's standard: about 0.75 value, 1 balanced, 1.3 top of the range. */
+  scale: number;
+}
+
+/** A chip being designed and made. */
+export interface ProductProject {
+  id: string;
+  design: ProductDesign;
+  monthsLeft: number;
+  totalMonths: number;
+  /** The first batch had a bug and we sent it again. */
+  respun: boolean;
+  /** Pre-launch buzz, 0–100. */
+  buzz: number;
+  /** Event effects on quality (1 = none). */
+  qualityMult: number;
+  devCost: number;
+}
+
+export interface ProductReview {
+  reviewerId: string;
+  score: number;
+  quote: string;
+}
+
+/** A chip on the market. */
+export interface Product {
+  id: string;
+  design: ProductDesign;
+  month: number;
+  perf: number;
+  /** Average review, 1–10. */
+  score: number;
+  /** Launch reception after buzz: overhyped chips disappoint, well-hyped good ones fly. */
+  reception: number;
+  buzz: number;
+  reviews: ProductReview[];
+  unitCost: number;
+  price: number;
+  monthsOnSale: number;
+  revenue: number;
+  units: number;
+  lastMonthRevenue: number;
+  retired: boolean;
+}
+
+/** A rival chip maker: one kind of chip, always a step behind our best. */
+export interface CompanyRival {
+  id: string;
+  /** Review of their latest chip. */
+  score: number;
+  chips: number;
+  lastChip: string;
+  /** Month their latest chip came out. */
+  month: number;
+  nextReleaseMonth: number;
+}
+
+export interface FoundingReport {
+  sales: number;
+  costOfGoods: number;
+  salaries: number;
+  rent: number;
+  upkeep: number;
+  designCost: number;
+  buzzCost: number;
+}
+
+/** The chip-company years. */
+export interface FoundingState {
+  startYear: number;
+  projects: ProductProject[];
+  products: Product[];
+  researchPoints: number;
+  /** Research node ids done. */
+  unlocked: string[];
+  /** How much customers trust us, 0–100. */
+  trust: number;
+  rivals: CompanyRival[];
+  lastEventMonth: number;
+  report: FoundingReport | null;
+  /** Lifetime chip sales, $. */
+  totalSales: number;
+  chapter: { index: number; done: string[] };
+}
 
 export interface FleetEntry {
   id: string;
@@ -319,7 +414,13 @@ export interface HqState {
 }
 
 export interface GameState {
-  version: 17;
+  version: 18;
+  /** When the AI era began, for the calendar (ms since epoch). Unset for games that started in it. */
+  aiStartUtc?: number;
+  /** Chip-company years (monthly turns from 1991) or the AI era (weekly sim, monthly turns). */
+  era: Era;
+  /** The chip-company chapter, kept after the jump to the AI era for the company history. */
+  founding: FoundingState | null;
   fab: Fab | null;
   sites: Site[];
   companyName: string;
@@ -420,7 +521,13 @@ export type Command =
   | { type: 'setFabLineChip'; lineId: string; chipId: string }
   | { type: 'setFabLineMode'; lineId: string; mode: 'fleet' | 'sell'; fleetQuota?: number }
   | { type: 'resolveEvent'; choiceId: string }
-  | { type: 'advanceMonth' };
+  | { type: 'advanceMonth' }
+  | { type: 'startDesign'; design: ProductDesign }
+  | { type: 'buyBuzz'; projectId: string }
+  | { type: 'setChipPrice'; productId: string; price: number }
+  | { type: 'retireChip'; productId: string }
+  | { type: 'buyResearch'; researchId: string }
+  | { type: 'startAiEra' };
 
 export interface CommandResult {
   state: GameState;

@@ -23,6 +23,12 @@ export function EffectChips({ effects }: { effects: Effects }) {
   if (effects.runCostPerChip) chips.push({ text: `${money(effects.runCostPerChip)} per chip`, c: LAYER.gold });
   if (effects.runScandalChance)
     chips.push({ text: `${Math.round(effects.runScandalChance * 100)}% scandal on release`, c: '#c2413b' });
+  if (effects.projectMonths)
+    chips.push({ text: `Chip ${effects.projectMonths > 0 ? '+' : '−'}${Math.abs(effects.projectMonths)} month${Math.abs(effects.projectMonths) === 1 ? '' : 's'}`, c: LAYER.silicon });
+  if (effects.projectQuality)
+    chips.push({ text: `Chip quality ${effects.projectQuality >= 1 ? '+' : '−'}${Math.round(Math.abs(effects.projectQuality - 1) * 100)}%`, c: LAYER.silicon });
+  if (effects.trust) chips.push({ text: `Trust ${signed(effects.trust)}`, c: LAYER.trust });
+  if (effects.researchPoints) chips.push({ text: `+${effects.researchPoints} research points`, c: LAYER.models });
   if (!chips.length) chips.push({ text: 'No effect', c: '#6f7079' });
   return (
     <div className="chips">

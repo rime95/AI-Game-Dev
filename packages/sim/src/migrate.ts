@@ -5,7 +5,7 @@ import { rivalCeiling } from './game';
 import { scoreNow } from './selectors';
 
 /** The save format this build writes. Bump it whenever GameState changes shape, and add a migration below. */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 /** Oldest save version this build can still upgrade. Earlier prototype saves can't be loaded. */
 export const OLDEST_MIGRATABLE_VERSION = 9;
@@ -69,6 +69,8 @@ const MIGRATIONS: Record<number, (s: AnySave, content: Content) => AnySave> = {
     }
     return next;
   },
+  // v18: eras. Every older save is an AI-era company with no chip-company years behind it.
+  17: (s) => ({ ...s, version: 18, era: 'ai', founding: null }),
 };
 
 export type MigrationResult = { state: GameState; migratedFrom?: number } | { error: string };

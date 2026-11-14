@@ -40,6 +40,10 @@ export function TopBar({ game }: { game: GameState }) {
       </div>
 
       <div className="hud">
+        {game.era === 'founding' ? (
+          <FoundingHud game={game} />
+        ) : (
+        <>
         <Res
           cls="cash"
           k="Cash"
@@ -170,11 +174,109 @@ export function TopBar({ game }: { game: GameState }) {
             }
           />
         </div>
+        </>
+        )}
       </div>
 
       <TimeControls game={game} />
       <TrayButtons game={game} />
     </header>
+  );
+}
+
+/** The chip-company years: cash, people, trust, chips on sale, research points. */
+function FoundingHud({ game }: { game: GameState }) {
+  const f = game.founding!;
+  const r = f.report;
+  const costs = r ? r.costOfGoods + r.salaries + r.rent + r.upkeep : 0;
+  const net = r ? r.sales - costs : 0;
+  const people = Object.values(game.staff).reduce((n, c) => n + c, 0);
+  const desks = deskStats(game, content);
+  const onSale = f.products.filter((p) => !p.retired).length;
+  return (
+    <>
+      <Res
+        cls="cash"
+        k="Cash"
+        c={LAYER.gold}
+        v={money(game.cash)}
+        neg={game.cash < 0}
+        sub={r ? <span className={net >= 0 ? 'up' : 'down'}>{net >= 0 ? '▲' : '▼'} {money(Math.abs(net))}/month</span> : 'no sales yet'}
+        pop={
+          r ? (
+            <>
+              <h4>Last month</h4>
+              <Line k="Chip sales" v={r.sales} strong />
+              <Line k="Making the chips" v={-r.costOfGoods} />
+              <Line k="Salaries" v={-r.salaries} />
+              <Line k="Rent" v={-r.rent} />
+              <Line k="Rooms" v={-r.upkeep} />
+              <Line k="Net" v={net} strong />
+              <p>New designs and buzz are paid up front and aren't counted here.</p>
+            </>
+          ) : (
+            <p>Play a month to see the books.</p>
+          )
+        }
+      />
+      <div className="hud-group">
+        <Res
+          k="Team"
+          c={LAYER.gold}
+          v={`${people}/${desks.capacity}`}
+          neg={desks.crowding > 1}
+          sub={`morale ${Math.round(game.hq.morale)}`}
+          pop={
+            <>
+              <h4>People</h4>
+              <Kv k="Chip designers" v={String(game.staff.hardwareEng)} />
+              <Kv k="Salespeople" v={String(game.staff.product)} />
+              <Kv k="Researchers" v={String(game.staff.research)} />
+              <Kv k="Seats" v={String(desks.capacity)} />
+              <p>The founder works for free. Everyone else is paid monthly.</p>
+            </>
+          }
+        />
+        <Res
+          k="Trust"
+          c={LAYER.trust}
+          v={String(Math.round(f.trust))}
+          pop={
+            <>
+              <h4>Customer trust</h4>
+              <p>Good launches build it, disappointing ones cost it. More trust sells more of every chip.</p>
+            </>
+          }
+        />
+      </div>
+      <div className="hud-group">
+        <Res
+          k="Chips"
+          c={LAYER.silicon}
+          v={String(onSale)}
+          sub={`on sale · ${f.products.length} made`}
+          pop={
+            <>
+              <h4>Our chips</h4>
+              <p>Each sells for a year or two, slipping as the industry moves on. Ship 3 to afford an office.</p>
+            </>
+          }
+        />
+        <Res
+          cls="opt"
+          k="Research"
+          c={LAYER.models}
+          v={String(Math.floor(f.researchPoints))}
+          sub="points"
+          pop={
+            <>
+              <h4>Research points</h4>
+              <p>Earned from every chip and from researchers. Spend them in Research on new generations, new kinds of chip and better tools.</p>
+            </>
+          }
+        />
+      </div>
+    </>
   );
 }
 

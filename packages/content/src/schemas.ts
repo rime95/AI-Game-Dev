@@ -100,6 +100,16 @@ export const EffectsSchema = z.object({
   fabHbmMult: z.number().positive().optional(),
   /** How long the yield, speed or HBM multiplier lasts. */
   fabWeeks: z.number().int().positive().optional(),
+
+  // Founding-era effects, applied to the chip project in progress and the company:
+  /** Months added to (+) or taken off (−) the current chip project. */
+  projectMonths: z.number().int().optional(),
+  /** Multiplies the current project's quality. */
+  projectQuality: z.number().positive().optional(),
+  /** Customer trust points (0–100). */
+  trust: z.number().optional(),
+  /** Research points. */
+  researchPoints: z.number().optional(),
 });
 export type Effects = z.infer<typeof EffectsSchema>;
 
@@ -109,7 +119,9 @@ export type Deck = z.infer<typeof DeckSchema>;
 export const EventSchema = z.object({
   id: z.string(),
   deck: DeckSchema,
-  trigger: z.enum(['rivalRelease', 'random', 'training', 'fab']),
+  trigger: z.enum(['rivalRelease', 'random', 'training', 'fab', 'founding']),
+  /** Founding events: only while a chip project is in progress. */
+  requiresProject: z.boolean().default(false),
   /** For fab incidents: which kind. */
   fabIncident: z.enum(['cleanroom', 'litho', 'hbm']).optional(),
   /** For training incidents: which risk this event represents. */
@@ -272,6 +284,15 @@ export const HqStageSchema = z.object({
   /** Server room limits from the building's power and cooling (world-and-facilities §2.5). */
   maxRacks: z.number().int().nonnegative(),
   maxServerKW: z.number().nonnegative(),
+  /** Founding-era terms (1990s money): move cost, monthly rent, and what unlocks the move. */
+  founding: z
+    .object({
+      moveCost: z.number().nonnegative(),
+      rentPerMonth: z.number().nonnegative(),
+      chipsShipped: z.number().int().nonnegative(),
+      orCash: z.number().nonnegative(),
+    })
+    .optional(),
 });
 export type HqStage = z.infer<typeof HqStageSchema>;
 
@@ -375,7 +396,131 @@ export const FabSchema = z.object({
 });
 export type FabRules = z.infer<typeof FabSchema>;
 
+/** The chip-company years (1991 → the AI era): we design processors and graphics chips and sell them. */
+export const ProductTypeIdSchema = z.enum(['cpu', 'gpu', 'console', 'dcgpu']);
+export type ProductTypeId = z.infer<typeof ProductTypeIdSchema>;
+
+const Split = z.object({ compute: z.number(), sram: z.number(), memory: z.number(), interconnect: z.number() });
+
+export const FoundingSchema = z.object({
+  startYear: z.number().int(),
+  startCash: z.number().positive(),
+  /** Rooms that exist in these years. */
+  rooms: z.array(z.string()),
+  types: z
+    .array(
+      z.object({
+        id: ProductTypeIdSchema,
+        name: z.string(),
+        short: z.string(),
+        blurb: z.string(),
+        /** The die split this kind of chip wants; designs score by how close they get. */
+        ideal: Split,
+        /** Design months on top of the generation's base. */
+        extraMonths: z.number().int().nonnegative(),
+        unlocked: z.boolean().default(false),
+      }),
+    )
+    .min(1),
+  segments: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        blurb: z.string(),
+        /** The kind of chip these customers buy. */
+        buys: ProductTypeIdSchema,
+        /** What they spend on chips a month in the start year, and yearly growth. */
+        monthlySpend: z.number().positive(),
+        growth: z.number(),
+        /** Year the segment exists from. */
+        fromYear: z.number().int(),
+        /** How much they care about price (higher = more sensitive). */
+        priceSensitivity: z.number().positive(),
+      }),
+    )
+    .min(1),
+  generations: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        year: z.number().int(),
+        /** Performance per mm² (relative units); each generation is ~1.5× the last. */
+        perfPerMm2: z.number().positive(),
+        dieAreaMm2: z.number().positive(),
+        costPerMm2: z.number().positive(),
+        /** Cost to design a chip and get it made the first time. */
+        devCost: z.number().positive(),
+        months: z.number().int().positive(),
+        bugChance: z.number().min(0).max(1),
+        baseYield: z.number().min(0).max(1),
+        unlocked: z.boolean().default(false),
+      }),
+    )
+    .min(1),
+  research: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      blurb: z.string(),
+      cost: z.number().int().positive(),
+      year: z.number().int().optional(),
+      requires: z.array(z.string()).default([]),
+      unlocks: z.object({ type: ProductTypeIdSchema.optional(), generation: z.string().optional() }).optional(),
+      boost: z
+        .object({
+          /** Score points for one kind of chip. */
+          type: ProductTypeIdSchema.optional(),
+          score: z.number().optional(),
+          /** Share off the factory bug chance. */
+          bugs: z.number().optional(),
+          /** Extra sales. */
+          sales: z.number().optional(),
+        })
+        .optional(),
+      /** The research that opens the AI chapter. */
+      opensAiEra: z.boolean().default(false),
+    }),
+  ),
+  rivals: z
+    .array(z.object({ id: z.string(), name: z.string(), personality: z.string(), type: ProductTypeIdSchema, prefix: z.string(), trail: z.number().positive() }))
+    .min(1),
+  reviewers: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        quotes: z.object({ low: z.array(z.string()).min(1), mid: z.array(z.string()).min(1), high: z.array(z.string()).min(1) }),
+      }),
+    )
+    .min(1),
+  chapters: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        blurb: z.string(),
+        goals: z
+          .array(
+            z.object({
+              id: z.string(),
+              label: z.string(),
+              kind: z.enum(['chips', 'review', 'typeShipped', 'stage', 'staff', 'research', 'leadSegment', 'sales']),
+              value: z.number().optional(),
+              ref: z.string().optional(),
+            }),
+          )
+          .min(1),
+        reward: z.object({ cash: z.number().optional(), researchPoints: z.number().optional(), trust: z.number().optional(), text: z.string() }),
+      }),
+    )
+    .min(1),
+});
+export type Founding = z.infer<typeof FoundingSchema>;
+
 export const ContentSchema = z.object({
+  founding: FoundingSchema,
   fab: FabSchema,
   sites: SitesSchema,
   hq: HqSchema,

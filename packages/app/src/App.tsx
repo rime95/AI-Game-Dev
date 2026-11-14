@@ -8,7 +8,7 @@ import { GameOver } from './ui/GameOver';
 import { MainMenu } from './ui/MainMenu';
 import { PauseMenu } from './ui/PauseMenu';
 import { useClock } from './ui/TimeControls';
-import { HOTKEYS, NAV_ORDER } from './ui/layers';
+import { HOTKEYS, navOrder } from './ui/layers';
 import { Panel } from './panels/Panel';
 import { World } from './world/World';
 import { AlertsTray } from './world/Nudges';
@@ -55,7 +55,8 @@ export function App() {
       }
       if (typing || st.pauseOpen || e.ctrlKey || e.altKey || e.metaKey || st.game?.pendingEvent) return;
       const i = HOTKEYS.indexOf(e.key);
-      if (i >= 0 && NAV_ORDER[i]) st.setTab(NAV_ORDER[i]);
+      const order = navOrder(st.game?.era);
+      if (i >= 0 && order[i]) st.setTab(order[i]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

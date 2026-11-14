@@ -13,6 +13,7 @@ import { RivalsPanel } from './RivalsPanel';
 import { DealsPanel } from './DealsPanel';
 import { HqPanel } from './HqPanel';
 import { FabPanel, SitesPanel } from './SitesPanel';
+import { ChipsPanel, FoundingOverview, FoundingRivals, FoundingTeam, ResearchPanel } from './FoundingPanels';
 import { SelectionCard } from '../world/World';
 import { ADVISORS, type AdvisorKey } from '../words';
 
@@ -93,7 +94,8 @@ export function Panel({ game }: { game: GameState }) {
   const selected = useStore((s) => s.selectedRoom);
   const m = TAB_META[tab];
   const sub = useSubTab(tab);
-  const subs = SUB_TABS[tab];
+  const founding = game.era === 'founding';
+  const subs = founding ? undefined : SUB_TABS[tab];
   const showSelection = !!selected && worldView === 'hq' && (game.hq.rooms.some((r) => r.id === selected) || game.hq.equipment.some((e) => e.id === selected));
 
   return (
@@ -103,7 +105,7 @@ export function Panel({ game }: { game: GameState }) {
         <div className="panel-title">
           <span className="dot" />
           <h2>{m.label}</h2>
-          <DetailToggle tab={tab} />
+          {!founding && <DetailToggle tab={tab} />}
         </div>
         {subs && (
           <div className="subtabs" role="tablist" aria-label={`${m.label} sections`}>
@@ -117,6 +119,17 @@ export function Panel({ game }: { game: GameState }) {
       </div>
       <div className="panel-body" key={tab}>
         {showSelection && <SelectionCard game={game} />}
+        {founding ? (
+          <>
+            {tab === 'overview' && <FoundingOverview game={game} />}
+            {tab === 'chip' && <ChipsPanel game={game} />}
+            {tab === 'research' && <ResearchPanel game={game} />}
+            {tab === 'team' && <FoundingTeam game={game} />}
+            {tab === 'rivals' && <FoundingRivals game={game} />}
+            {tab === 'hq' && <HqPanel game={game} />}
+          </>
+        ) : (
+        <>
         {tab === 'overview' && <OverviewPanel game={game} />}
         {tab === 'hq' && <HqPanel game={game} />}
         {tab === 'sites' && <SitesPanel game={game} />}
@@ -129,6 +142,8 @@ export function Panel({ game }: { game: GameState }) {
         {tab === 'team' && <TeamPanel game={game} />}
         {tab === 'deals' && <DealsPanel game={game} />}
         {tab === 'rivals' && <RivalsPanel game={game} />}
+        </>
+        )}
       </div>
     </aside>
   );

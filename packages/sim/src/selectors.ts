@@ -27,6 +27,13 @@ export function dateForWeek(week: number): Date {
   return new Date(START_DATE_UTC + week * 7 * 86_400_000);
 }
 
+/** The calendar date of a turn: months from 1991 in the chip-company years, weeks in the AI era. */
+export function dateFor(state: Pick<GameState, 'era' | 'founding' | 'aiStartUtc'>, week: number): Date {
+  if (state.era === 'founding') return new Date(Date.UTC(state.founding?.startYear ?? 1991, week, 1));
+  if (state.aiStartUtc !== undefined) return new Date(state.aiStartUtc + week * 7 * 86_400_000);
+  return dateForWeek(week);
+}
+
 /** Vendor chips plus the player's own taped-out designs. */
 export function allChips(state: GameState | undefined, content: Content): Chip[] {
   return state ? [...content.chips, ...state.customChips] : content.chips;

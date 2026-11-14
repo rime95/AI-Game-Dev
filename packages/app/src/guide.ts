@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { fundingCheck, type GameState } from '@stm/sim';
+import { aiReady, fundingCheck, goalMet, type GameState } from '@stm/sim';
 import type { Tab } from './time';
 
 export interface NextStep {
@@ -12,6 +12,24 @@ export interface NextStep {
   sub?: string;
   /** Step number on the first-hour path, for the "3 of 9" counter. */
   n: number;
+  /** How many steps the path has. */
+  of?: number;
+}
+
+/** The chip-company years: the first chip, then whatever the current chapter asks for next. */
+function foundingStep(game: GameState): NextStep {
+  const f = game.founding!;
+  const step = (key: string, text: string, tab: NextStep['tab'], n = 0): NextStep => ({ key, text, tab, n });
+  if (aiReady(content, f)) return step('ai', 'The AI chapter is ready: begin it from Company', 'overview');
+  const first = f.projects[0];
+  if (!f.products.length && !first) return step('first-chip', 'Design your first chip: a processor or a graphics chip', 'chip');
+  if (!f.products.length && first)
+    return step('wait', `${first.design.name} is at the factory: ${first.monthsLeft} month${first.monthsLeft === 1 ? '' : 's'} to go`, 'chip');
+  const ch = content.founding.chapters[f.chapter.index];
+  const goal = ch?.goals.find((g) => !f.chapter.done.includes(g.id) && !goalMet(game, content, g));
+  if (!ch || !goal) return step('grow', 'Keep designing better chips', 'chip');
+  const TAB: Record<string, NextStep['tab']> = { chips: 'chip', review: 'chip', typeShipped: 'chip', sales: 'chip', stage: 'hq', staff: 'team', research: 'research', leadSegment: 'rivals' };
+  return step(`${ch.id}-${goal.id}`, `${ch.name}: ${goal.label}`, TAB[goal.kind] ?? 'chip');
 }
 
 export const GUIDE_STEPS = 9;
@@ -23,6 +41,7 @@ const hasRoom = (game: GameState, templateId: string) => game.hq.rooms.some((r) 
  * "Ways to win" goals take over and this returns a pointer to them.
  */
 export function nextStep(game: GameState): NextStep {
+  if (game.era === 'founding' && game.founding) return foundingStep(game);
   if (fundingCheck(game, content).canRaise)
     return { key: `raise-${game.roundsRaised}`, text: 'Investors are calling: raise your next funding round', tab: 'overview', sub: 'summary', n: 0 };
   if (!game.fleet.length) return { key: 'rent', text: 'Rent your first chips', tab: 'compute', sub: 'market', n: 1 };

@@ -17,6 +17,7 @@ import {
   roomRect,
   stageDef,
   templateDef,
+  roomCost,
   type GameState,
   type PlacedEquipment,
   type PlacedRoom,
@@ -278,8 +279,8 @@ function ghostFor(
   const err =
     (kind === 'room'
       ? placementError(game, content, templateId, x, y, rot, floor)
-      : equipmentPlacement(game, content, templateId, x, y, rot, floor).error) ?? (game.cash < t.cost ? 'Not enough cash.' : null);
-  return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `${t.name} · ${money(t.cost)}` };
+      : equipmentPlacement(game, content, templateId, x, y, rot, floor).error) ?? (game.cash < roomCost(game, t) ? 'Not enough cash.' : null);
+  return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `${t.name} · ${money(roomCost(game, t))}` };
 }
 
 export function Ghost({

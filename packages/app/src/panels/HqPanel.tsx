@@ -6,6 +6,7 @@ import {
   labSeating,
   moraleTarget,
   moveCheck,
+  moveCost,
   rackUnits,
   serverLayout,
   productivity,
@@ -31,6 +32,7 @@ export function HqPanel({ game }: { game: GameState }) {
   const send = useStore((s) => s.send);
   const stage = stageDef(content, game.hq.stage);
   const d = deskStats(game, content);
+  const founding = game.era === 'founding';
   const p = productivity(game, content);
   const target = moraleTarget(game, content);
   const move = moveCheck(game, content);
@@ -61,8 +63,17 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
         <div className="small muted">{stage.blurb}</div>
         <div className="grid2">
-          <Stat k="Rent" v={`${money(fac.rent)}/wk`} />
-          <Stat k="Room upkeep" v={`${money(fac.upkeep)}/wk`} />
+          {founding ? (
+            <>
+              <Stat k="Rent" v={`${money(stage.founding?.rentPerMonth ?? 0)}/month`} />
+              <Stat k="Room upkeep" v={`${money(fac.upkeep * (52 / 12) * TUNING.foundingCostScale)}/month`} />
+            </>
+          ) : (
+            <>
+              <Stat k="Rent" v={`${money(fac.rent)}/wk`} />
+              <Stat k="Room upkeep" v={`${money(fac.upkeep)}/wk`} />
+            </>
+          )}
         </div>
       </div>
 
@@ -72,8 +83,8 @@ export function HqPanel({ game }: { game: GameState }) {
           <div className="small muted">{move.stage.blurb}</div>
           <div className="grid2">
             <Stat k="Space" v={`${move.stage.w}×${move.stage.h} tiles`} />
-            <Stat k="Rent" v={`${money(move.stage.rentPerWeek)}/wk`} />
-            <Stat k="Move cost" v={money(move.stage.moveCost)} />
+            <Stat k="Rent" v={founding ? `${money(move.stage.founding?.rentPerMonth ?? 0)}/month` : `${money(move.stage.rentPerWeek)}/wk`} />
+            <Stat k="Move cost" v={money(moveCost(game, move.stage))} />
             <Stat k="Settling in" v={details ? `${TUNING.moveInWeeks} wk at ×${TUNING.moveInProductivity}` : `${TUNING.moveInWeeks} slower weeks`} />
           </div>
           <div className="small muted">Your rooms come with you at the same spots.</div>
@@ -131,6 +142,7 @@ export function HqPanel({ game }: { game: GameState }) {
         </div>
       </div>
 
+      {!founding && (
       <div className="card">
         <h3>Specialist rooms</h3>
         <div className="small muted">
@@ -152,7 +164,9 @@ export function HqPanel({ game }: { game: GameState }) {
           </div>
         ))}
       </div>
+      )}
 
+      {!founding && (
       <div className="card" style={{ ['--c' as string]: LAYER.compute }}>
         <h3>Server rooms</h3>
         <div className="grid2">
@@ -179,6 +193,7 @@ export function HqPanel({ game }: { game: GameState }) {
             : 'Chips we buy live here first. Each rack needs a power unit, and the room needs enough cooling or the chips slow down. Anything that doesn’t fit goes to rented rack space.'}
         </div>
       </div>
+      )}
 
       <div className="card">
         <h3>Rooms ({game.hq.rooms.length})</h3>

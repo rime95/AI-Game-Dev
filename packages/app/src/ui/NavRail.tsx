@@ -2,7 +2,8 @@ import { content } from '@stm/content';
 import { fundingCheck, runProgress, type GameState } from '@stm/sim';
 import { useStore, type Tab } from '../store';
 import { nudgesFor } from '../world/Nudges';
-import { HOTKEYS, Icon, NAV_GROUPS, NAV_ORDER, TAB_META } from './layers';
+import { HOTKEYS, Icon, navGroups, navOrder, TAB_META } from './layers';
+import { nextStep } from '../guide';
 
 /** Work under way per tab, 0–1, shown as a ring on the icon. */
 function progressFor(game: GameState): Partial<Record<Tab, number>> {
@@ -12,6 +13,8 @@ function progressFor(game: GameState): Partial<Record<Tab, number>> {
   if (game.fab?.status === 'building') out.fab = 1 - game.fab.weeksLeft / game.fab.totalWeeks;
   const site = game.sites.find((s) => s.status === 'building');
   if (site) out.sites = 1 - site.weeksLeft / site.totalWeeks;
+  const p = game.founding?.projects[0];
+  if (p && game.era === 'founding') out.chip = 1 - p.monthsLeft / p.totalMonths;
   return out;
 }
 
@@ -24,17 +27,21 @@ export function NavRail({ game }: { game: GameState }) {
     if (!n.tab || dismissed.includes(n.key)) continue;
     if (alerts.get(n.tab) !== 'bad') alerts.set(n.tab, n.tone);
   }
-  if (fundingCheck(game, content).canRaise && !alerts.has('overview')) alerts.set('overview', 'info');
+  if (game.era === 'founding') {
+    alerts.clear();
+    const step = nextStep(game);
+    if (step.n > 0) alerts.set(step.tab, 'info');
+  } else if (fundingCheck(game, content).canRaise && !alerts.has('overview')) alerts.set('overview', 'info');
   const progress = progressFor(game);
 
   return (
     <nav className="rail" aria-label="Sections">
-      {NAV_GROUPS.map((g) => (
+      {navGroups(game.era).map((g) => (
         <div className="rail-group" key={g.label}>
           <div className="rail-label">{g.label}</div>
           {g.tabs.map((t) => {
             const m = TAB_META[t];
-            const key = HOTKEYS[NAV_ORDER.indexOf(t)];
+            const key = HOTKEYS[navOrder(game.era).indexOf(t)];
             const p = progress[t];
             const alert = alerts.get(t);
             return (

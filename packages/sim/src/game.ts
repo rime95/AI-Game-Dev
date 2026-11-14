@@ -35,6 +35,7 @@ import {
   servingCapacityTokens,
 } from './selectors';
 import { capabilityForScore } from './formulas';
+import { aiReady, buyBuzz, buyResearch, companyYear, newFoundingState, setChipPrice, startDesign, tickCompany } from './company';
 import { fundingCheck } from './funding';
 import { isPublic, isUserLeader, leadsEval, marketShares, previewAgi, VICTORY_TEXT } from './victory';
 import type { Integration, TrainingRun, VictoryKind } from './types';
@@ -57,6 +58,8 @@ import {
   lowerName,
   missingRoomFor,
   moveCheck,
+  moveCost,
+  roomCost,
   placementError,
   refreshHq,
   templateDef,
@@ -66,7 +69,9 @@ import {
 
 export function createGame(content: Content, seed: number, companyName = 'Your lab'): GameState {
   const state: GameState = {
-    version: 17,
+    version: 18,
+    era: 'ai',
+    founding: null,
     sites: [],
     fab: null,
     companyName: companyName.trim() || 'Your lab',
@@ -128,6 +133,69 @@ export function createGame(content: Content, seed: number, companyName = 'Your l
   return state;
 }
 
+/**
+ * A new chip company: January 1991, the founder alone in a garage with a desk, a workbench and
+ * some savings. One turn is one month. Processors and graphics chips first; AI comes later.
+ */
+export function createFoundingGame(content: Content, seed: number, companyName = 'Your company'): GameState {
+  const state = createGame(content, seed, companyName);
+  const fd = content.founding;
+  state.era = 'founding';
+  state.founding = newFoundingState(content, state);
+  state.cash = fd.startCash;
+  state.reputation = TUNING.foundingStartTrust;
+  state.staff = { research: 0, modelEng: 0, hardwareEng: 1, product: 0, ops: 0 };
+  const bench = content.hq.rooms.find((r) => r.id === 'workbench');
+  if (bench) state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: bench.id, x: 2, y: 0, rot: 0, floor: 0, tier: 1, spent: 0 });
+  state.log = [];
+  log(state, 'info', `January ${fd.startYear}. ${state.companyName} is you, a garage, a workbench and $${Math.round(fd.startCash / 1000)}K of savings. Design your first chip: a processor or a graphics chip.`);
+  state.history = [{ week: 0, cash: state.cash, users: 0, bestScore: 0 }];
+  refreshHq(state, content);
+  return state;
+}
+
+/**
+ * The AI chapter begins: the chip company keeps its name, people, HQ, money and history. Our best
+ * graphics chip becomes our first AI chip, made in volume, and AI rivals trail us as before.
+ */
+function startAiEra(prev: GameState, content: Content): GameState {
+  const ai = createGame(content, prev.seed, prev.companyName);
+  const f = prev.founding!;
+  const year = companyYear(prev);
+  ai.rng = prev.rng;
+  ai.founding = f;
+  ai.hq = prev.hq;
+  ai.nextId = Math.max(ai.nextId, prev.nextId);
+  ai.aiStartUtc = Date.UTC(year, prev.week % 12, 1);
+  ai.staff = {
+    research: Math.max(1, prev.staff.research),
+    modelEng: 1,
+    hardwareEng: prev.staff.hardwareEng,
+    product: Math.max(1, prev.staff.product),
+    ops: prev.staff.ops,
+  };
+  ai.cash = Math.max(prev.cash, TUNING.startCash);
+  ai.reputation = clampRep(30 + f.trust / 2);
+  ai.lastEventWeek = 0;
+  // Our best graphics chip, redrawn on today's factory process, becomes the first chip we train on.
+  const best = [...f.products].filter((p) => p.design.type === 'dcgpu' || p.design.type === 'gpu').sort((a, b) => b.score - a.score)[0];
+  const node = content.nodes[0]!;
+  if (best) {
+    const design = { name: `${best.design.name} AI`, nodeId: node.id, split: best.design.split, fp8: true, fp4: false };
+    const chip = deriveChip(node, design, `custom-${ai.nextId++}`);
+    ai.customChips.push(chip);
+    ai.customChipInfo[chip.id] = { design, yieldRate: node.baseYield };
+    addFleet(ai, chip.id, 64, true);
+  }
+  ai.log = prev.log.slice(-20).map((l) => ({ ...l, week: 0 }));
+  log(
+    ai,
+    'good',
+    `${year}: neural networks run beautifully on graphics chips, and ${ai.companyName} makes the best ones. The AI chapter begins${best ? `, starting with 64 of our own ${best.design.name} AI chips` : ''}.`,
+  );
+  return ai;
+}
+
 /** Apply one player command. Never mutates the input state. */
 export function applyCommand(prev: GameState, content: Content, cmd: Command): CommandResult {
   const res = runCommand(prev, content, cmd);
@@ -144,7 +212,67 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
   const state = structuredClone(prev);
   const fail = (error: string): CommandResult => ({ state: prev, error });
 
+  // The chip-company years have their own monthly loop and commands.
+  if (state.era === 'founding') {
+    const run = (err: string | null): CommandResult => (err ? fail(err) : { state });
+    switch (cmd.type) {
+      case 'advanceWeek':
+      case 'advanceMonth':
+        if (state.pendingEvent) return fail('Decide on the open event first.');
+        tickCompany(state, content);
+        return { state };
+      case 'startDesign':
+        return run(startDesign(state, content, cmd.design));
+      case 'buyBuzz':
+        return run(buyBuzz(state, content, cmd.projectId));
+      case 'setChipPrice':
+        return run(setChipPrice(state, cmd.productId, cmd.price));
+      case 'retireChip': {
+        const p = state.founding!.products.find((x) => x.id === cmd.productId);
+        if (!p || p.retired) return fail('Unknown chip.');
+        p.retired = true;
+        log(state, 'info', `Stopped selling ${p.design.name}.`);
+        return { state };
+      }
+      case 'buyResearch':
+        return run(buyResearch(state, content, cmd.researchId));
+      case 'startAiEra':
+        if (!aiReady(content, state.founding)) return fail('Research neural networks on GPUs first.');
+        if (state.pendingEvent) return fail('Decide on the open event first.');
+        return { state: startAiEra(state, content) };
+      case 'hire': {
+        const LABEL: Partial<Record<Discipline, string>> = { hardwareEng: 'chip designer', product: 'salesperson', research: 'researcher' };
+        const label = LABEL[cmd.discipline];
+        if (!label) return fail('In these years we hire chip designers, salespeople and researchers.');
+        if (content.hq.stages.findIndex((s) => s.id === state.hq.stage) < 1) return fail('Move into an office before hiring: the garage only fits you.');
+        if (state.cash < TUNING.foundingHireCost) return fail('Not enough cash.');
+        state.cash -= TUNING.foundingHireCost;
+        state.staff[cmd.discipline] += 1;
+        log(state, 'good', `Hired a ${label}. Welcome aboard!`);
+        return { state };
+      }
+      case 'placeRoom':
+        if (!content.founding.rooms.includes(cmd.templateId)) return fail('That kind of room comes later in the company\'s story.');
+        break;
+      case 'demolishRoom':
+      case 'upgradeRoom':
+      case 'moveHq':
+      case 'resolveEvent':
+        break;
+      default:
+        return fail('That comes later in the company\'s story.');
+    }
+  }
+
   switch (cmd.type) {
+    case 'startDesign':
+    case 'buyBuzz':
+    case 'setChipPrice':
+    case 'retireChip':
+    case 'buyResearch':
+    case 'startAiEra':
+      return fail('That belongs to the chip-company years.');
+
     case 'releaseCheckpoint': {
       const run = state.training;
       if (!run) return fail('No training run in progress.');
@@ -315,9 +443,10 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const floor = cmd.floor ?? 0;
       const err = placementError(state, content, t.id, cmd.x, cmd.y, rot, floor);
       if (err) return fail(err);
-      if (state.cash < t.cost) return fail('Not enough cash.');
-      state.cash -= t.cost;
-      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: t.cost });
+      const cost = roomCost(state, t);
+      if (state.cash < cost) return fail('Not enough cash.');
+      state.cash -= cost;
+      state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: cost });
       return { state };
     }
 
@@ -517,7 +646,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
       const t = room && templateDef(content, room.templateId);
       if (!room || !t) return fail('Unknown room.');
-      const cost = upgradeCost(t, room.tier);
+      const cost = upgradeCost(t, room.tier, state);
       if (cost === null) return fail(`The ${t.name.toLowerCase()} is fully upgraded.`);
       if (state.cash < cost) return fail('Not enough cash.');
       state.cash -= cost;
@@ -530,7 +659,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
     case 'moveHq': {
       const { stage, error } = moveCheck(state, content);
       if (error || !stage) return fail(error ?? 'Nowhere to move.');
-      state.cash -= stage.moveCost;
+      state.cash -= moveCost(state, stage);
       state.hq.stage = stage.id;
       state.hq.moveInWeeks = TUNING.moveInWeeks;
       // Rooms move with us at the same spots: every stage is at least as big as the one before.
@@ -1095,6 +1224,17 @@ function applyEffects(state: GameState, content: Content, e: Effects, fabLineId?
     }
     if (e.runCostPerChip) state.cash -= e.runCostPerChip * run.spec.chipCount;
     if (e.runScandalChance) run.scandalChance = Math.max(run.scandalChance, e.runScandalChance);
+  }
+  const f = state.founding;
+  if (f && state.era === 'founding') {
+    const project = f.projects[0];
+    if (project && e.projectMonths) {
+      project.monthsLeft = Math.max(1, project.monthsLeft + e.projectMonths);
+      project.totalMonths = Math.max(1, project.totalMonths + e.projectMonths);
+    }
+    if (project && e.projectQuality) project.qualityMult *= e.projectQuality;
+    if (e.trust) f.trust = clampRep(f.trust + e.trust);
+    if (e.researchPoints) f.researchPoints += e.researchPoints;
   }
   if (e.cash) state.cash += e.cash;
   if (e.reputation) state.reputation = clampRep(state.reputation + e.reputation);

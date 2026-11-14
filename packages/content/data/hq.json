@@ -22,7 +22,8 @@
       "requiresRounds": 1,
       "orCash": 20000000,
       "maxRacks": 8,
-      "maxServerKW": 250
+      "maxServerKW": 250,
+      "founding": { "moveCost": 100000, "rentPerMonth": 4000, "chipsShipped": 3, "orCash": 1500000 }
     },
     {
       "id": "hqBuilding",
@@ -35,6 +36,7 @@
       "requiresRounds": 2,
       "maxRacks": 24,
       "maxServerKW": 1000,
+      "founding": { "moveCost": 3000000, "rentPerMonth": 30000, "chipsShipped": 20, "orCash": 15000000 },
       "floors": 3,
       "floorNames": [
         "Floor 1",
@@ -65,6 +67,24 @@
     }
   ],
   "rooms": [
+    {
+      "id": "workbench",
+      "name": "Workbench",
+      "blurb": "A soldering iron, an oscilloscope and two stools. Chip designers do their best work here.",
+      "kind": "lab",
+      "w": 3,
+      "h": 2,
+      "cost": 30000,
+      "upkeepPerWeek": 300,
+      "seats": {
+        "discipline": "hardwareEng",
+        "count": 2
+      },
+      "tierEffect": [
+        1,
+        1.15
+      ]
+    },
     {
       "id": "deskPod",
       "name": "Desk pod",
