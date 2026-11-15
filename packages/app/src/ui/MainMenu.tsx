@@ -77,9 +77,9 @@ export function MainMenu() {
         {view === 'credits' && (
           <section className="menu-section">
             <h2>Credits</h2>
-            <p className="small">Furniture and props: Furniture Kit by Kenney (kenney.nl), CC0.</p>
-            <p className="small">Beige computer: “Computer” by Poly by Google, via poly.pizza, CC-BY 3.0.</p>
-            <p className="small">Floor texture and studio lighting: Poly Haven (polyhaven.com), CC0.</p>
+            <p className="small">HQ furniture, staff and textures: generated for this game with Meshy, Tripo and GPT Image via Higgsfield.</p>
+            <p className="small">Small props: Furniture Kit by Kenney (kenney.nl), CC0.</p>
+            <p className="small">Studio lighting: Poly Haven (polyhaven.com), CC0.</p>
             <button className="btn" onClick={() => setView('home')}>
               Back
             </button>

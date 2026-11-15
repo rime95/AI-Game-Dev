@@ -2,9 +2,9 @@
 
 | Asset | Author | License | Used for |
 |---|---|---|---|
-| Furniture Kit | Kenney (kenney.nl) | CC0 | Desks, chairs, benches, sofa, props (`public/models/garage`) |
-| Computer | Poly by Google (via poly.pizza) | CC-BY 3.0 | Beige 1991 PC (`public/models/garage/beigePc.glb`) |
-| Interior Tiles | Poly Haven (polyhaven.com) | CC0 | Garage floor (`public/textures/interior-tiles`) |
+| HQ furniture and the character | Generated for this game with Meshy 7 and Tripo via Higgsfield, from GPT Image 2.5 concept art | Generated assets | Desks, chairs, PCs, workbench, lab cart, couch, kitchenette, conference table, shelving, staff (`public/models/hq2`) |
+| Floor, wall and door textures, decals | Generated for this game with GPT Image 2.5 via Higgsfield | Generated assets | `public/textures/shared` |
+| Furniture Kit | Kenney (kenney.nl) | CC0 | Small props: boxes, bin, coat rack, plant, coffee table (`public/models/garage`) |
 | Poly Haven Studio HDRI | Poly Haven (polyhaven.com) | CC0 | Scene lighting (`public/env`) |
 
-The full source packs live in `art-source/` (not in git or the build).
+The full source packs and the raw generated files live in `art-source/` (not in git or the build).

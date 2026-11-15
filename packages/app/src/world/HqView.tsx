@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Environment, Html, MapControls, useTexture } from '@react-three/drei';
-import { BufferGeometry, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace, type Group, type MeshStandardMaterial } from 'three';
+import { BufferGeometry, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace, Vector2, type Group, type MeshStandardMaterial } from 'three';
 import { content, type Discipline } from '@stm/content';
 import {
   deskStats,
@@ -26,17 +26,24 @@ import {
 import { useStore } from '../store';
 import { money } from '../format';
 import { LAYER } from '../ui/layers';
-import { DISCIPLINE_COLOR, roomArt, type Seat } from './roomArt';
+import { DISCIPLINE_COLOR, roomArt } from './roomArt';
 import { FitModel } from './Model';
+import { Character, type Activity } from './Character';
+import { FOUNDER_PALETTE, personPalette, propPalette } from './palettes';
 
 const DISCIPLINES: Discipline[] = ['research', 'modelEng', 'hardwareEng', 'product', 'ops'];
 
 /** Look of each HQ stage: floor, walls and wall height (world-and-facilities §2.1). */
-const STAGE_LOOK: Record<string, { floor: string; wall: string; backWall: number; label: string }> = {
-  garage: { floor: '#cfc9bd', wall: '#b9b2a4', backWall: 1.1, label: 'Garage' },
-  office: { floor: '#e7dcc6', wall: '#f6f1e6', backWall: 0.9, label: 'Office' },
-  hqBuilding: { floor: '#ece8df', wall: '#dfe7ee', backWall: 0.8, label: 'HQ building' },
+const STAGE_LOOK: Record<string, { floor: string; wall: string; backWall: number; label: string; floorTex: string; wallTex: string }> = {
+  garage: { floor: '#d9d4ca', wall: '#d6d0c4', backWall: 1.1, label: 'Garage', floorTex: 'concrete', wallTex: 'block' },
+  office: { floor: '#d8b98f', wall: '#f6f1e6', backWall: 0.9, label: 'Office', floorTex: 'wood', wallTex: 'plaster' },
+  hqBuilding: { floor: '#c9ced6', wall: '#e4ebf1', backWall: 0.8, label: 'HQ building', floorTex: 'carpet', wallTex: 'plaster' },
 };
+
+/** Shared textures (public/textures/shared): neutral grey, tinted per stage by the material color. */
+const texUrl = (name: string) => `${import.meta.env.BASE_URL}textures/shared/${name}.jpg`;
+/** People beyond this many are drawn as the simple figure, to keep the frame rate up. */
+const MAX_ANIMATED = 40;
 
 /**
  * The HQ in isometric cutaway (world-and-facilities §3): rooms on the grid, staff at their seats,
@@ -62,7 +69,7 @@ export function HqView({ game }: { game: GameState }) {
         shadow-camera-bottom={-24}
       />
       <Hq game={game} />
-      <MapControls makeDefault enableRotate={false} minZoom={8} maxZoom={140} screenSpacePanning />
+      <MapControls makeDefault enableRotate={false} minZoom={8} maxZoom={220} screenSpacePanning />
     </Canvas>
   );
 }
@@ -120,7 +127,44 @@ function seatPeople(game: GameState) {
     }
     byRoom.set(br.id, visitors);
   }
-  return { byRoom, standing: deskQueue };
+  // The first person is the founder; the first MAX_ANIMATED get the animated character.
+  const everyone = DISCIPLINES.flatMap((d) => Array.from({ length: game.staff[d] }, (_, i) => `${d}${i}`));
+  return { byRoom, standing: deskQueue, founder: everyone[0], animated: new Set(everyone.slice(0, MAX_ANIMATED)) };
+}
+
+/** A person: the animated character (painted for them) when it's loaded and there's budget, else the simple figure. */
+function PersonView({
+  person,
+  founder,
+  animated,
+  activity,
+  position,
+  face,
+  slump,
+  cloud,
+  crowded,
+}: {
+  person: Person;
+  founder: boolean;
+  animated: boolean;
+  activity: Activity;
+  position: [number, number, number];
+  face: number;
+  slump: boolean;
+  cloud: boolean;
+  crowded?: boolean;
+}) {
+  const color = founder ? FOUNDER_PALETTE.shirt! : DISCIPLINE_COLOR[person.discipline];
+  const simple = <Figure position={position} face={face} color={color} sit={activity !== 'stand'} slump={slump} cloud={cloud} crowded={crowded} />;
+  if (!animated) return simple;
+  return (
+    <Suspense fallback={simple}>
+      <group position={position} rotation={[0, face, 0]}>
+        <Character palette={founder ? FOUNDER_PALETTE : personPalette(person.key, person.discipline)} activity={activity} slump={slump} bob={crowded} />
+        {cloud && <MoodCloud />}
+      </group>
+    </Suspense>
+  );
 }
 
 function freeTiles(game: GameState, w: number, h: number): { x: number; y: number }[] {
@@ -150,7 +194,7 @@ function Hq({ game }: { game: GameState }) {
   const [hoverRoom, setHoverRoom] = useState<string | null>(null);
   const lowMorale = game.hq.morale < 40;
 
-  const { byRoom, standing } = useMemo(() => seatPeople(game), [game]);
+  const { byRoom, standing, founder, animated } = useMemo(() => seatPeople(game), [game]);
   const standSpots = useMemo(() => freeTiles(game, w, h), [game, w, h]);
 
   // Tile under the pointer, from a point on the floor plane.
@@ -193,17 +237,18 @@ function Hq({ game }: { game: GameState }) {
         onContextMenu={() => useStore.getState().cancelBuild()}
       >
         <planeGeometry args={[w, h]} />
-        {stage.id === 'garage' ? (
-          <Suspense fallback={<meshStandardMaterial color={look.floor} />}>
-            <TiledFloor w={w} h={h} />
-          </Suspense>
-        ) : (
-          <meshStandardMaterial color={look.floor} />
-        )}
+        <Suspense fallback={<meshStandardMaterial color={look.floor} />}>
+          <TiledFloor w={w} h={h} tex={look.floorTex} tint={look.floor} />
+        </Suspense>
       </mesh>
       <GridLines w={w} h={h} strong={!!build} />
       <Walls w={w} h={h} look={look} garage={stage.id === 'garage'} />
       {stage.id === 'garage' && floor === 0 && <GarageClutter game={game} w={w} h={h} />}
+      {stage.id === 'garage' && floor === 0 && (
+        <Suspense fallback={null}>
+          <GarageDecals game={game} w={w} h={h} />
+        </Suspense>
+      )}
 
       {rooms.filter((room) => room.id !== build?.moveId).map((room) => (
         <Room
@@ -212,6 +257,9 @@ function Hq({ game }: { game: GameState }) {
           stageW={w}
           stageH={h}
           people={byRoom.get(room.id) ?? []}
+          founder={founder}
+          animated={animated}
+          stageId={stage.id}
           training={!!game.training}
           lowMorale={lowMorale}
           selected={selected === room.id}
@@ -246,12 +294,14 @@ function Hq({ game }: { game: GameState }) {
           const x = (spot?.x ?? i % w) - w / 2 + (i % 2 ? 0.7 : 0.3);
           const z = (spot?.y ?? 0) - h / 2 + (i % 2 ? 0.65 : 0.35);
           return (
-            <Figure
+            <PersonView
               key={p.key}
+              person={p}
+              founder={p.key === founder}
+              animated={animated.has(p.key)}
+              activity="stand"
               position={[x, 0, z]}
               face={i * 1.7}
-              color={DISCIPLINE_COLOR[p.discipline]}
-              sit={false}
               slump={lowMorale}
               crowded
               cloud={lowMorale && i % 3 === 0}
@@ -343,18 +393,69 @@ export function Ghost({
   );
 }
 
-/** Garage floor: CC0 Poly Haven "interior tiles", one texture repeat per 2 tiles. */
-function TiledFloor({ w, h }: { w: number; h: number }) {
-  const tex = useTexture(`${import.meta.env.BASE_URL}textures/interior-tiles/diff_1k.jpg`);
-  const map = useMemo(() => {
-    const t = tex.clone();
-    t.wrapS = t.wrapT = RepeatWrapping;
-    t.repeat.set(w / 2, h / 2);
-    t.colorSpace = SRGBColorSpace;
-    t.needsUpdate = true;
-    return t;
-  }, [tex, w, h]);
-  return <meshStandardMaterial map={map} roughness={0.85} />;
+/** A shared texture with its normal map, repeated `rx` by `ry` times, tinted by `tint`. */
+function TexMaterial({ tex, rx, ry, tint, roughness = 0.85 }: { tex: string; rx: number; ry: number; tint: string; roughness?: number }) {
+  const [base, normal] = useTexture([texUrl(tex), texUrl(`${tex}_n`)]);
+  const [map, normalMap] = useMemo(() => {
+    const out = [base.clone(), normal.clone()];
+    for (const t of out) {
+      t.wrapS = t.wrapT = RepeatWrapping;
+      t.repeat.set(rx, ry);
+      t.needsUpdate = true;
+    }
+    out[0].colorSpace = SRGBColorSpace;
+    return out;
+  }, [base, normal, rx, ry]);
+  const normalScale = useMemo(() => new Vector2(0.6, 0.6), []);
+  return <meshStandardMaterial map={map} normalMap={normalMap} normalScale={normalScale} color={tint} roughness={roughness} />;
+}
+
+/** The stage floor (concrete, wood or carpet), one texture repeat per 2 tiles. */
+function TiledFloor({ w, h, tex, tint }: { w: number; h: number; tex: string; tint: string }) {
+  return <TexMaterial tex={tex} rx={w / 2} ry={h / 2} tint={tint} />;
+}
+
+/** An oil stain on the garage floor, and a chip poster, cork board and circuit poster on the walls (one decal sheet). */
+function GarageDecals({ game, w, h }: { game: GameState; w: number; h: number }) {
+  const sheet = useTexture(`${import.meta.env.BASE_URL}textures/shared/decals.png`);
+  // The sheet is a 3x3 grid: 0 oil, 1 drips, 2 chip poster, 3 cork board, 4 circuit poster, 5 calendar, 6 photo, 7 footprints, 8 outlet.
+  const maps = useMemo(
+    () =>
+      [0, 1, 2, 3, 4].map((i) => {
+        const t = sheet.clone();
+        t.colorSpace = SRGBColorSpace;
+        t.repeat.set(1 / 3, 1 / 3);
+        t.offset.set((i % 3) / 3, 1 - (Math.floor(i / 3) + 1) / 3);
+        t.needsUpdate = true;
+        return t;
+      }),
+    [sheet],
+  );
+  const free = useMemo(() => freeTiles(game, w, h).filter((t) => t.x > 0 && t.y > 0), [game, w, h]);
+  const stain = free[Math.floor(free.length / 2)];
+  const back = STAGE_LOOK.garage.backWall;
+  return (
+    <group>
+      {stain && (
+        <mesh rotation={[-Math.PI / 2, 0, 0.6]} position={[stain.x - w / 2 + 0.5, 0.008, stain.y - h / 2 + 0.5]} raycast={() => null}>
+          <planeGeometry args={[0.8, 0.8]} />
+          <meshStandardMaterial map={maps[0]} transparent depthWrite={false} roughness={0.4} />
+        </mesh>
+      )}
+      <mesh position={[-w / 2 + 2.2, back * 0.6, -h / 2 + 0.01]} raycast={() => null}>
+        <planeGeometry args={[0.55, 0.55]} />
+        <meshStandardMaterial map={maps[2]} transparent />
+      </mesh>
+      <mesh position={[-w / 2 + 0.01, back * 0.58, -h / 2 + 2]} rotation={[0, Math.PI / 2, 0]} raycast={() => null}>
+        <planeGeometry args={[0.55, 0.55]} />
+        <meshStandardMaterial map={maps[3]} transparent />
+      </mesh>
+      <mesh position={[-w / 2 + 0.01, back * 0.6, -h / 2 + 3.2]} rotation={[0, Math.PI / 2, 0]} raycast={() => null}>
+        <planeGeometry args={[0.45, 0.45]} />
+        <meshStandardMaterial map={maps[4]} transparent />
+      </mesh>
+    </group>
+  );
 }
 
 /** Boxes, a bin, a coat rack and a plant on free tiles along the garage's back and left walls. */
@@ -363,7 +464,8 @@ function GarageClutter({ game, w, h }: { game: GameState; w: number; h: number }
     const free = freeTiles(game, w, h).filter((t) => t.x === 0 || t.y === 0);
     return free.sort((a, b) => a.x + a.y - (b.x + b.y));
   }, [game, w, h]);
-  const items: { model: string; size: [number, number, number]; face: number }[] = [
+  const items: { model: string; size: [number, number, number]; face: number; wall?: boolean }[] = [
+    { model: 'shelving', size: [0.62, 0.9, 0.3], face: 0, wall: true },
     { model: 'cardboardBoxClosed', size: [0.3, 0.32, 0.3], face: 0.3 },
     { model: 'coatRackStanding', size: [0.3, 0.85, 0.3], face: 0 },
     { model: 'cardboardBoxOpen', size: [0.42, 0.3, 0.3], face: -0.2 },
@@ -377,7 +479,19 @@ function GarageClutter({ game, w, h }: { game: GameState; w: number; h: number }
         <Suspense key={`${t.x},${t.y}`} fallback={null}>
           {/* Tucked toward the wall corner of the tile, leaving room for people. */}
           <group position={[t.x - w / 2 + (t.x === 0 ? 0.25 : 0.5), 0, t.y - h / 2 + (t.y === 0 ? 0.25 : 0.5)]}>
-            <FitModel name={items[i].model} size={items[i].size} face={items[i].face} />
+            {items[i].wall ? (
+              // Backed against whichever wall the tile touches.
+              <group position={t.y === 0 ? [0, 0, -0.08] : [-0.08, 0, 0]}>
+                <FitModel
+                  name={items[i].model}
+                  size={t.y === 0 ? items[i].size : [items[i].size[2], items[i].size[1], items[i].size[0]]}
+                  face={t.y === 0 ? 0 : Math.PI / 2}
+                  palette={propPalette('garage', items[i].model)}
+                />
+              </group>
+            ) : (
+              <FitModel name={items[i].model} size={items[i].size} face={items[i].face} />
+            )}
           </group>
         </Suspense>
       ))}
@@ -406,15 +520,21 @@ function Walls({ w, h, look, garage }: { w: number; h: number; look: (typeof STA
   const t = 0.12;
   const back = look.backWall;
   const front = 0.25;
+  // One texture repeat per tile of wall (cinder blocks / plaster read at that scale).
+  const wallMat = (len: number) => (
+    <Suspense fallback={<meshStandardMaterial color={look.wall} />}>
+      <TexMaterial tex={look.wallTex} rx={len} ry={back} tint={look.wall} roughness={0.95} />
+    </Suspense>
+  );
   return (
     <group>
       <mesh position={[0, back / 2, -h / 2 - t / 2]} castShadow receiveShadow raycast={() => null}>
         <boxGeometry args={[w + t * 2, back, t]} />
-        <meshStandardMaterial color={look.wall} />
+        {wallMat(w)}
       </mesh>
       <mesh position={[-w / 2 - t / 2, back / 2, 0]} castShadow receiveShadow raycast={() => null}>
         <boxGeometry args={[t, back, h]} />
-        <meshStandardMaterial color={look.wall} />
+        {wallMat(h)}
       </mesh>
       <mesh position={[0, front / 2, h / 2 + t / 2]} receiveShadow raycast={() => null}>
         <boxGeometry args={[w + t * 2, front, t]} />
@@ -425,14 +545,18 @@ function Walls({ w, h, look, garage }: { w: number; h: number; look: (typeof STA
         <meshStandardMaterial color={look.wall} />
       </mesh>
       {garage ? (
-        // Roll-up door slats on the back wall and a bare bulb.
+        // Roll-up door on the back wall and a bare bulb.
         <group raycast={() => null}>
-          {[0.2, 0.4, 0.6, 0.8].map((y) => (
-            <mesh key={y} position={[0.6, y, -h / 2 + 0.005]}>
-              <boxGeometry args={[3.2, 0.06, 0.02]} />
-              <meshStandardMaterial color="#9e978a" />
-            </mesh>
-          ))}
+          <mesh position={[0.6, 0.47, -h / 2 + 0.01]}>
+            <planeGeometry args={[3.2, 0.94]} />
+            <Suspense fallback={<meshStandardMaterial color="#9e978a" />}>
+              <TexMaterial tex="rollerdoor" rx={1} ry={1} tint="#c9c6bf" roughness={0.6} />
+            </Suspense>
+          </mesh>
+          <mesh position={[0.6, 0.97, -h / 2 + 0.03]}>
+            <boxGeometry args={[3.3, 0.08, 0.06]} />
+            <meshStandardMaterial color="#7d7a73" />
+          </mesh>
           <mesh position={[-w / 2 + 0.6, back + 0.05, -h / 2 + 0.3]}>
             <sphereGeometry args={[0.12, 12, 12]} />
             <meshStandardMaterial color="#fff6d6" emissive="#ffd970" emissiveIntensity={0.9} />
@@ -461,6 +585,9 @@ function Walls({ w, h, look, garage }: { w: number; h: number; look: (typeof STA
 
 interface RoomProps {
   room: PlacedRoom;
+  founder: string;
+  animated: Set<string>;
+  stageId: string;
   stageW: number;
   stageH: number;
   people: Person[];
@@ -478,6 +605,9 @@ interface RoomProps {
 
 function Room({
   room,
+  founder,
+  animated,
+  stageId,
   stageW,
   stageH,
   people,
@@ -494,7 +624,6 @@ function Room({
   const t = templateDef(content, room.templateId)!;
   const rect = roomRect(content, room);
   const retro = useStore((s) => s.game?.era === 'founding');
-  const tiled = useStore((s) => s.game?.hq.stage === 'garage');
   const art = useMemo(() => roomArt(t, room.tier, retro), [t, room.tier, retro]);
   const cx = rect.x + rect.w / 2 - stageW / 2;
   const cz = rect.y + rect.h / 2 - stageH / 2;
@@ -527,8 +656,8 @@ function Room({
         }}
       >
         <planeGeometry args={[rect.w - 0.04, rect.h - 0.04]} />
-        {/* On a tiled floor the room tint is see-through so the tiles show. */}
-        <meshStandardMaterial color={heat ? heatTint(heat.itKW, heat.coolingKW) : art.floor} transparent={tiled} opacity={tiled ? 0.45 : 1} />
+        {/* The room tint is see-through so the stage floor shows (server rooms show heat instead). */}
+        <meshStandardMaterial color={heat ? heatTint(heat.itKW, heat.coolingKW) : art.floor} transparent={!heat} opacity={heat ? 1 : 0.4} />
       </mesh>
       {/* Low walls in the layer color */}
       {(
@@ -562,7 +691,7 @@ function Room({
             return (
               <Suspense key={i} fallback={box}>
                 <group position={[p.u, p.y ?? 0, p.v]}>
-                  <FitModel name={p.model} size={p.size} face={p.face} stretch={p.stretch} />
+                  <FitModel name={p.model} size={p.size} face={p.face} stretch={p.stretch} palette={propPalette(stageId, p.model)} />
                   {p.trainingGlow && training && (
                     // Screens glow while a model trains.
                     <pointLight position={[0, p.size[1] * 0.6, 0]} color={LAYER.models} intensity={0.6} distance={0.9} />
@@ -572,10 +701,14 @@ function Room({
             );
           })}
           {people.slice(0, seats.length).map((person, i) => (
-            <SeatedFigure
+            <PersonView
               key={person.key}
-              seat={seats[i]}
-              color={DISCIPLINE_COLOR[person.discipline]}
+              person={person}
+              founder={person.key === founder}
+              animated={animated.has(person.key)}
+              activity={!seats[i].sit ? 'stand' : t.kind === 'desks' || t.kind === 'lab' ? 'type' : 'sit'}
+              position={[seats[i].u, 0, seats[i].v]}
+              face={seats[i].face}
               slump={lowMorale}
               cloud={lowMorale && i % 3 === 0}
             />
@@ -600,8 +733,18 @@ function Room({
   );
 }
 
-function SeatedFigure({ seat, color, slump, cloud }: { seat: Seat; color: string; slump: boolean; cloud: boolean }) {
-  return <Figure position={[seat.u, 0, seat.v]} face={seat.face} color={color} sit={seat.sit} slump={slump} cloud={cloud} />;
+/** The little grey cloud over someone unhappy. */
+function MoodCloud() {
+  return (
+    <group position={[0, 0.85, 0]}>
+      {[-0.07, 0, 0.07].map((x) => (
+        <mesh key={x} position={[x, x === 0 ? 0.04 : 0, 0]} raycast={() => null}>
+          <sphereGeometry args={[0.07, 8, 8]} />
+          <meshStandardMaterial color="#8b8f99" />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
 /** A tiny staff figure. Slumped with a little cloud when morale is low; bobbing when standing around crowded. */
@@ -641,16 +784,7 @@ function Figure({
             <meshStandardMaterial color="#f1d3b8" />
           </mesh>
         </group>
-        {cloud && (
-          <group position={[0, 0.85, 0]}>
-            {[-0.07, 0, 0.07].map((x) => (
-              <mesh key={x} position={[x, x === 0 ? 0.04 : 0, 0]} raycast={() => null}>
-                <sphereGeometry args={[0.07, 8, 8]} />
-                <meshStandardMaterial color="#8b8f99" />
-              </mesh>
-            ))}
-          </group>
-        )}
+        {cloud && <MoodCloud />}
       </group>
     </group>
   );
