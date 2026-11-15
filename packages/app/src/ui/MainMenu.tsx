@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { isDesktop } from '../saves';
 import { money } from '../format';
+import { v2 } from '@stm/sim';
 import { SaveList, SettingsForm } from './SaveList';
 
 type View = 'home' | 'new' | 'load' | 'settings' | 'credits';
@@ -12,7 +13,7 @@ export function MainMenu() {
   const [view, setView] = useState<View>('home');
   const saves = useStore((s) => s.saves);
   const loadSave = useStore((s) => s.loadSave);
-  const latest = saves[0];
+  const latest = saves.filter((x) => x.version === 2)[0];
 
   return (
     <main className="menu-screen">
@@ -29,7 +30,7 @@ export function MainMenu() {
               <button className="btn primary big" onClick={() => loadSave(latest.id)}>
                 Continue
                 <span className="menu-sub">
-                  {latest.companyName} · week {latest.week} · {money(latest.cash)}
+                  {latest.companyName} · {v2.monthLabelV2(latest.week * 7)} · {money(latest.cash)}
                 </span>
               </button>
             )}

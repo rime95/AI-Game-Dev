@@ -106,7 +106,9 @@ function NewProject({ g }: { g: G }) {
       <div className="field">
         <span className="label">How big?</span>
         <div className="pick-grid three">
-          {(['S', 'M', 'L'] as const).map((k) => (
+          {(['S', 'M', 'L', 'XL'] as const)
+            .filter((k) => !v2.SIZES[k].tech || g.research.done.includes(v2.SIZES[k].tech!))
+            .map((k) => (
             <button key={k} className="pick" aria-pressed={size === k} onClick={() => setSize(k)} style={{ ['--c' as string]: LAYER.models }}>
               <span className="pick-title">{v2.SIZES[k].name}</span>
               <span className="pick-sub">

@@ -1,5 +1,4 @@
-import { content } from '@stm/content';
-import { migrateSave, totalUsers, v2, type GameState, type MigrationResult } from '@stm/sim';
+import { v2 } from '@stm/sim';
 
 /** What the load screen shows without reading the whole save. */
 export interface SaveMeta {
@@ -16,7 +15,7 @@ export interface SaveMeta {
 
 interface SaveFile {
   meta: SaveMeta;
-  state: GameState;
+  state: unknown;
 }
 
 /** Bridge exposed by the Electron preload script (packages/desktop/preload.cjs). */
@@ -116,29 +115,6 @@ export async function listSaves(): Promise<SaveMeta[]> {
   return metas.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
-export async function saveGame(state: GameState, opts: { id?: string; label?: string; auto?: boolean } = {}): Promise<SaveMeta> {
-  const id = opts.id ?? `slot-${Date.now().toString(36)}`;
-  const meta: SaveMeta = {
-    id,
-    label: opts.label?.trim() || (opts.auto ? 'Autosave' : `${state.companyName} · week ${state.week}`),
-    companyName: state.companyName,
-    week: state.week,
-    cash: state.cash,
-    users: totalUsers(state),
-    savedAt: new Date().toISOString(),
-    version: state.version,
-    auto: !!opts.auto,
-  };
-  await backend.write({ meta, state });
-  return meta;
-}
-
-export async function loadGame(id: string): Promise<MigrationResult> {
-  const file = await backend.read(id);
-  if (!file) return { error: 'That save could not be found.' };
-  return migrateSave(file.state, content);
-}
-
 /** A v2 save (the rebooted game), or null if the slot holds an older game. */
 export async function loadGameV2(id: string): Promise<v2.GameV2 | null> {
   const file = await backend.read(id);
@@ -159,7 +135,7 @@ export async function saveGameV2(state: v2.GameV2, opts: { id?: string; label?: 
     version: 2,
     auto: !!opts.auto,
   };
-  await backend.write({ meta, state: state as unknown as GameState });
+  await backend.write({ meta, state });
   return meta;
 }
 

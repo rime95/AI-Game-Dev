@@ -1,4 +1,5 @@
 import type { HqState } from '../types';
+import type { Listed, StockOrder } from './stocks';
 
 /**
  * Sand to Mind v2: a real-time chip company. Time is counted in days (a 360-day year of 30-day
@@ -8,8 +9,8 @@ import type { HqState } from '../types';
 
 export type Stat = 'perf' | 'gfx' | 'eff' | 'feat';
 export type Stats = Record<Stat, number>;
-export type ProductKind = 'cpu' | 'gpu' | 'console' | 'mobile' | 'accel';
-export type ProjectSize = 'S' | 'M' | 'L';
+export type ProductKind = 'cpu' | 'gpu' | 'console' | 'mobile' | 'accel' | 'server' | 'model';
+export type ProjectSize = 'S' | 'M' | 'L' | 'XL';
 export type Phase = 'architecture' | 'verification' | 'tapeout' | 'ready';
 export type Skill = 'design' | 'eng' | 'research';
 export type Tone = 'info' | 'good' | 'bad' | 'rival';
@@ -124,6 +125,42 @@ export interface RivalPlan {
 
 export type Mood = 'confident' | 'rattled' | 'desperate' | 'forSale';
 
+export type ExecRole = 'engineer' | 'cmo' | 'cfo' | 'research';
+
+export interface Exec {
+  role: ExecRole;
+  name: string;
+  /** 1–5: how well they do the job. */
+  stars: number;
+  /** Per month. */
+  salary: number;
+  /** Autopilot: acts on its own (and answers decision cards in its area). */
+  auto: boolean;
+  /** What they did lately, newest first. */
+  lately: string[];
+}
+
+export interface ExecCandidate {
+  id: string;
+  role: ExecRole;
+  name: string;
+  stars: number;
+  salary: number;
+  fee: number;
+}
+
+export interface YearReview {
+  year: number;
+  revenue: number;
+  profit: number;
+  launches: number;
+  bestScore: number;
+  /** Markets where we had the biggest share at year end. */
+  led: string[];
+  headcount: number;
+  research: number;
+}
+
 export interface Rival {
   id: string;
   name: string;
@@ -141,6 +178,12 @@ export interface Rival {
   acquired?: boolean;
   /** Techs they have picked up after the player. */
   techs: string[];
+  /** No price cuts or poaching against us until this day. */
+  truceUntil: number;
+  /** Day of the last sale or truce offer (so they don't repeat every month). */
+  lastOffer: number;
+  acquiredDay?: number;
+  farewell?: string;
   /** Products released so far (picks the next product name). */
   released: number;
 }
@@ -233,7 +276,34 @@ export interface GameV2 {
   version: 2;
   seed: number;
   rng: number;
-  status: 'playing' | 'bankrupt';
+  status: 'playing' | 'bankrupt' | 'won';
+  /** How the story ended (safe or reckless frontier, market leader), if it has. */
+  ending: 'safe' | 'reckless' | 'leader' | null;
+  facilities: {
+    /** AI-model customers a day the data centers can serve. */
+    dc: number;
+    dcBuilds: { doneDay: number; add: number }[];
+    /** Own fab level (0 = none). */
+    fab: number;
+    fabBuild: { doneDay: number; level: number } | null;
+  };
+  agi: { startDay: number; doneDay: number } | null;
+  /** Days in a row leading 5+ markets (the market-leader ending). */
+  leadDays: number;
+  investor: { amount: number; target: number; startRevenue: number; dueDay: number } | null;
+  /** The founder's own money, separate from the company's. */
+  personal: { cash: number; salary: number; portfolio: Record<string, { shares: number; cost: number }>; orders: StockOrder[]; dividends: number; passed: string[] };
+  stocks: Listed[];
+  loans: { id: string; principal: number; left: number; rate: number; monthly: number; monthsLeft: number }[];
+  baseRate: number;
+  /** HR department level, 0–3. */
+  hr: number;
+  /** Sales offices opened (regions besides home). */
+  offices: string[];
+  /** After the IPO: share of the company the founder still owns, shares, price and dividend payout. */
+  ipo: { day: number; ownership: number; shares: number; price: number; sentiment: number; payout: number; history: number[] } | null;
+  /** Investors stopped calling (after the board took a seat). */
+  noInvestors?: boolean;
   companyName: string;
   day: number;
   cash: number;
@@ -260,6 +330,9 @@ export interface GameV2 {
   log: LogEntry[];
   records: { bestScore: number; bestLaunchUnits: number; peakCash: number };
   nextId: number;
+  execs: Exec[];
+  execPool: ExecCandidate[];
+  years: YearReview[];
   /** Running totals for the week (for weekly snapshots). */
   acc: { weekRevenue: number; weekProfit: number; totalRevenue: number };
   /** Days in a row with cash below zero. */
@@ -288,7 +361,27 @@ export type CommandV2 =
   | { type: 'placeRoom'; templateId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'moveRoom'; roomId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'demolishRoom'; roomId: string }
-  | { type: 'moveHq' };
+  | { type: 'moveHq' }
+  | { type: 'hireExec'; candidateId: string }
+  | { type: 'fireExec'; role: ExecRole }
+  | { type: 'setExecAuto'; role: ExecRole; on: boolean }
+  | { type: 'acquireRival'; rivalId: string }
+  | { type: 'buildDatacenter' }
+  | { type: 'buildFab' }
+  | { type: 'startAgi' }
+  | { type: 'keepPlaying' }
+  | { type: 'setSalary'; amount: number }
+  | { type: 'buyStock'; ticker: string; shares: number }
+  | { type: 'sellStock'; ticker: string; shares: number }
+  | { type: 'placeOrder'; ticker: string; kind: 'stopLoss' | 'takeProfit' | 'buyBelow'; trigger: number; shares: number }
+  | { type: 'cancelOrder'; id: string }
+  | { type: 'takeLoan'; amount: number }
+  | { type: 'repayLoan'; id: string }
+  | { type: 'upgradeHr' }
+  | { type: 'openOffice'; region: string }
+  | { type: 'ipo'; percent: number }
+  | { type: 'setPayout'; payout: number }
+  | { type: 'injectCash'; amount: number };
 
 export interface ResultV2 {
   state: GameV2;

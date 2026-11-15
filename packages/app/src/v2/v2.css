@@ -159,3 +159,33 @@
 .b2.neg { background: var(--bad); border-radius: 0 0 2px 2px; }
 .bar-col.on span { filter: brightness(1.3); }
 .statement td:not(:first-child), .statement th:not(:first-child) { text-align: right; }
+
+/* Timeline: what's coming in the next four months */
+.timeline { position: absolute; left: 14px; right: 14px; bottom: 14px; padding: 8px 12px 10px; border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(12px); box-shadow: var(--shadow); z-index: 4; }
+.tl-track { position: relative; height: 56px; border-top: 1px solid rgb(150 175 255 / 0.25); }
+.tl-tick { position: absolute; top: -1px; height: 6px; border-left: 1px solid rgb(150 175 255 / 0.35); font-family: var(--font-num); font-size: 9px; color: var(--ink-3); padding-left: 3px; }
+.tl-ev { position: absolute; transform: translateY(8px); white-space: nowrap; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px; border: 1px solid; cursor: pointer; background: rgb(7 12 29 / 0.8); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.tl-ev::before { content: ''; position: absolute; left: -1px; top: -9px; width: 2px; height: 9px; background: currentColor; }
+.tl-ev.you { color: var(--mint); border-color: rgb(94 234 212 / 0.5); }
+.tl-ev.rival { color: var(--products); border-color: rgb(255 143 115 / 0.5); }
+.tl-ev.research { color: var(--lav); border-color: rgb(180 156 255 / 0.5); }
+.undo-chip { position: absolute; right: 14px; bottom: 96px; z-index: 6; padding: 7px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--glass-strong); border: 1px solid rgb(180 156 255 / 0.5); box-shadow: var(--shadow), 0 0 16px rgb(180 156 255 / 0.2); cursor: pointer; }
+
+/* Executives */
+.exec { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.stars { color: var(--gold); letter-spacing: 1px; }
+.lately { margin: 2px 0 0; padding-left: 16px; font-size: 11.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; }
+
+/* Work bubbles over people in the HQ */
+.work-bubble { font-family: var(--font-num); font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 8px; pointer-events: none; animation: bubble-up 1.6s ease-out forwards; white-space: nowrap; }
+.work-bubble.design { color: #062a25; background: var(--mint); box-shadow: 0 0 10px rgb(94 234 212 / 0.6); }
+.work-bubble.research { color: #1a0d3a; background: var(--lav); box-shadow: 0 0 10px rgb(180 156 255 / 0.6); }
+.work-bubble.bug { color: #3a0910; background: var(--bad); box-shadow: 0 0 10px rgb(255 123 138 / 0.6); }
+@keyframes bubble-up { from { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } to { opacity: 0; transform: translateY(-26px); } }
+@media (prefers-reduced-motion: reduce) { .work-bubble { animation: none; } }
+
+/* Wealth */
+.stock-logo { border-radius: 4px; vertical-align: -3px; background: #fff; }
+.stock-mono { display: inline-grid; place-items: center; border-radius: 4px; font-size: 9px; font-weight: 700; background: var(--surface-3); color: var(--ink-2); vertical-align: -3px; }
+table.stocks tr, table.t tr.you { cursor: pointer; }
+table.stocks tr:hover td { background: rgb(150 175 255 / 0.05); }

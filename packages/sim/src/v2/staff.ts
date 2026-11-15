@@ -3,6 +3,7 @@ import { templateDef } from '../hq';
 import { rand } from '../rng';
 import { FIRST_NAMES, LAST_NAMES, SKILLS, T, TRAITS } from './data';
 import type { Candidate, GameV2, Person, Skill } from './types';
+import { hrLevel } from './wealth';
 import { between, clamp, log, newId, pick } from './util';
 
 /** Desks plus lab seats: how many people the HQ holds. */
@@ -27,7 +28,7 @@ export function hasPerk(s: GameV2, perk: string): boolean {
 const salaryFor = (skills: Record<Skill, number>, level: number) => Math.round((1200 + 180 * (skills.design + skills.eng + skills.research) + 450 * (level - 1)) / 50) * 50;
 
 export function makeCandidate(s: GameV2): Candidate {
-  const good = hasPerk(s, 'recruiting') ? 1.5 : 0;
+  const good = (hasPerk(s, 'recruiting') ? 1.5 : 0) + hrLevel(s).skill;
   const level = 1 + Math.floor(rand(s) * rand(s) * 4);
   const skills = {} as Record<Skill, number>;
   const focus = pick(s, SKILLS);
@@ -107,13 +108,13 @@ export function tickStaff(s: GameV2, content: Content): number {
     pay += p.salary / 30;
     const crunching = s.projects.some((pr) => pr.id === p.task && pr.crunch);
     const divaNearby = s.staff.some((o) => o !== p && o.traits.includes('diva') && o.task && o.task === p.task) ? 5 : 0;
-    const target = 62 + 18 * breakCover + cheerful - divaNearby - (crowded ? 20 : 0) - p.burnout * 0.25 + (p.founder ? 10 : 0);
+    const target = 62 + hrLevel(s).morale + 18 * breakCover + cheerful - divaNearby - (crowded ? 20 : 0) - p.burnout * 0.25 + (p.founder ? 10 : 0);
     p.morale += (clamp(target, 0, 100) - p.morale) * 0.03;
     if (crunching) p.burnout += p.traits.includes('nightowl') ? T.crunchBurnoutPerDay * 0.3 : T.crunchBurnoutPerDay;
     else p.burnout -= p.task ? T.restBurnoutPerDay * 0.6 : T.restBurnoutPerDay * 1.6;
     p.burnout = clamp(p.burnout, 0, 100);
     p.morale = clamp(p.morale, 0, 100);
-    if (!p.founder && (p.burnout > 95 || p.morale < 12) && rand(s) < 0.01) {
+    if (!p.founder && (p.burnout > 95 || p.morale < 12) && rand(s) < 0.01 * hrLevel(s).quit) {
       s.staff.splice(s.staff.indexOf(p), 1);
       log(s, `${p.name} quit (${p.burnout > 95 ? 'burnt out' : 'unhappy'}).`, 'bad');
     }

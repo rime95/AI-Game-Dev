@@ -1,5 +1,6 @@
 import { useStore } from '../store';
-import { money, big } from '../format';
+import { money } from '../format';
+import { v2 } from '@stm/sim';
 import type { SaveMeta } from '../saves';
 
 /** Shared save list for the main menu and pause menu. */
@@ -14,7 +15,7 @@ export function SaveList({ saves, onLoad }: { saves: SaveMeta[]; onLoad?: (id: s
           <div className="save-info">
             <strong>{s.label}</strong>
             <span className="small muted">
-              {s.companyName} · week {s.week} · {money(s.cash)} · {big(s.users)} users
+              {s.version === 2 ? `${s.companyName} · ${v2.monthLabelV2(s.week * 7)} · ${money(s.cash)}` : `${s.companyName} · older version (can't load)`}
             </span>
             <span className="small muted">{new Date(s.savedAt).toLocaleString()}</span>
           </div>
@@ -97,9 +98,7 @@ function AutosaveField() {
         value={settings.autosaveEveryWeeks}
         onChange={(e) => update({ autosaveEveryWeeks: Number(e.target.value) })}
       >
-        <option value={1}>Every week</option>
-        <option value={4}>Every 4 weeks</option>
-        <option value={13}>Every quarter (13 weeks)</option>
+        <option value={1}>Every month</option>
         <option value={0}>Off</option>
       </select>
       <span className="small muted">The autosave slot is also written when you return to the main menu.</span>

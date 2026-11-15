@@ -162,6 +162,7 @@ function PersonView({
       <group position={position} rotation={[0, face, 0]}>
         <Character palette={founder ? FOUNDER_PALETTE : personPalette(person.key, person.discipline)} activity={activity} slump={slump} bob={crowded} />
         {cloud && <MoodCloud />}
+        {activity === 'type' && <WorkBubbles kind={person.discipline === 'research' ? 'research' : 'design'} seed={person.key} />}
       </group>
     </Suspense>
   );
@@ -730,6 +731,30 @@ function Room({
         </Html>
       )}
     </group>
+  );
+}
+
+/**
+ * While the clock runs in the rebooted game, people at work pop small bubbles over their heads:
+ * design or engineering points in mint, research in lavender. Purely visual, staggered per person.
+ */
+function WorkBubbles({ kind, seed }: { kind: 'design' | 'research'; seed: string }) {
+  const running = useStore((s) => !!s.v2 && s.speed > 0);
+  const [n, setN] = useState(0);
+  const offset = useMemo(() => [...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % 7, [seed]);
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setN((x) => x + 1), 2600 + offset * 230);
+    return () => clearInterval(t);
+  }, [running, offset]);
+  if (!running || n === 0) return null;
+  const text = kind === 'research' ? ['+R', '✦', '+1'][n % 3] : ['+D', '+E', '+1', '✓'][n % 4];
+  return (
+    <Html position={[0, 0.82, 0]} center zIndexRange={[5, 0]}>
+      <span key={n} className={`work-bubble ${kind}`}>
+        {text}
+      </span>
+    </Html>
   );
 }
 

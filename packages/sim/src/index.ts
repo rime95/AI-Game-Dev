@@ -1,19 +1,8 @@
+// The old game's room, server and chip helpers that the 3D HQ view still draws with.
 export * from './types';
-export * from './formulas';
 export * from './selectors';
-export * from './chipDesign';
-export * from './license';
-export * from './funding';
-export * from './victory';
-export * from './acquisitions';
-export * from './products';
-export * from './training';
 export * from './hq';
 export * from './servers';
-export * from './sites';
-export * from './fab';
 export { TUNING } from './tuning';
-export * from './migrate';
-export { createGame, createFoundingGame, applyCommand, targetUsers, DISCIPLINE_LABEL, reputationCeiling, rivalCeiling } from './game';
-export * from './company';
+// The game itself.
 export * as v2 from './v2';

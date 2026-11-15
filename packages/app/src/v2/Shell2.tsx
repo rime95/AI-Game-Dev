@@ -9,7 +9,8 @@ import { Sparkline } from './charts';
 import { needsOf } from './needs';
 import { CompanyPanel, HqPanel, MarketsPanel, ProductsPanel, ResearchPanel, StatsPanel, TeamPanel } from './Panels';
 import { DieBoardView, StudioPanel } from './Studio';
-import { Breakthrough2, CardModal2, Review2 } from './Modals';
+import { Breakthrough2, CardModal2, Review2, YearReview2 } from './Modals';
+import { WealthPanel } from './Wealth';
 import type { GameState } from '@stm/sim';
 
 type G = v2.GameV2;
@@ -23,6 +24,7 @@ export const TABS2: { id: Tab2; label: string; color: string; icon: string; key:
   { id: 'research', label: 'Research', color: LAYER.models, icon: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M7.5 15h9', key: '6' },
   { id: 'stats', label: 'Stats', color: LAYER.env, icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2', key: '7' },
   { id: 'hq', label: 'HQ', color: LAYER.power, icon: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01', key: '8' },
+  { id: 'wealth', label: 'Wealth', color: LAYER.gold, icon: 'M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', key: '9' },
 ];
 
 /** Milliseconds per clock step; each step advances `speed` days. */
@@ -36,7 +38,7 @@ function useClock2() {
   const building = useStore((s) => !!s.build);
   const review = useStore((s) => !!s.review2);
   const bt = useStore((s) => !!s.breakthrough2);
-  const card = useStore((s) => (s.v2?.cards.length ?? 0) > 0);
+  const card = useStore((s) => (s.v2?.cards.length ?? 0) > 0 || s.year2 !== null);
   const playing = useStore((s) => s.v2?.status === 'playing');
   const held = pauseOpen || building || review || bt || card || !playing;
   useEffect(() => {
@@ -84,6 +86,8 @@ export function Shell2({ g }: { g: G }) {
         {editing ? <DieBoardView g={g} pr={editing} /> : shim && <HqView game={shim as GameState} />}
         <NeedsStrip g={g} />
         <Ticker2 g={g} />
+        {!editing && <Timeline g={g} />}
+        <UndoChip />
       </div>
       <aside className="panel" style={{ ['--c' as string]: TABS2.find((t) => t.id === tab)!.color }}>
         <div className="panel-head">
@@ -101,11 +105,13 @@ export function Shell2({ g }: { g: G }) {
           {tab === 'research' && <ResearchPanel g={g} />}
           {tab === 'stats' && <StatsPanel g={g} />}
           {tab === 'hq' && <HqPanel g={g} />}
+          {tab === 'wealth' && <WealthPanel g={g} />}
         </div>
       </aside>
       {g.cards[0] && !pauseOpen && <CardModal2 g={g} card={g.cards[0]} />}
       <Review2 g={g} />
       <Breakthrough2 g={g} />
+      <YearReview2 g={g} />
       {g.status !== 'playing' && <GameOver2 g={g} />}
       {pauseOpen && shim && <PauseMenu game={shim as GameState} />}
     </div>
@@ -274,8 +280,100 @@ function Ticker2({ g }: { g: G }) {
   );
 }
 
+/** What's coming in the next four months: project milestones, rival launches, research. */
+function Timeline({ g }: { g: G }) {
+  const openProject = useStore((s) => s.openProject2);
+  const span = 120;
+  const events: { day: number; label: string; kind: 'you' | 'rival' | 'research'; project?: string }[] = [];
+  for (const pr of g.projects) {
+    const team = g.staff.filter((p) => p.task === pr.id);
+    const skill = pr.phase === 'architecture' ? 'design' : 'eng';
+    const morale = team.length ? team.reduce((n, p) => n + p.morale, 0) / team.length : 70;
+    const rate = pr.phase === 'tapeout' ? 1 : team.reduce((n, p) => n + v2.workRate(g, p, skill, pr.crunch, morale), 0);
+    if (pr.phase === 'ready') events.push({ day: g.day, label: `${pr.name}: launch`, kind: 'you', project: pr.id });
+    else if (rate > 0) {
+      const left = Math.max(0, pr.need - pr.progress);
+      events.push({ day: g.day + Math.ceil(left / rate), label: `${pr.name}: ${pr.phase === 'architecture' ? 'design done' : pr.phase === 'verification' ? 'testing done' : 'back from fab'}`, kind: 'you', project: pr.id });
+    }
+  }
+  for (const p of v2.visiblePlans(g)) events.push({ day: p.launchDay, label: `${p.rival} ${p.name}`, kind: 'rival' });
+  if (g.research.current) {
+    const t = v2.tech(g.research.current);
+    const rate = g.staff.filter((p) => p.task === 'research').reduce((n, p) => n + v2.T.researchPerDay * (p.skills.research / 5), 0);
+    if (rate > 0) events.push({ day: g.day + Math.ceil(Math.max(0, t.cost - g.research.progress - g.research.points) / rate), label: t.name, kind: 'research' });
+  }
+  const shown = events.filter((e) => e.day - g.day <= span).sort((a, b) => a.day - b.day);
+  if (!shown.length) return null;
+  return (
+    <div className="timeline" aria-label="Coming up">
+      <div className="tl-track">
+        {[30, 60, 90].map((d) => (
+          <span key={d} className="tl-tick" style={{ left: `${(d / span) * 100}%` }}>
+            {d}d
+          </span>
+        ))}
+        {shown.map((e, i) => (
+          <button
+            key={i}
+            className={`tl-ev ${e.kind}`}
+            style={{ left: `${Math.min(98, ((e.day - g.day) / span) * 100)}%`, top: `${(i % 3) * 18}px` }}
+            title={`${e.label} · ${v2.dateLabel(e.day)}`}
+            onClick={() => e.project && openProject(e.project)}
+          >
+            {e.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UndoChip() {
+  const undo = useStore((s) => s.undo2);
+  const undoV2 = useStore((s) => s.undoV2);
+  if (!undo) return null;
+  return (
+    <button className="undo-chip" onClick={undoV2} title="Undo works until anything else changes">
+      ↶ Undo: {undo.label}
+    </button>
+  );
+}
+
+const ENDINGS: Record<string, { tag: string; title: string; body: string; cls: string }> = {
+  safe: { tag: 'Ending · The safe frontier', title: 'AGI, built to help', body: 'Your alignment work and the trust you earned paid off. The most powerful technology ever made arrived safely, from a company that started in a garage.', cls: 'victory' },
+  reckless: { tag: 'Ending · The reckless frontier', title: 'AGI, untamed', body: 'You got there first. Whether that was wise is a question the whole world now has to live with.', cls: 'incident' },
+  leader: { tag: 'Ending · Market leader', title: 'The undisputed leader', body: 'For three years you led more markets than anyone. Every rival measures itself against you now.', cls: 'victory' },
+};
+
 function GameOver2({ g }: { g: G }) {
   const quit = useStore((s) => s.quitToMenu);
+  const send = useStore((s) => s.send2);
+  const end = g.status === 'won' && g.ending ? ENDINGS[g.ending] : null;
+  if (end)
+    return (
+      <div className="overlay">
+        <div className="modal" style={{ ['--c' as string]: LAYER.silicon }}>
+          <div className={`media ${end.cls}`}>
+            <div className="tag">{end.tag}</div>
+            <h2>{end.title}</h2>
+          </div>
+          <div className="body">
+            <p>{end.body}</p>
+            <p className="small muted">
+              {v2.monthLabelV2(g.day)} · {g.products.length} products shipped · best review {g.records.bestScore.toFixed(1)} · all-time sales {v2.moneyV2(g.acc.totalRevenue)}
+            </p>
+            <div className="row">
+              <button className="btn primary" onClick={() => send({ type: 'keepPlaying' })}>
+                Keep playing
+              </button>
+              <button className="btn" onClick={() => void quit()}>
+                Back to the menu
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   return (
     <div className="overlay">
       <div className="modal" style={{ ['--c' as string]: LAYER.products }}>

@@ -111,6 +111,11 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
             }
           }
       }
+      // Late game: data centers once models exist, a fab when rich, then the AGI program.
+      if (!v2.buildError(s, 'agi')) s = act(s, { type: 'startAgi' });
+      if (s.research.done.includes('llm') && !v2.buildError(s, 'dc') && s.cash > v2.FAC.dc.cost * 3) s = act(s, { type: 'buildDatacenter' });
+      if (!v2.buildError(s, 'fab') && s.cash > (v2.FAC.fab[s.facilities.fab]?.cost ?? Infinity) * 2) s = act(s, { type: 'buildFab' });
+      if (s.hq.stage === 'office' && s.cash > 6_000_000) s = act(s, { type: 'moveHq' });
       if (s.hq.stage === 'garage' && s.cash > 250_000) {
         s = act(s, { type: 'moveHq' });
         if (s.hq.stage !== 'garage') {
@@ -142,7 +147,17 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
 }
 
 // Run directly: npx tsx packages/sim/test/v2-bot.ts
-if (process.argv[1]?.endsWith('v2-bot.ts')) {
+if (process.argv[1]?.endsWith('v2-bot.ts') && process.argv[2] === 'long') {
+  for (const seed of [1, 2]) {
+    const r = runBot(seed, 360 * 30);
+    const s = r.state;
+    const when = (id: string) => (s.research.doneDay[id] !== undefined ? v2.monthLabelV2(s.research.doneDay[id]!) : '-');
+    console.log(
+      `seed ${seed}: ${v2.monthLabelV2(s.day)} ${s.status} ending ${s.ending ?? '-'} cash ${v2.moneyV2(s.cash)} staff ${s.staff.length} stage ${s.hq.stage} launches ${r.launches.length} ` +
+        `research ${s.research.done.length}/${v2.TECHS.length} 3d ${when('3d')} multicore ${when('multicore')} llm ${when('llm')} agi ${when('agi')} dc ${s.facilities.dc} fab ${s.facilities.fab} minGap ${r.minGap.toFixed(2)} chapter ${s.chapter.index}`,
+    );
+  }
+} else if (process.argv[1]?.endsWith('v2-bot.ts')) {
   for (const seed of [1, 2, 3, 4]) {
     for (const lazy of [false, true]) {
       const r = runBot(seed, 360 * 6, lazy);

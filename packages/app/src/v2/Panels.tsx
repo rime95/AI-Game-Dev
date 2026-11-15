@@ -4,6 +4,7 @@ import { templateDef, v2 } from '@stm/sim';
 import { useStore } from '../store';
 import { LAYER } from '../ui/layers';
 import { Bars, LineChart, OWNER_COLORS, Sparkline } from './charts';
+import { GrowCards } from './Wealth';
 
 type G = v2.GameV2;
 const $ = v2.moneyV2;
@@ -96,6 +97,9 @@ export function CompanyPanel({ g }: { g: G }) {
           </div>
         )}
       </div>
+      <InvestorCard g={g} />
+      <CfoCard g={g} />
+      <GrowCards g={g} />
       <div className="card">
         <h3>News</h3>
         <div className="log">
@@ -214,6 +218,7 @@ export function ProductsPanel({ g }: { g: G }) {
 // ---------------------------------------------------------------- Markets and rivals
 
 export function MarketsPanel({ g }: { g: G }) {
+  const send = useStore((s) => s.send2);
   const plans = v2.visiblePlans(g);
   const moodLabel: Record<v2.Mood, string> = { confident: 'Confident', rattled: 'Rattled', desperate: 'Desperate', forSale: 'Looking for a buyer' };
   return (
@@ -277,7 +282,7 @@ export function MarketsPanel({ g }: { g: G }) {
       <div className="card">
         <h3>Rivals</h3>
         {g.rivals
-          .filter((r) => v2.rivalActive(g, r))
+          .filter((r) => v2.rivalActive(g, r) && !r.acquired)
           .map((r) => (
             <div key={r.id} className="rival-row">
               <div className="row between">
@@ -288,11 +293,34 @@ export function MarketsPanel({ g }: { g: G }) {
               </div>
               <div className="small muted">
                 CEO {r.ceo} · brand {r.brand.toFixed(1)} · strength {Math.round(r.strength)}
+                {r.truceUntil > g.day ? ` · truce until ${v2.monthLabelV2(r.truceUntil)}` : ''}
               </div>
+              <button
+                className="btn sm"
+                disabled={g.cash < v2.takeoverPrice(g, r)}
+                onClick={() => confirm(`Buy ${r.name} for ${$(v2.takeoverPrice(g, r))}?`) && send({ type: 'acquireRival', rivalId: r.id })}
+              >
+                Buy {r.name} ({$(v2.takeoverPrice(g, r))})
+              </button>
             </div>
           ))}
-        <p className="small muted">Rivals push hard, but never get ahead of your best chip. Leave them behind and they lose heart.</p>
+        <p className="small muted">Rivals push hard, but never get ahead of your best chip. Beat them on sales and they lose heart, get cheaper to buy, and in the end put themselves up for sale.</p>
       </div>
+      {g.rivals.some((r) => r.acquired) && (
+        <div className="card chapter-card" style={{ ['--c' as string]: LAYER.gold }}>
+          <h3>Trophy wall</h3>
+          {g.rivals
+            .filter((r) => r.acquired)
+            .map((r) => (
+              <div key={r.id} className="rival-row">
+                <b>🏆 {r.name}</b> <span className="muted small">bought {v2.monthLabelV2(r.acquiredDay ?? 0)}</span>
+                <div className="small">
+                  {r.ceo}: “{r.farewell}”
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
     </>
   );
 }
@@ -369,6 +397,7 @@ export function TeamPanel({ g }: { g: G }) {
           )}
         </div>
       ))}
+      <Executives g={g} />
       <div className="card">
         <div className="row between">
           <h3>Candidates</h3>
@@ -665,6 +694,7 @@ export function HqPanel({ g }: { g: G }) {
           </button>
         )}
       </div>
+      <Facilities g={g} />
       <div className="card">
         <div className="row between">
           <h3>Build</h3>
@@ -700,3 +730,190 @@ export function HqPanel({ g }: { g: G }) {
 }
 
 export { Sparkline };
+
+/** Data centers, your own fab and the AGI program: the late game's strategic builds. */
+function Facilities({ g }: { g: G }) {
+  const send = useStore((s) => s.send2);
+  const done = g.research.done;
+  if (!done.includes('datacenters') && !done.includes('ownfab') && !done.includes('agi')) return null;
+  const f = g.facilities;
+  const nextFab = v2.FAC.fab[f.fab];
+  const modelDemand = v2.modelProducts(g).reduce((n, p) => n + p.rate, 0);
+  return (
+    <div className="card">
+      <h3>Strategic builds</h3>
+      {done.includes('datacenters') && (
+        <div className="exec">
+          <div className="row between">
+            <b>Data centers</b>
+            <span className="small muted">{f.dc.toLocaleString('en-US')} AI customers a day</span>
+          </div>
+          <div className="small muted">
+            AI models can only serve as many customers as your data centers hold. Each adds {v2.FAC.dc.add.toLocaleString('en-US')} a day ({$(v2.FAC.dc.upkeep)}/mo upkeep).
+            {modelDemand > 0 && ` Serving ${Math.round(modelDemand).toLocaleString('en-US')} a day now.`}
+          </div>
+          {f.dcBuilds.map((b, i) => (
+            <div key={i} className="small">
+              Building: online {v2.dateLabel(b.doneDay)}
+            </div>
+          ))}
+          <button className="btn sm" disabled={!!v2.buildError(g, 'dc')} title={v2.buildError(g, 'dc') ?? ''} onClick={() => send({ type: 'buildDatacenter' })}>
+            Build a data center ({$(v2.FAC.dc.cost)}, {v2.FAC.dc.days} days)
+          </button>
+        </div>
+      )}
+      {done.includes('ownfab') && (
+        <div className="exec">
+          <div className="row between">
+            <b>Your fab</b>
+            <span className="small muted">{f.fab ? `Level ${f.fab}` : 'None yet'}</span>
+          </div>
+          <div className="small muted">
+            {f.fab ? `Chips cost ${Math.round((1 - v2.unitCostMult(g)) * 100)}% less to make, masks ${Math.round((1 - v2.maskCostMult(g)) * 100)}% less.` : 'Make your own chips: cheaper to produce, cheaper masks.'}
+          </div>
+          {f.fabBuild && <div className="small">Building level {f.fabBuild.level}: ready {v2.dateLabel(f.fabBuild.doneDay)}</div>}
+          {nextFab && !f.fabBuild && (
+            <button className="btn sm" disabled={!!v2.buildError(g, 'fab')} title={v2.buildError(g, 'fab') ?? ''} onClick={() => send({ type: 'buildFab' })}>
+              Build a level {nextFab.level} fab ({$(nextFab.cost)}, {nextFab.days} days)
+            </button>
+          )}
+        </div>
+      )}
+      {done.includes('agi') && (
+        <div className="exec">
+          <div className="row between">
+            <b>The AGI program</b>
+            <span className="small muted">{g.agi ? `ends ${v2.dateLabel(g.agi.doneDay)}` : 'not started'}</span>
+          </div>
+          <div className="small muted">
+            A year-long push to general intelligence. It needs data centers serving {v2.FAC.agi.dc.toLocaleString('en-US')} a day. With alignment research and a trusted brand (55+) it ends safely; without, recklessly.
+          </div>
+          {g.agi ? (
+            <div className="bar" style={{ ['--c' as string]: LAYER.models }}>
+              <div style={{ width: `${Math.min(100, ((g.day - g.agi.startDay) / (g.agi.doneDay - g.agi.startDay)) * 100)}%` }} />
+            </div>
+          ) : (
+            <button className="btn primary sm" disabled={!!v2.buildError(g, 'agi')} title={v2.buildError(g, 'agi') ?? ''} onClick={() => confirm('Start the AGI program? This is the final chapter.') && send({ type: 'startAgi' })}>
+              Start the AGI program ({$(v2.FAC.agi.cost)})
+            </button>
+          )}
+          {v2.buildError(g, 'agi') && !g.agi && <div className="small neg">{v2.buildError(g, 'agi')}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InvestorCard({ g }: { g: G }) {
+  const inv = g.investor;
+  if (!inv) return null;
+  const made = g.acc.totalRevenue - inv.startRevenue;
+  return (
+    <div className="card">
+      <div className="row between">
+        <h3>Investor target</h3>
+        <span className="muted small">due {v2.dateLabel(inv.dueDay)}</span>
+      </div>
+      <div className="small">
+        {$(made)} of {$(inv.target)} in sales
+      </div>
+      <div className="bar" style={{ ['--c' as string]: made >= inv.target ? LAYER.silicon : LAYER.gold }}>
+        <div style={{ width: `${Math.min(100, (made / inv.target) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CfoCard({ g }: { g: G }) {
+  const f = v2.cashForecast(g);
+  const cfo = v2.execOf(g, 'cfo');
+  if (!f || !cfo) return null;
+  return (
+    <div className="card">
+      <div className="row between">
+        <h3>CFO forecast</h3>
+        <span className="muted small">
+          {cfo.name} · {'★'.repeat(cfo.stars)}
+        </span>
+      </div>
+      <div className="grid3">
+        <div className="stat">
+          <div className="k">Per month</div>
+          <div className={`v ${f.monthly < 0 ? 'neg' : 'up'}`}>{$(f.monthly)}</div>
+        </div>
+        <div className="stat">
+          <div className="k">Cash in 3 months</div>
+          <div className={`v ${f.in3 < 0 ? 'neg' : ''}`}>{$(f.in3)}</div>
+        </div>
+        <div className="stat">
+          <div className="k">In 6 months</div>
+          <div className={`v ${f.in6 < 0 ? 'neg' : ''}`}>{$(f.in6)}</div>
+        </div>
+      </div>
+      <p className="small muted">Based on the last three months, as things stand.</p>
+    </div>
+  );
+}
+
+const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+function Executives({ g }: { g: G }) {
+  const send = useStore((s) => s.send2);
+  return (
+    <div className="card">
+      <h3>Executives</h3>
+      <p className="small muted">They take repeat work off your hands. Switch autopilot off to keep a job for yourself.</p>
+      {v2.EXEC_ROLES.map((r) => {
+        const e = v2.execOf(g, r.role);
+        const pool = g.execPool.filter((c) => c.role === r.role);
+        return (
+          <div key={r.role} className="exec">
+            <div className="row between">
+              <b>{r.title}</b>
+              {e && (
+                <label className="check">
+                  <input type="checkbox" checked={e.auto} onChange={(ev) => send({ type: 'setExecAuto', role: r.role, on: ev.target.checked })} />
+                  Autopilot
+                </label>
+              )}
+            </div>
+            <div className="small muted">{r.does}</div>
+            {e ? (
+              <>
+                <div className="small">
+                  {e.name} · <span className="stars">{stars(e.stars)}</span> · {$(e.salary)}/mo{' '}
+                  <button className="btn sm ghost" onClick={() => confirm(`Let ${e.name} go? Two months' pay.`) && send({ type: 'fireExec', role: r.role })}>
+                    Let go
+                  </button>
+                </div>
+                {e.lately.length > 0 && (
+                  <ul className="lately">
+                    {e.lately.slice(0, 3).map((l, i) => {
+                      const [day, text] = l.split('|');
+                      return (
+                        <li key={i}>
+                          <span className="muted">{v2.dateLabel(Number(day))}</span> {text}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            ) : (
+              pool.map((c) => (
+                <div key={c.id} className="row between small">
+                  <span>
+                    {c.name} · <span className="stars">{stars(c.stars)}</span> · {$(c.salary)}/mo
+                  </span>
+                  <button className="btn sm" disabled={g.cash < c.fee} onClick={() => send({ type: 'hireExec', candidateId: c.id })}>
+                    Hire ({$(c.fee)})
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

@@ -3,9 +3,13 @@ import { placementError, stageDef, templateDef } from '../hq';
 import type { GameState } from '../types';
 import { rand } from '../rng';
 import { boardScore, chipCosts, clampScore, evaluateBoard, rawBoardScore } from './board';
-import { resolveCard, tickCards } from './cards';
+import { acquire, resolveCard, rivalOffers, tickCards } from './cards';
+import { CARD_OWNER, execOf, refreshExecPool, roleInfo, tickExecs } from './execs';
+import { build, buildError, maskCostMult, monthlyInvestor, tickFacilities, unitCostMult } from './facilities';
+import { buyShares, initialMarket, placeOrder, quarterlyMarket, sellShares, weeklyMarket } from './stocks';
+import { goPublic, HR_LEVELS, ipoCheck, loanLimit, loanRate, LOANS, monthlyFinance, REGIONS, salaryCap, weeklyIpo } from './wealth';
 import { BLOCKS, CHAPTERS, kind, KINDS, market, NODES, OUTLETS, QUOTES, SIZES, T, tech, TECHS, type TechDef } from './data';
-import { activeProducts, currentScore, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, tickRivals, tickSales } from './markets';
+import { activeProducts, currentScore, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, takeoverPrice, tickRivals, tickSales } from './markets';
 import { capacity, founder, gainXp, hasPerk, makeCandidate, tickStaff, workRate } from './staff';
 import type { Bug, CommandV2, GameV2, Person, Product, Project, ResultV2, Snapshot, Stat } from './types';
 import { between, clamp, log, money, monthIndex, monthLabel, newId, pick, spend } from './util';
@@ -70,7 +74,23 @@ export function createGameV2(content: Content, seed: number, companyName: string
     nextId: 10,
     brokeDays: 0,
     acc: { weekRevenue: 0, weekProfit: 0, totalRevenue: 0 },
+    execs: [],
+    execPool: [],
+    years: [],
+    ending: null,
+    facilities: { dc: 0, dcBuilds: [], fab: 0, fabBuild: null },
+    agi: null,
+    leadDays: 0,
+    investor: null,
+    personal: { cash: 0, salary: 0, portfolio: {}, orders: [], dividends: 0, passed: [] },
+    stocks: initialMarket(),
+    loans: [],
+    baseRate: 0.03,
+    hr: 0,
+    offices: [],
+    ipo: null,
   };
+  refreshExecPool(s);
   s.staff.push(founder(s));
   s.rivals = initialRivals(s);
   openMarkets(s);
@@ -218,7 +238,7 @@ export function projectForecast(s: GameV2, pr: Project, day = s.day): { board: n
   const boardPart = boardScore(ev, pr.marketId, day);
   const avgSkill = pr.designPoints > 0 ? pr.skillSum / pr.designPoints : avgSkillOf(teamOf(s, pr.id), 'design');
   const team = clamp((avgSkill - 5) * 0.15, -0.6, 0.75);
-  const polish = Math.min(0.4, pr.polishDays * 0.012);
+  const polish = Math.min(0.4, pr.polishDays * 0.012) + (pr.kind === 'model' && s.research.done.includes('alignment') ? 0.25 : 0);
   const m = market(pr.marketId);
   const bugs = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).reduce((n, b) => n + b.severity * 0.22 * m.bugPenalty, 0);
   return { board: boardPart, team, polish, bugs, total: clampScore(boardPart + team + polish - bugs) };
@@ -253,7 +273,7 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
   });
   const avg = Math.round((reviews.reduce((n, r) => n + r.score, 0) / reviews.length) * 10) / 10;
   const costs = chipCosts(pr.size, pr.nodeId);
-  let costMod = 1;
+  let costMod = unitCostMult(s);
   for (const m of s.modifiers) if (m.costs && m.until > s.day) costMod *= m.costs;
   const bugsShipped = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).length;
   const product: Product = {
@@ -352,6 +372,24 @@ export function goalMet(s: GameV2, content: Content, id: string): boolean {
       return s.research.done.some((d) => !!tech(d).breakthrough);
     case 'markets3':
       return new Set(activeProducts(s).map((p) => p.marketId)).size >= 3;
+    case 'hq':
+      return content.hq.stages.findIndex((x) => x.id === s.hq.stage) >= 2;
+    case 'lead3':
+      return s.markets.filter((m) => (m.shares.you ?? 0) > 0 && Object.entries(m.shares).every(([k, v]) => k === 'you' || k === 'others' || v <= (m.shares.you ?? 0))).length >= 3;
+    case 'buyrival':
+      return s.rivals.some((r) => r.acquired);
+    case 'llm':
+      return s.research.done.includes('llm');
+    case 'dc':
+      return s.facilities.dc > 0;
+    case 'model1':
+      return s.products.some((p) => p.kind === 'model');
+    case 'agi':
+      return s.research.done.includes('agi');
+    case 'agistart':
+      return s.agi !== null;
+    case 'ending':
+      return s.ending !== null;
     default:
       return false;
   }
@@ -407,7 +445,16 @@ function tickDay(s: GameV2, content: Content): void {
   const fac = facilitiesPerMonth(s, content);
   spend(s, 'facilities', (fac.rent + fac.upkeep) / 30);
   for (const pr of [...s.projects]) tickProject(s, pr);
+  tickExecs(
+    s,
+    (id, price, push) => {
+      const pr = s.projects.find((p) => p.id === id);
+      if (pr) launch(s, pr, price, push);
+    },
+    (pr) => suggestBoard(s, pr, 1),
+  );
   tickResearch(s);
+  tickFacilities(s);
   const { revenue, cogs } = tickSales(s);
   s.cash += revenue - cogs;
   s.month.revenue += revenue;
@@ -417,6 +464,15 @@ function tickDay(s: GameV2, content: Content): void {
   s.acc.weekProfit += revenue - cogs - pay - (fac.rent + fac.upkeep) / 30;
   tickRivals(s);
   tickCards(s);
+  // Executives on autopilot answer the cards in their area.
+  for (const c of [...s.cards]) {
+    const own = CARD_OWNER[c.kind];
+    const e = own && execOf(s, own.role);
+    if (e?.auto && c.choices.some((x) => x.id === own.pick)) {
+      resolveCard(s, c.id, own.pick);
+      e.lately.unshift(`${s.day}|Answered “${c.title}”.`);
+    }
+  }
   s.modifiers = s.modifiers.filter((m) => m.until > s.day);
   if (s.day % 30 === 0) {
     const m = s.month;
@@ -424,10 +480,20 @@ function tickDay(s: GameV2, content: Content): void {
     s.books.push({ month: monthIndex(s.day) - 1, ...m, profit: m.revenue - costs, cash: s.cash });
     s.month = emptyMonth();
     monthlyRivals(s);
+    rivalOffers(s);
+    monthlyInvestor(s);
+    monthlyFinance(s);
     s.history.monthly.push(snapshot(s, s.books[s.books.length - 1]!.revenue, s.books[s.books.length - 1]!.profit));
     if (s.day % 90 === 0) for (let i = 0; i < 2; i++) s.candidates.push(makeCandidate(s));
     if (s.candidates.length > 6) s.candidates.splice(0, s.candidates.length - 6);
   }
+  if (s.day % 7 === 0) {
+    weeklyMarket(s);
+    weeklyIpo(s);
+  }
+  if (s.day % 90 === 0) quarterlyMarket(s);
+  if (s.day % 180 === 0) refreshExecPool(s);
+  if (s.day % 360 === 0) yearEnd(s);
   if (s.day % 7 === 0) {
     s.history.weekly.push(snapshot(s, s.acc.weekRevenue, s.acc.weekProfit));
     if (s.history.weekly.length > 156) s.history.weekly.shift();
@@ -443,6 +509,21 @@ function tickDay(s: GameV2, content: Content): void {
   }
 }
 
+function yearEnd(s: GameV2): void {
+  const months = s.books.slice(-12);
+  const year = T.startYear + s.day / 360 - 1;
+  s.years.push({
+    year,
+    revenue: months.reduce((n, b) => n + b.revenue, 0),
+    profit: months.reduce((n, b) => n + b.profit, 0),
+    launches: s.products.filter((p) => p.launchDay > s.day - 360).length,
+    bestScore: Math.max(0, ...s.products.filter((p) => p.launchDay > s.day - 360).map((p) => p.score)),
+    led: s.markets.filter((m) => (m.shares.you ?? 0) > 0 && Object.entries(m.shares).every(([k, v]) => k === 'you' || k === 'others' || v <= (m.shares.you ?? 0))).map((m) => m.id),
+    headcount: s.staff.length,
+    research: s.research.done.filter((d) => (s.research.doneDay[d] ?? -1) > s.day - 360).length,
+  });
+}
+
 // ---------------------------------------------------------------- Commands
 
 export function applyV2(prev: GameV2, content: Content, cmd: CommandV2): ResultV2 {
@@ -452,7 +533,7 @@ export function applyV2(prev: GameV2, content: Content, cmd: CommandV2): ResultV
 }
 
 function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
-  if (s.status !== 'playing' && cmd.type !== 'tick') return 'The game is over.';
+  if (s.status !== 'playing' && cmd.type !== 'tick' && cmd.type !== 'keepPlaying') return 'The game is over.';
   switch (cmd.type) {
     case 'tick': {
       const n = Math.max(1, Math.min(60, Math.floor(cmd.days ?? 1)));
@@ -467,6 +548,7 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       if (market(cmd.marketId).kind !== cmd.kind) return `${market(cmd.marketId).name} buys ${kind(market(cmd.marketId).kind).name.toLowerCase()}s.`;
       if (!nodeUnlocked(s, cmd.nodeId)) return 'That process needs research first.';
       if (!SIZES[cmd.size]) return 'Unknown size.';
+      if (SIZES[cmd.size].tech && !s.research.done.includes(SIZES[cmd.size].tech!)) return `${SIZES[cmd.size].name} dies need ${tech(SIZES[cmd.size].tech!).name} first.`;
       const { w, h } = SIZES[cmd.size];
       const base = cmd.refreshOf ? s.products.find((p) => p.id === cmd.refreshOf) : undefined;
       const pr: Project = {
@@ -535,7 +617,8 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       const pr = s.projects.find((p) => p.id === cmd.projectId);
       if (!pr || pr.phase !== 'verification') return 'Nothing to tape out.';
       if (pr.progress < pr.need) return 'Verification isn’t finished yet.';
-      const costs = chipCosts(pr.size, pr.nodeId);
+      const raw = chipCosts(pr.size, pr.nodeId);
+      const costs = { ...raw, maskCost: Math.round(raw.maskCost * maskCostMult(s)) };
       if (s.cash < costs.maskCost) return `The mask set costs ${money(costs.maskCost)}. Earn or raise the cash first (or keep testing meanwhile).`;
       spend(s, 'projects', costs.maskCost);
       pr.spent += costs.maskCost;
@@ -653,6 +736,129 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       if (!r) return 'No such room.';
       s.hq.rooms = s.hq.rooms.filter((x) => x !== r);
       s.cash += Math.round(r.spent * 0.5);
+      return null;
+    }
+    case 'buildDatacenter':
+    case 'buildFab':
+    case 'startAgi': {
+      const what = cmd.type === 'buildDatacenter' ? 'dc' : cmd.type === 'buildFab' ? 'fab' : 'agi';
+      const e = buildError(s, what);
+      if (e) return e;
+      build(s, what);
+      return null;
+    }
+    case 'setSalary': {
+      if (!(cmd.amount >= 0)) return 'Set a salary of zero or more.';
+      if (cmd.amount > salaryCap(s)) return `The most you can pay yourself now is ${money(salaryCap(s))} a month.`;
+      s.personal.salary = Math.round(cmd.amount);
+      return null;
+    }
+    case 'injectCash': {
+      if (!(cmd.amount > 0) || cmd.amount > s.personal.cash) return 'You don’t have that much of your own.';
+      s.personal.cash -= cmd.amount;
+      s.cash += cmd.amount;
+      log(s, `You put ${money(cmd.amount)} of your own money into the company.`);
+      return null;
+    }
+    case 'buyStock':
+      return buyShares(s, cmd.ticker, cmd.shares);
+    case 'sellStock':
+      return sellShares(s, cmd.ticker, cmd.shares);
+    case 'placeOrder':
+      return placeOrder(s, { ticker: cmd.ticker, kind: cmd.kind, trigger: cmd.trigger, shares: cmd.shares });
+    case 'cancelOrder':
+      s.personal.orders = s.personal.orders.filter((o) => o.id !== cmd.id);
+      return null;
+    case 'takeLoan': {
+      const limit = loanLimit(s);
+      if (!(cmd.amount > 0)) return 'Borrow something.';
+      if (cmd.amount > limit) return `The bank will lend up to ${money(limit)} (${LOANS.multiple}× a year of profit, less what you owe).`;
+      const rate = loanRate(s);
+      const n = LOANS.termMonths;
+      const r = rate / 12;
+      const monthly = (cmd.amount * r) / (1 - Math.pow(1 + r, -n));
+      s.loans.push({ id: newId(s, 'loan'), principal: cmd.amount, left: cmd.amount, rate, monthly, monthsLeft: n });
+      s.cash += cmd.amount;
+      log(s, `Borrowed ${money(cmd.amount)} at ${(rate * 100).toFixed(1)}% over ${n / 12} years (${money(monthly)} a month).`);
+      return null;
+    }
+    case 'repayLoan': {
+      const l = s.loans.find((x) => x.id === cmd.id);
+      if (!l) return 'No such loan.';
+      if (s.cash < l.left) return `Paying it off takes ${money(l.left)}.`;
+      s.cash -= l.left;
+      s.month.other += l.left;
+      s.loans = s.loans.filter((x) => x !== l);
+      log(s, 'Loan paid off early.', 'good');
+      return null;
+    }
+    case 'upgradeHr': {
+      const next = HR_LEVELS[s.hr + 1];
+      if (!next) return 'HR is already at the top level.';
+      if (s.cash < next.cost) return `The next HR level costs ${money(next.cost)}.`;
+      spend(s, 'other', next.cost);
+      s.hr = next.level;
+      log(s, `HR department at level ${next.level}: happier people, fewer leaving, better hires.`, 'good');
+      return null;
+    }
+    case 'openOffice': {
+      const r = REGIONS.find((x) => x.id === cmd.region);
+      if (!r || r.id === 'na') return 'Unknown region.';
+      if (s.offices.includes(r.id)) return 'You already sell there.';
+      if (s.cash < r.cost) return `An office in ${r.name} costs ${money(r.cost)}.`;
+      spend(s, 'other', r.cost);
+      s.offices.push(r.id);
+      log(s, `Opened a sales office in ${r.name}. More of the world can buy your chips.`, 'good');
+      return null;
+    }
+    case 'ipo': {
+      const e = ipoCheck(s);
+      if (e) return e;
+      if (!(cmd.percent >= 0.1 && cmd.percent <= 0.49)) return 'Sell between 10% and 49%.';
+      goPublic(s, cmd.percent);
+      return null;
+    }
+    case 'setPayout': {
+      if (!s.ipo) return 'Dividends come after the IPO.';
+      s.ipo.payout = clamp(cmd.payout, 0, 0.8);
+      return null;
+    }
+    case 'keepPlaying': {
+      if (s.status !== 'won') return 'The story is still going.';
+      s.status = 'playing';
+      return null;
+    }
+    case 'hireExec': {
+      const c = s.execPool.find((x) => x.id === cmd.candidateId);
+      if (!c) return 'That candidate is gone.';
+      if (execOf(s, c.role)) return `You already have a ${roleInfo(c.role).title}.`;
+      if (s.cash < c.fee) return 'Not enough cash for the signing fee.';
+      spend(s, 'hiring', c.fee);
+      s.execPool = s.execPool.filter((x) => x !== c);
+      s.execs.push({ role: c.role, name: c.name, stars: c.stars, salary: c.salary, auto: true, lately: [] });
+      log(s, `${c.name} joined as ${roleInfo(c.role).title}.`, 'good');
+      return null;
+    }
+    case 'fireExec': {
+      const e = execOf(s, cmd.role);
+      if (!e) return 'Nobody holds that role.';
+      spend(s, 'salaries', e.salary * 2);
+      s.execs = s.execs.filter((x) => x !== e);
+      log(s, `${e.name} left the company (two months' pay).`);
+      return null;
+    }
+    case 'setExecAuto': {
+      const e = execOf(s, cmd.role);
+      if (!e) return 'Nobody holds that role.';
+      e.auto = cmd.on;
+      return null;
+    }
+    case 'acquireRival': {
+      const r = s.rivals.find((x) => x.id === cmd.rivalId);
+      if (!r || r.acquired) return 'That company is not for sale.';
+      const price = takeoverPrice(s, r);
+      if (s.cash < price) return `Buying ${r.name} costs ${money(price)}.`;
+      acquire(s, r.id, price);
       return null;
     }
     case 'moveHq': {

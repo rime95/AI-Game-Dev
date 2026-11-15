@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { GameState } from '@stm/sim';
+import { v2, type GameState } from '@stm/sim';
 import { useStore } from '../store';
 import { isDesktop } from '../saves';
 import { SaveList, SettingsForm } from './SaveList';
@@ -7,8 +7,9 @@ import { SaveList, SettingsForm } from './SaveList';
 type View = 'home' | 'save' | 'load' | 'settings';
 
 export function PauseMenu({ game }: { game: GameState }) {
+  const when = v2.monthLabelV2(game.week);
   const [view, setView] = useState<View>('home');
-  const [label, setLabel] = useState(`${game.companyName} · week ${game.week}`);
+  const [label, setLabel] = useState(`${game.companyName} · ${when}`);
   const saves = useStore((s) => s.saves);
   const setPauseOpen = useStore((s) => s.setPauseOpen);
   const saveTo = useStore((s) => s.saveTo);
@@ -23,7 +24,7 @@ export function PauseMenu({ game }: { game: GameState }) {
     <div className="overlay">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="pause-title">
         <div className="media press">
-          <div className="tag">Paused · week {game.week}</div>
+          <div className="tag">Paused · {when}</div>
           <h2 id="pause-title">{game.companyName}</h2>
         </div>
         <div className="body">

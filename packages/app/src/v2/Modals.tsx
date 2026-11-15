@@ -154,6 +154,62 @@ export function Review2({ g }: { g: G }) {
   );
 }
 
+/** The financial-year review: the year in numbers, with what changed against the year before. */
+export function YearReview2({ g }: { g: G }) {
+  const i = useStore((s) => s.year2);
+  const close = useStore((s) => s.closeYear2);
+  if (i === null) return null;
+  const y = g.years[i];
+  if (!y) return null;
+  const prev = g.years[i - 1];
+  const delta = (a: number, b?: number) => (b && b !== 0 ? ` (${a >= b ? '+' : ''}${Math.round(((a - b) / Math.abs(b)) * 100)}%)` : '');
+  return (
+    <div className="milestone" role="dialog" aria-label={`${y.year} in review`}>
+      <div className="milestone-card" style={{ ['--c' as string]: LAYER.gold }}>
+        <div className="ms-mast">
+          <span>YEAR IN REVIEW</span>
+          <span>{y.year}</span>
+        </div>
+        <h2>
+          {g.companyName}'s {y.year}
+        </h2>
+        <div className="grid3">
+          <div className="stat">
+            <div className="k">Revenue</div>
+            <div className="v">{v2.moneyV2(y.revenue)}</div>
+            <div className="small muted">{delta(y.revenue, prev?.revenue)}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Profit</div>
+            <div className={`v ${y.profit < 0 ? 'neg' : 'up'}`}>{v2.moneyV2(y.profit)}</div>
+            <div className="small muted">{delta(y.profit, prev?.profit)}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Chips launched</div>
+            <div className="v">{y.launches}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Best review</div>
+            <div className="v">{y.bestScore ? y.bestScore.toFixed(1) : '–'}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Team</div>
+            <div className="v">{y.headcount}</div>
+          </div>
+          <div className="stat">
+            <div className="k">New tech</div>
+            <div className="v">{y.research}</div>
+          </div>
+        </div>
+        <p className="small">{y.led.length ? `You lead ${y.led.map((m) => v2.market(m).name).join(', ')}.` : 'You don’t lead a market yet.'}</p>
+        <button className="btn primary" onClick={close}>
+          On to {y.year + 1}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** A breakthrough opens a new chapter of the story. */
 export function Breakthrough2({ g }: { g: G }) {
   const id = useStore((s) => s.breakthrough2);

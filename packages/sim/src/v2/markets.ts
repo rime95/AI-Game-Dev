@@ -2,6 +2,8 @@ import { rand } from '../rng';
 import { agingLoss, clampScore } from './board';
 import { kind, market, marketBar, MARKETS, RIVAL_LINES, RIVALS, T, type MarketDef } from './data';
 import type { GameV2, Mood, Product, Rival, RivalPlan, RivalProduct } from './types';
+import { servingRatio } from './facilities';
+import { reach, WORLD_WEIGHT } from './wealth';
 import { between, clamp, log, money, pick } from './util';
 
 // ---------------------------------------------------------------- Markets
@@ -23,7 +25,8 @@ export function marketSize(s: GameV2, id: string, day = s.day): number {
   const ms = s.markets.find((m) => m.id === id);
   if (!ms) return 0;
   const m = market(id);
-  return m.startSize * Math.pow(1 + m.growth, (day - ms.openedDay) / 360);
+  // The whole world's buyers; you reach only the regions where you have offices.
+  return m.startSize * WORLD_WEIGHT * Math.pow(1 + m.growth, (day - ms.openedDay) / 360);
 }
 
 /** Price buyers think is fair for a product of this score. */
@@ -61,7 +64,7 @@ export function rivalScore(s: GameV2, rp: RivalProduct, day = s.day): number {
 const pull = (score: number, price: number, fair: number, sens: number, brand: number, hype: number) =>
   brand * Math.pow(2, (score - 5) / T.scorePerDoubling) * Math.pow(fair / Math.max(1, price), sens) * (1 + hype);
 
-export const ourBrandFactor = (s: GameV2) => 0.15 + s.brand / 55;
+export const ourBrandFactor = (s: GameV2) => (0.15 + s.brand / 55) * reach(s);
 
 export function hypeNow(p: Product, day: number): number {
   return p.hype * Math.exp(-(day - p.launchDay) / 40);
@@ -73,13 +76,16 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
   let cogs = 0;
   let salesMod = 1;
   for (const m of s.modifiers) if (m.sales && m.until > s.day) salesMod *= m.sales;
+  const drivers = s.research.done.includes('drivers');
+  // AI-model customers can only be served up to data center capacity: settle those after the loop.
+  const models: { p: Product; units: number }[] = [];
   for (const ms of s.markets) {
     const m = market(ms.id);
     ms.size = marketSize(s, ms.id);
     const entries: { owner: string; pull: number; product?: Product }[] = [];
     for (const p of activeProducts(s, ms.id)) {
       const sc = currentScore(p, s.day);
-      entries.push({ owner: 'you', product: p, pull: pull(sc, p.price, fairPrice(ms.id, sc), m.priceSensitivity, ourBrandFactor(s), hypeNow(p, s.day)) * salesMod });
+      entries.push({ owner: 'you', product: p, pull: pull(sc, p.price, fairPrice(ms.id, sc), m.priceSensitivity, ourBrandFactor(s), hypeNow(p, s.day)) * salesMod * (drivers && p.kind === 'gpu' ? 1.15 : 1) });
     }
     for (const r of s.rivals) {
       if (r.acquired) continue;
@@ -96,6 +102,10 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
       shares[e.owner] = (shares[e.owner] ?? 0) + share;
       if (!e.product) continue;
       const units = ms.size * share;
+      if (e.product.kind === 'model') {
+        models.push({ p: e.product, units });
+        continue;
+      }
       const rev = units * e.product.price;
       const cost = units * e.product.unitCost;
       e.product.units += units;
@@ -106,6 +116,20 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
       cogs += cost;
     }
     ms.shares = shares;
+  }
+  const ratio = servingRatio(s, models.reduce((n, x) => n + x.units, 0));
+  for (const { p, units: want } of models) {
+    const units = want * ratio;
+    const rev = units * p.price;
+    const cost = units * p.unitCost;
+    p.units += units;
+    p.revenue += rev;
+    p.profit += rev - cost;
+    p.rate = units;
+    revenue += rev;
+    cogs += cost;
+    const ms = s.markets.find((x) => x.id === p.marketId)!;
+    ms.shares.you = (ms.shares.you ?? 0) * (want > 0 ? units / want : 1);
   }
   return { revenue, cogs };
 }
@@ -127,6 +151,8 @@ export function initialRivals(s: GameV2): Rival[] {
     strength: 60,
     mood: 'confident' as Mood,
     techs: [],
+    truceUntil: 0,
+    lastOffer: -1e9,
     released: 0,
   }));
 }
@@ -234,8 +260,17 @@ export function monthlyRivals(s: GameV2): void {
     r.strength = clamp(50 + (110 * (theirs - ours)) / n - Math.max(0, ourBest - 6) * 4, 0, 100);
     // Rivals feel our success: out-selling them wears their brand down (and the reverse, slowly).
     r.brand = clamp(r.brand * (1 + (0.15 * (theirs - ours)) / n), 0.4, 6);
-    r.mood = r.strength >= 55 ? 'confident' : r.strength >= 35 ? 'rattled' : r.strength >= 20 ? 'desperate' : 'forSale';
-    if ((r.style === 'priceCutter' || r.mood === 'desperate') && r.mood !== 'confident' && rand(s) < 0.35) {
+    r.mood = moodFor(r.mood, r.strength);
+    const truce = r.truceUntil > s.day;
+    // A desperate rival starts a price war across every market it shares with us.
+    if (r.mood === 'desperate' && !truce && rand(s) < 0.25) {
+      let cut = 0;
+      for (const p of r.products) if ((s.markets.find((m) => m.id === p.marketId)?.shares.you ?? 0) > 0.03) {
+        p.price = Math.max(1, Math.round(p.price * 0.85));
+        cut++;
+      }
+      if (cut) log(s, `${r.name} started a price war: 15% off across ${cut} market${cut > 1 ? 's' : ''}.`, 'rival');
+    } else if ((r.style === 'priceCutter' || r.mood === 'desperate') && r.mood !== 'confident' && !truce && rand(s) < 0.35) {
       const p = r.products.find((x) => (s.markets.find((m) => m.id === x.marketId)?.shares.you ?? 0) > 0.05);
       if (p) {
         p.price = Math.max(1, Math.round(p.price * 0.88));
@@ -255,3 +290,42 @@ export function monthlyRivals(s: GameV2): void {
 }
 
 export const kindName = (k: string) => kind(k).name;
+
+/** Grounds Up's rivalry thresholds, with hysteresis so a mood doesn't flicker. */
+export const RIVALRY = {
+  confident: 55,
+  rattled: 35,
+  desperate: 20,
+  hysteresis: 4,
+  priceMult: { confident: 1.15, rattled: 1, desperate: 0.8, forSale: 0.65 } as Record<Mood, number>,
+  defeatBrand: 5,
+  truceDays: 168,
+  offerCooldownDays: 90,
+};
+
+export function moodFor(prev: Mood, strength: number): Mood {
+  const h = RIVALRY.hysteresis;
+  const raw: Mood = strength >= RIVALRY.confident ? 'confident' : strength >= RIVALRY.rattled ? 'rattled' : strength >= RIVALRY.desperate ? 'desperate' : 'forSale';
+  if (raw === prev) return raw;
+  // Only change mood once strength is clearly past the line.
+  const line = { confident: RIVALRY.confident, rattled: RIVALRY.rattled, desperate: RIVALRY.desperate, forSale: 0 };
+  const order: Mood[] = ['forSale', 'desperate', 'rattled', 'confident'];
+  const up = order.indexOf(raw) > order.indexOf(prev);
+  return up ? (strength >= line[raw] + h ? raw : prev) : strength < line[prev] - h ? raw : prev;
+}
+
+/** A rival's yearly sales at today's shares and prices. */
+export function rivalRevenue(s: GameV2, r: Rival): number {
+  let n = 0;
+  for (const p of r.products) {
+    const ms = s.markets.find((m) => m.id === p.marketId);
+    if (ms) n += (ms.shares[r.id] ?? 0) * ms.size * p.price * 360;
+  }
+  return n;
+}
+
+/** What it costs to buy a rival outright: a multiple of its sales, cheaper the more it is struggling. */
+export function takeoverPrice(s: GameV2, r: Rival): number {
+  const base = Math.max(2_000_000, rivalRevenue(s, r) * 2.5 + r.brand * 400_000);
+  return Math.round((base * RIVALRY.priceMult[r.mood]) / 10_000) * 10_000;
+}

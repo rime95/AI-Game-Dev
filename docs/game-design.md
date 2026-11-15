@@ -1,226 +1,93 @@
-# SAND TO MIND — Game Design Draft v0.1
+# Sand to Mind: game design (v2, the reboot)
 
-*Working title. A strategy tycoon about building an AI company where the chips and the models are designed together.*
+You run a chip company from a 1991 garage to the AI age, in real time. Days tick by and the clock **pauses itself** whenever something needs you. Prompts never time out, and nothing punishes taking your time.
 
----
+Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is temporary and lives in `v2/data.ts` (and the `FAC`, `LOANS`, `HR_LEVELS`, `REGIONS`, `IPO` and `MARKET_MODEL` tables).
 
-## 1. Pitch
-Start with rented GPUs and three people. End with your own fab, your own power plants and a frontier model.
-Every model you train runs on hardware you chose or designed, and every chip you design is only as good as the models it runs.
-**Hardware–software co-design is the core loop, not a side quest.**
+## Design rules
+- **Rivals never get ahead of you.** A rival product's score is capped just below your best in that market, every day (`rivalScore`). The pressure comes from elsewhere:
+  - how close they get
+  - price cuts and price wars
+  - launch timing
+  - poaching your people
+  - share they take in markets you neglect
+- **No rushing.** Projects have no deadlines or cadence, and cards wait for you. A "relaxed" bot that acts half the time must still grow without going bankrupt (a test checks this).
+- **No era jumps.** You move forward by researching technology at your own pace, with no year gates. Breakthroughs name the eras ("The 3D boom", "The AI age"). Rivals follow a few months behind.
+- **The three tests** (from Grounds Up): every system creates a meaningful decision, stays relevant when the company is large, and can be automated (by executives).
+- **Real brands, simulated behaviour.** Rivals, magazines and stocks are real names. This is a private build: all results and events are fictional.
 
-## 2. Design pillars
-1. **Co-design is the game.** Chip specs and model architecture interact through a small set of readable formulas. The best players match them.
-2. **Every number is legible.** Every choice previews its exact effect before you commit. No hidden multipliers.
-3. **Success creates pressure.** Costs, rivals and scrutiny scale with you. There's no "$43B and nothing to spend it on" late game.
-4. **Decisions over clicks.** Few actions per turn, each one meaningful. No idle tapping.
+## The loop
+1. **Studio: start a project.**
+   - Choose the product (CPU, GPU, console, phone chip, server CPU, AI accelerator, AI model), the market, the die size (S, M, L, or XL after multi-core) and the process node.
+   - **Die board:** place blocks on a grid.
+     - Neighbour bonuses: cache next to cores, FPU next to a core, pixel pipe next to memory, and so on.
+     - I/O must sit on the edge.
+     - Some blocks only count up to a limit (`maxUseful`).
+     - There is a heat budget: going over throttles speed and adds bugs, while unused headroom counts as efficiency.
+     - Each market weights speed, graphics, efficiency and features differently. Launches teach you those tastes (the design notebook).
+   - **AI models** use the same board as a compute plan, built from compute clusters, training data, safety teams and human feedback.
+2. **Build.**
+   - Assigned people turn skill into design points, then engineering points. Morale, burnout, traits, crunch and HQ crowding all matter.
+   - **Testing** finds hidden bugs: fix each one (costs time) or ship with it (costs review points). Testing past 100% finds bugs faster.
+   - **Tape-out** pays for the mask set (there must be cash for it). The chip then spends days at the fab.
+3. **Launch.**
+   - Set the price against the fair-price gauge and pick a launch push. Launching within 15 days of a rival in the same market halves your buzz.
+   - Four magazines review the chip. The launch earns research points, brand, and one new fact about what that market's buyers want.
+4. **Sell.**
+   - Buyer pull = brand × 2^(score − 5) × (fair ÷ price)^sensitivity × hype × your reach. You share each market with rivals and small makers.
+   - Products age as the market bar rises. Refreshes, re-pricing and retiring are real decisions.
 
-## 3. Structure
-- **Turns = 1 week.** "Advance" runs week by week, or fast-forwards until the next decision (project done, event, threshold crossed).
-- **Eras** gate scale and introduce new systems:
+## Systems
+- **People:** candidates with three skills, traits, levels, XP, salaries, morale and burnout. Crunch speeds work up but wears people out. Stars get poach offers (counter-offer or let them go). The HR department adds morale, fewer people quitting and better candidates.
+- **Executives:** Chief Engineer, CMO, CFO and Head of Research. Each has 1–5 stars, an autopilot switch and a "Lately" log, and answers the decision cards in their area.
+- **Rivals:**
+  - Each one announces products on a launch calendar.
+  - A monthly **strength** score sets their **mood** (confident, rattled, desperate, for sale), with hysteresis so it doesn't flicker.
+  - Rattled rivals offer truces; desperate ones start price wars.
+  - Beaten rivals put themselves up for sale, priced by mood. Bought rivals go on a trophy wall.
+- **Research:** a branching tree of about 35 technologies. Deeper technologies cost more.
+  - Breakthroughs: 3D graphics, consoles, mobile, multi-core, neural networks on silicon, large language models, and towards general intelligence.
+  - Perks: design tools, test lab, marketing, recruiting, driver platform, data center and fab engineering, alignment.
+- **Decision cards:** about a dozen chip-world events whose choices state their numbers. They never repeat within 168 days and they wait for you.
+- **Money:**
+  - Monthly books, and a "last month" report that explains why the numbers moved.
+  - Statements, and a year-in-review card.
+  - Bank loans: up to 3× a year of profit, at a drifting base rate.
+  - Investors offer cash against a sales target; missing it costs you.
+  - Sales offices widen how much of the world can buy from you.
+- **Late game:**
+  - Data centers cap how many AI-model customers you can serve.
+  - Your own fab makes chips and masks cheaper.
+  - The AGI program is the final chapter.
+- **Endings:**
+  - **Safe frontier:** AGI with alignment research and a brand of 55+.
+  - **Reckless frontier:** AGI without them.
+  - **Market leader:** 3 years leading 7+ markets.
+  - You can keep playing after an ending.
+- **The founder:** your salary (capped at 1% of monthly sales), your own cash and net worth, and a fixed rich list of real names to climb.
+- **Stock market (ported from Grounds Up):**
+  - Weekly prices from earnings × a P/E that follows growth, times a sentiment that drifts back after hash-based shocks.
+  - Quarterly results move sentiment; dividends are paid; standing orders (stop-loss, take-profit, buy-below) fill on the weekly close.
+  - Rival stocks follow how the rivals do against you.
+  - **IPO:** needs a CFO, 4 profitable quarters and $50M a year in sales.
+- **Chapters (achievements, never gates):** Garage startup → A real team → First office → Change the game → Industry giant → The AI age → The frontier.
 
-| Era | Compute | Hardware | Models | New systems |
-|---|---|---|---|---|
-| 1. Garage | Rent cloud GPUs by the hour | None, pick a cloud tier | Small text models | API, first hires |
-| 2. Startup | Lease colo racks, buy vendor chips | Choose vendor SKUs, build clusters | Text + image | Funding rounds, data deals |
-| 3. Scale-up | Own data centers | **First custom chip** via foundry partner | Multimodal, MoE | Consumer app, enterprise, power contracts |
-| 4. Giant | Multi-site campuses | Advanced nodes, edge chips | Agents, world models | Own fab, regulation, IPO |
-| 5. Frontier | Global compute + generation | Full vertical stack | AGI program | Endgame project, global policy |
+## Time
+- Speeds 1×, 2× and 4× advance 1, 2 or 4 days every 250 ms.
+- The clock stops automatically for anything new in "Needs you": a card, a found bug, a chip ready to tape out or launch, a free person, a review, a breakthrough, the year in review.
+- The timeline strip shows project milestones, rival launches and research for the next 120 days.
 
-## 4. Resources
-| Resource | Notes |
-|---|---|
-| **Cash** | Revenue minus upkeep. Bankruptcy loses the game. |
-| **Team capacity** | Staff produce *person-weeks* in 5 disciplines: Research, Model Eng, Hardware Eng, Product, Ops. Shown as a visible budget each turn, never a hidden cap. |
-| **Compute** | Owned or leased capacity, described by a hardware profile (see §5), not a single number. |
-| **Power (MW)** | Contracted supply per site. Hard ceiling on what you can run. |
-| **Data** | Token pools by domain (web, code, science, multimodal, synthetic) with a quality score. |
-| **Reputation** | Three meters: Public, Researchers (hiring), Government (regulatory treatment). |
-| **Breakthroughs** | Research output. Not a bankable currency: research is staffed projects that take person-weeks + compute and finish with an unlock. Nothing to hoard. |
-
-## 5. Hardware track
-
-### 5.1 The hardware profile
-Every chip (vendor or yours) is described by five stats:
-
-| Stat | Unit | Matters for |
-|---|---|---|
-| Compute | TFLOPS (per precision: FP16 / FP8 / FP4) | Training, prefill |
-| Memory bandwidth | TB/s | Inference decode, long context |
-| Memory capacity | GB | Model size per chip, MoE |
-| Interconnect | GB/s per link | Scaling across many chips |
-| Power | W (TDP) | Site power budget, running cost |
-
-Plus **unit cost** and **availability** (vendor allocation queue or your own production).
-
-### 5.2 Chip design (Era 3+)
-A design screen built around a **die area budget** (mm², set by process node):
-- Split area between **compute cores**, **on-die SRAM**, **memory interfaces** (number of HBM stacks) and **interconnect links**.
-- **Precision support:** adding FP8/FP4 units costs area but multiplies throughput for models that use them.
-- **Target role:** training, inference, or edge (low power). This sets clock and power trade-offs.
-- **Lineage:** iterating on a previous design is cheaper and less risky. A clean-sheet design costs more but has a higher ceiling.
-- **Tape-out:** costs cash + Hardware Eng person-weeks + time. Rolls for **yield** and **bugs**, and a bad roll can force a costly respin. Risk is previewed as a % before you commit.
-- **Process nodes** come from the research tree and from foundry partners. Later you can build your own fab.
-
-### 5.3 Infrastructure
-Chip → server → rack → hall → campus.
-- **Site** choices: power price, renewable mix, climate (cooling), land, regulation, latency to users.
-- **Cooling:** air / liquid / immersion. Sets PUE, so the site uses `IT_MW × PUE` from its power contract.
-- **Cluster fabric:** the network tier sets how efficiently a training run scales over N chips.
-- **Idle capacity is never free:** sell it on a **spot cloud market** at a fluctuating price, or pay full upkeep for nothing.
-
-## 6. Software track
-
-### 6.1 Model design
-| Choice | Options | Effect |
-|---|---|---|
-| Architecture | Dense, MoE, hybrid (state-space), diffusion (image/video) | Each has its own demand profile |
-| Parameters N | 1B → 10T+ | Capability, memory need |
-| Training tokens D | from data pools | Capability, data cost |
-| Context length | 8K → 10M | Usefulness for agents, memory-bandwidth need |
-| Precision | FP16 / FP8 / FP4 | Faster/cheaper **only if the chip supports it**; slight quality risk |
-| Post-training | Skills, safety, tool use | Benchmark sub-scores, incident risk |
-
-### 6.2 The co-design math (simplified, shown to the player)
-- **Training compute** = `6 × N × D` FLOPs (the real rule of thumb).
-- **Effective cluster throughput** = `chips × peak_FLOPS(precision) × utilization`, where
-  `utilization = arch_fit × fabric_scaling(N_chips)`.
-  - `arch_fit` compares the model's demand profile to the chip profile. Example: MoE wants memory capacity + interconnect, so on a compute-heavy, memory-poor chip it gets maybe 0.35 instead of 0.6.
-- **Training time** = training FLOPs ÷ effective throughput → weeks. You can trade chips (cash) against calendar time.
-- **Inference cost** per million tokens depends mostly on **memory bandwidth** for decode. Chips designed for inference cut serving cost, which is where margin comes from.
-- **Capability** follows a scaling curve in N and D with diminishing returns, multiplied by data quality and research unlocks. The UI shows the projected score range *before* the run starts.
-
-This is the hook: a player who designs an inference chip with huge bandwidth and FP4 can serve a big MoE model at half a rival's price.
-
-### 6.3 Training runs
-- Runs take weeks and lock the compute they use.
-- Risk events during a run: loss spikes, hardware failures (more likely on new chips), data contamination. Each has a decision: roll back, push on, or patch.
-- Checkpoints let you release early at partial capability.
-
-### 6.4 Evals
-- Each modality has a **frontier eval suite**. Scores are a % of that suite.
-- When the top models saturate a suite (~90%), it's **retired** and a harder suite replaces it. Everyone's scores drop and get re-baselined, so the race never inflates into meaningless numbers.
-- A leaderboard always shows the next rival above you and the gap.
-
-## 7. Products and revenue
-| Product | Revenue | Key lever |
-|---|---|---|
-| **API** | per-token price × usage | price vs demand elasticity; serving cost sets margin |
-| **Consumer app** | subscription tiers | model quality, features, marketing |
-| **Enterprise** | multi-year contracts | reliability, safety record, Government rep |
-| **Cloud** | spot + reserved compute sales | idle capacity, chip generation |
-| **Edge chips** (Era 4) | units sold to device makers | edge chip design + small models: the other co-design payoff |
-
-- **Serving capacity** must cover demand. Shortfall causes latency, churn and reputation loss. Over-provisioning wastes money unless you sell it on the cloud market.
-- Users are segmented (consumers, developers, enterprise) with different sensitivities to price, quality and trust.
-
-## 8. Rivals
-5 fictional labs that run the same simulation with simple AI personalities:
-- **Helix Dynamics:** scale at all costs, burns cash, ships fast.
-- **Aurora Collective:** open-weights. Undercuts API pricing and drains your developer users.
-- **Kestrel Research:** safety-first. Slow, trusted by governments.
-- **Monolith Semiconductor:** a chip vendor that turns into a model lab. Your supplier becomes your rival.
-- **Tessellate:** a big-tech incumbent with distribution and cash, but slow on the frontier.
-
-Rival actions feed events: poaching your staff, price wars, chip allocation fights, regulatory lobbying, partnership offers.
-
-## 9. Events and decisions
-- **Dilemma cards:** 2–4 choices, each with exact effect chips (cash, reputation meters, timed modifiers, % risks).
-- Decks: Talent, Press, Supply chain (shortages, export rules, fab fires), Regulation, Incidents (jailbreaks, outages, leaks), Board/Investors, Partnerships.
-- Events react to state: launching an under-tested model raises the chance of incident cards.
-
-## 10. Company and finance
-- **Hiring:** candidates have discipline, level and traits. Researcher reputation and compute access attract talent, and rivals bid for your best people.
-- **Org:** each discipline lead is a named character who gives advice and appears in events.
-- **Funding:** seed → series → IPO. Investors set expectations (growth targets). Missing them costs board confidence.
-- **Board confidence** is a meter. At 0 you're ousted (loss).
-- **Public company:** share price reacts to launches, benchmarks and incidents. Quarterly earnings are a recurring test.
-
-## 11. Late-game sinks (no idle money)
-Only five sink categories. Each one **scales with capability tier** (your best model's frontier-eval band) and/or **footprint** (total MW). Each is an investment that unlocks or protects something, never a flat tax.
-
-### 11.0 The gate: "License to Scale"
-Every training run has a capability tier. Starting a Tier *N* run needs four thresholds, shown as a checklist with costs to close each gap:
-
-| Requirement | Tier 1 | Tier 3 | Tier 5 (frontier) |
-|---|---|---|---|
-| Power secured | grid contract | dedicated supply | own generation |
-| Safety level | basic evals | red team + weight security | full safety case |
-| Compliance | registration | audits in each market | frontier license |
-| Environmental | permit | water + carbon targets | net-positive water, near-zero carbon |
-
-*(Numbers are placeholders; balance later.)* Missing a requirement doesn't hard-block the run, but it raises incident, fine and permit-loss risk sharply. The preview shows the exact %.
-
-### 11.1 Power generation
-- Grid contracts cap out at each site, so growth beyond that means building **your own generation**: solar + storage, wind, geothermal, gas with carbon capture, small modular reactors, then a long fusion research program.
-- Heavy capex: lowers cost per MWh and raises the site's max MW. Each source has build time, reliability, a carbon score and permitting difficulty.
-- Interacts with environmental (carbon) and compliance (nuclear licensing).
-
-### 11.2 Safety
-- **Required safety level rises with capability tier.** It's built from evals, red-teaming, interpretability research, alignment post-training and **model-weight security** (protecting your weights from theft).
-- Ongoing cost: a **safety compute share** (% of your compute reserved for safety work) plus a staffed safety team.
-- Below requirement → higher incident chance (jailbreaks, misuse, leaks), and at high tiers regulators can block a release.
-- Required for the "Safe Frontier" win.
-
-### 11.3 Compliance
-- **Per jurisdiction:** each market you sell in has rules (registration, audits, transparency reports, frontier-model licensing, chip export controls).
-- Cost scales with capability tier × number of markets, so expanding globally means compliance overhead.
-- Non-compliance → fines, then loss of market access.
-- High market share triggers **antitrust review** of acquisitions (links to 11.5).
-
-### 11.4 Environmental
-Tracked **per site**, with thresholds that scale with MW and capability tier:
-- **Water:** usage effectiveness (WUE). Upgrades: closed-loop cooling, water reclaim / recycling plants, air-side economizers, using treated wastewater instead of potable water. Late goal: water-positive sites.
-- **Carbon:** renewable share of power and emissions per MWh. Ties to power generation choices.
-- **Heat reuse:** sell waste heat to district heating or greenhouses. Small revenue + local reputation.
-- **E-waste:** chip and server recycling when you refit to a new generation. Recovers some value, cuts environmental penalties.
-- **Effects:** new-site permits depend on your environmental record, local community reputation affects expansion, and regulators tighten targets as you grow.
-
-### 11.5 Acquisitions
-- Buy other companies for what they own: **teams** (instant person-weeks + named talent), **IP** (research unlocks, chip designs), **data** (token pools), **infrastructure** (sites, power projects) or **customers**.
-- Price scales with the target's value and the market. Struggling rivals sell cheap after failed launches.
-- **Integration:** takes time and Ops capacity, with culture-clash risk (some acquired staff leave).
-- **Antitrust review** above market-share thresholds can block deals or attach conditions (compliance link).
-
-## 12. Win and lose
-**Win (pick your victory at Era 4):**
-- **Safe Frontier:** complete the AGI Program with a safety score above the threshold.
-- **Market Leader:** hold the #1 valuation for 2 straight years.
-- **Full Stack:** your own fab + chips + #1 model on a frontier eval at the same time.
-
-**Lose:** bankruptcy, board ousts you, or a catastrophic incident (only possible with very low safety investment, and telegraphed well in advance).
-
-## 13. Presentation (distinct identity)
-Growth along two tracks (HQ: garage → office → HQ building → HQ campus; sites: data center campuses → fab), room templates, server rooms and every design visual are specified in [world-and-facilities.md](world-and-facilities.md).
-
-Full direction in [art-direction.md](art-direction.md). Summary:
-- **"Daylight & Blueprint":** a bright low-poly campus diorama for running the company; it dissolves into blueprint when you open a design tool (chip, model, site).
-- **Color is a system:** one color per stack layer (silicon, compute, power/environment, models, products, trust), used in the world, UI, charts and effect chips.
-- **The world shows the simulation:** rack lights show utilization, training runs flow as light, License to Scale is scaffolding with four signs.
-- **"The Stack"** becomes an overlay view: a layered diagram from fab to users, with bottlenecks glowing red.
-- **World map** for siting data centers, with power price and climate overlays.
-- Tone: grounded, warm, slightly wry. Not satire-heavy.
-
-## 14. MVP vertical slice
-Goal: prove the co-design loop is fun.
-- Eras 1–3 (garage → first custom chip).
-- 3 vendor chips + custom chip designer (die-area split, 2 nodes, tape-out risk).
-- 1 data center type, 2 sites, 2 cooling options.
-- Text models only: dense + MoE, with the full training math.
-- API + consumer app products, spot cloud market.
-- 3 rivals, 1 eval suite with one retirement event.
-- ~30 event cards.
-- Save/load.
-
-**Success test:** a new player understands why their MoE model ran badly on chip X, then designs chip Y to fix it, within 2 hours of play.
-
-## 15. Decisions made
-- **Platform:** Windows PC only, shipped on Steam. Mouse + keyboard, dense UI is OK.
-- **Rendering:** Three.js. Full stack in [tech-stack.md](tech-stack.md).
-- **Late-game sinks:** only power generation, safety, compliance, environmental and acquisitions (§11).
-
-## 16. Open questions
-1. **Business model:** premium (one-time price) vs free-to-play. This drafts toward premium: no paywalled content, no energy timers.
-2. **Turn length:** weekly turns with fast-forward (current draft) vs monthly turns?
-3. **Realism dial:** keep real formulas like 6ND visible, or hide them behind simpler scores with a "nerd mode" toggle?
-4. **Real-world anchoring:** start in the present day (2026) with fictional companies, or an alternate timeline?
+## Checks
+- `npm test` runs `packages/sim/test/v2.test.ts`. It covers:
+  - die rules
+  - the project flow
+  - rivals never passing you
+  - research
+  - people, cards and history
+  - executives, the rivalry arc and the year review
+  - the late game and endings
+  - finance and stocks
+- **Balance:**
+  - `npx tsx packages/sim/test/v2-bot.ts` plays 6 years on 4 seeds, normal and relaxed.
+  - Add `long` to play 30 years: language models arrive around 2001–2002 for an all-out player, and an ending around 2002–2005.
+  - `v2-cal.ts` prints what auto-layouts score per market.

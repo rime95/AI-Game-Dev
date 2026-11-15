@@ -1,6 +1,7 @@
 import { rand } from '../rng';
 import { T } from './data';
-import { activeProducts } from './markets';
+import { activeProducts, RIVALRY, takeoverPrice } from './markets';
+import { resolveInvestorCard } from './facilities';
 import type { CardChoice, GameV2, PendingCard } from './types';
 import { between, clamp, log, money, newId, spend } from './util';
 
@@ -215,11 +216,12 @@ const DEFS: CardDef[] = [
     kind: 'poach',
     when: (s) => {
       const p = bestPerson(s);
-      return !!p && p.level >= 2 && !p.traits.includes('loyal') && s.rivals.some((r) => !r.acquired && r.products.length > 0);
+      return !!p && p.level >= 2 && !p.traits.includes('loyal') && s.rivals.some((r) => !r.acquired && r.products.length > 0 && r.truceUntil <= s.day);
     },
     make: (s) => {
       const p = bestPerson(s)!;
-      const r = s.rivals.filter((x) => !x.acquired && x.products.length > 0)[Math.floor(rand(s) * s.rivals.filter((x) => !x.acquired && x.products.length > 0).length)]!;
+      const pool = s.rivals.filter((x) => !x.acquired && x.products.length > 0 && x.truceUntil <= s.day);
+      const r = pool[Math.floor(rand(s) * pool.length)]!;
       const raise = Math.round((p.salary * 0.3) / 50) * 50;
       return {
         title: `${r.name} wants ${p.name}`,
@@ -247,6 +249,88 @@ const DEFS: CardDef[] = [
   },
 ];
 
+// Rival offers: posted directly by the rivalry arc, never drawn at random.
+const OFFERS: CardDef[] = [
+  {
+    kind: 'truce',
+    when: () => false,
+    make: (s) => {
+      const r = s.rivals.find((x) => x.id === offerRival)!;
+      return {
+        title: `${r.name} proposes a truce`,
+        speaker: `${r.ceo}, ${r.name}`,
+        body: `${r.name} is rattled. They offer to stop price cuts and stop poaching your people for 6 months.`,
+        choices: [
+          { id: 'yes', label: 'Accept the truce', detail: 'No price cuts or poaching from them for 6 months.' },
+          { id: 'no', label: 'Refuse', detail: 'Keep the pressure on.' },
+        ],
+        ref: r.id,
+      };
+    },
+    resolve: (s, c, card) => {
+      const r = s.rivals.find((x) => x.id === card.ref);
+      if (r && c === 'yes') r.truceUntil = s.day + RIVALRY.truceDays;
+    },
+  },
+  {
+    kind: 'forsale',
+    when: () => false,
+    make: (s) => {
+      const r = s.rivals.find((x) => x.id === offerRival)!;
+      const price = takeoverPrice(s, r);
+      return {
+        title: `${r.name} is for sale`,
+        speaker: `${r.name} board of directors`,
+        body: `Beaten in the market, ${r.name}'s board wants out. They'd sell the whole company for ${money(price)}.`,
+        choices: [
+          { id: 'yes', label: `Buy ${r.name} (${money(price)})`, detail: `+${RIVALRY.defeatBrand} brand. Their products leave the market.` },
+          { id: 'no', label: 'Not now', detail: 'You can still buy them later from the Markets tab.' },
+        ],
+        ref: `${r.id}|${price}`,
+      };
+    },
+    resolve: (s, c, card) => {
+      if (c !== 'yes') return;
+      const [id, price] = card.ref!.split('|');
+      if (s.cash < Number(price)) {
+        log(s, 'Not enough cash for the takeover.', 'bad');
+        return;
+      }
+      acquire(s, id!, Number(price));
+    },
+  },
+];
+let offerRival = '';
+
+/** Monthly: rattled rivals may offer a truce, beaten ones offer themselves for sale. */
+export function rivalOffers(s: GameV2): void {
+  for (const r of s.rivals) {
+    if (r.acquired || s.day - r.lastOffer < RIVALRY.offerCooldownDays) continue;
+    const kind = r.mood === 'forSale' ? 'forsale' : r.mood === 'rattled' && r.truceUntil <= s.day && rand(s) < 0.25 ? 'truce' : null;
+    if (!kind || s.cards.some((c) => c.kind === kind)) continue;
+    offerRival = r.id;
+    const d = OFFERS.find((x) => x.kind === kind)!;
+    s.cards.push({ id: newId(s, 'card'), kind, day: s.day, ...d.make(s) });
+    r.lastOffer = s.day;
+  }
+}
+
+const FAREWELLS = ['It was a good fight.', 'Take care of our engineers.', 'We never saw you coming.', 'The best company won.'];
+
+/** Buy a rival outright: their products leave the market and their name goes on your trophy wall. */
+export function acquire(s: GameV2, rivalId: string, price: number): void {
+  const r = s.rivals.find((x) => x.id === rivalId);
+  if (!r || r.acquired) return;
+  s.cash -= price;
+  s.month.other += price;
+  r.acquired = true;
+  r.acquiredDay = s.day;
+  r.plans = [];
+  r.farewell = FAREWELLS[Math.floor(rand(s) * FAREWELLS.length)]!;
+  s.brand = clamp(s.brand + RIVALRY.defeatBrand, 0, 100);
+  log(s, `You bought ${r.name} for ${money(price)}. ${r.ceo}: “${r.farewell}”`, 'good');
+}
+
 /** Daily: maybe draw a new card. */
 export function tickCards(s: GameV2): PendingCard | null {
   if (s.day < s.nextCardDay) return null;
@@ -266,9 +350,10 @@ export function resolveCard(s: GameV2, cardId: string, choiceId: string): string
   const card = s.cards.find((c) => c.id === cardId);
   if (!card) return 'That card is gone.';
   if (!card.choices.some((c: CardChoice) => c.id === choiceId)) return 'Unknown choice.';
-  const def = DEFS.find((d) => d.kind === card.kind);
+  const def = DEFS.find((d) => d.kind === card.kind) ?? OFFERS.find((d) => d.kind === card.kind);
   s.cards = s.cards.filter((c) => c !== card);
-  def?.resolve(s, choiceId, card);
+  if (def) def.resolve(s, choiceId, card);
+  else resolveInvestorCard(s, card.kind, choiceId, card.ref ?? '');
   const label = card.choices.find((c) => c.id === choiceId)!.label;
   log(s, `${card.title}: ${label}.`);
   return null;
