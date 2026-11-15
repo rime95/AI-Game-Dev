@@ -299,7 +299,7 @@ function Timeline({ g }: { g: G }) {
   for (const p of v2.visiblePlans(g)) events.push({ day: p.launchDay, label: `${p.rival} ${p.name}`, kind: 'rival' });
   if (g.research.current) {
     const t = v2.tech(g.research.current);
-    const rate = g.staff.filter((p) => p.task === 'research').reduce((n, p) => n + v2.T.researchPerDay * (p.skills.research / 5), 0);
+    const rate = g.staff.filter((p) => p.task === 'research').reduce((n, p) => n + v2.T.researchPerDay * (p.skills.research / 5), 0) + v2.rdPointsPerDay(g.rdBudget ?? 0);
     if (rate > 0) events.push({ day: g.day + Math.ceil(Math.max(0, t.cost - g.research.progress - g.research.points) / rate), label: t.name, kind: 'research' });
   }
   const shown = events.filter((e) => e.day - g.day <= span).sort((a, b) => a.day - b.day);
@@ -342,7 +342,7 @@ function UndoChip() {
 const ENDINGS: Record<string, { tag: string; title: string; body: string; cls: string }> = {
   safe: { tag: 'Ending · The safe frontier', title: 'AGI, built to help', body: 'Your alignment work and the trust you earned paid off. The most powerful technology ever made arrived safely, from a company that started in a garage.', cls: 'victory' },
   reckless: { tag: 'Ending · The reckless frontier', title: 'AGI, untamed', body: 'You got there first. Whether that was wise is a question the whole world now has to live with.', cls: 'incident' },
-  leader: { tag: 'Ending · Market leader', title: 'The undisputed leader', body: 'For three years you led more markets than anyone. Every rival measures itself against you now.', cls: 'victory' },
+  leader: { tag: 'Ending · Market leader', title: 'The undisputed leader', body: 'For four years you led more markets than anyone. Every rival measures itself against you now.', cls: 'victory' },
 };
 
 function GameOver2({ g }: { g: G }) {

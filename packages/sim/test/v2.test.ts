@@ -347,7 +347,7 @@ describe('the late game', () => {
       let s = withTech(fresh(34), 'agi', 'llm', ...(aligned ? ['alignment'] : []));
       s.cash = 5e9;
       s.facilities.dc = v2.FAC.agi.dc;
-      s.brand = 70;
+      s.brand = 100;
       s = act(s, { type: 'startAgi' });
       for (let i = 0; i < 13 && s.status === 'playing'; i++) s = act(s, { type: 'tick', days: 30 });
       return s;
@@ -458,5 +458,98 @@ describe('company finance and the founder (Grounds Up ports)', () => {
     s.personal.cash = 2e9;
     expect(v2.richRank(s)).toBeLessThan(v2.RICH_LIST.length + 1);
     expect(v2.netWorth(s)).toBeGreaterThanOrEqual(2e9);
+  });
+});
+
+describe('design: choices that matter', () => {
+  const ready = (s: G, name: string, marketId = 'homepc', size: v2.ProjectSize = 'L') => {
+    s = act(s, { type: 'startProject', name, kind: 'cpu', marketId, size, nodeId: 'n1000' });
+    const pr = s.projects[s.projects.length - 1]!;
+    pr.board = v2.suggestBoard(s, pr);
+    pr.phase = 'ready';
+    return { s, pr };
+  };
+
+  it('empty tiles are trimmed off the die: a sparser layout makes a cheaper chip', () => {
+    const full = v2.chipCosts('S', 'n1000', 16).unitCost;
+    const sparse = v2.chipCosts('S', 'n1000', 8).unitCost;
+    expect(sparse).toBeLessThan(full * 0.7);
+    expect(v2.chipCosts('S', 'n1000').unitCost).toBe(full);
+  });
+
+  it('without a Chief Engineer the Studio only offers a starter layout; better engineers draft better dies', () => {
+    const s = fresh(41);
+    const pr = { id: 'x', size: 'S' as const, nodeId: 'n1000', kind: 'cpu' as const, marketId: 'business', board: empty('S') };
+    const score = (b: (string | null)[]) => v2.boardScore(v2.evaluateBoard(b, 'S', 'n1000', 'cpu'), 'business', 0);
+    const starter = v2.engineerBoard(s, pr);
+    expect(starter.filter(Boolean).every((id) => v2.kind('cpu').needs.includes(id!))).toBe(true);
+    s.execs = [{ role: 'engineer', name: 'A', stars: 1, salary: 1, auto: false, lately: [] }];
+    const weak = v2.engineerBoard(s, pr);
+    s.execs[0]!.stars = 5;
+    const strong = v2.engineerBoard(s, pr);
+    expect(score(starter)).toBeLessThan(score(weak));
+    expect(score(weak)).toBeLessThan(score(strong));
+  });
+
+  it('the press compares a chip with your last one in that market', () => {
+    let { s, pr } = ready(fresh(42), 'One');
+    const before = v2.projectForecast(s, pr).board;
+    s = act(s, { type: 'launch', projectId: pr.id, price: 60, marketing: 0 });
+    const again = ready(s, 'Two');
+    const after = v2.projectForecast(again.s, again.pr).board;
+    expect(after).toBeLessThan(before);
+    // A different market has no memory of it.
+    const other = ready(again.s, 'Three', 'business');
+    expect(v2.projectForecast(other.s, other.pr).board).toBeGreaterThan(after);
+  });
+
+  it('rivals aim a little behind your recent launches, so a fresh market is a clear lead', () => {
+    const r = runBot(43, 360 * 3);
+    const s = r.state;
+    const gaps = s.markets
+      .map((ms) => ({ best: v2.playerBest(s, ms.id), rivals: s.rivals.flatMap((x) => x.products.filter((p) => p.marketId === ms.id)).map((p) => v2.rivalScore(s, p)) }))
+      .filter((x) => x.best !== null && x.rivals.length)
+      .map((x) => x.best! - Math.max(...x.rivals));
+    expect(gaps.length).toBeGreaterThan(2);
+    expect(Math.min(...gaps)).toBeGreaterThan(0.1);
+    // Not every rival is pinned to the cap: some markets show a real lead.
+    expect(Math.max(...gaps)).toBeGreaterThan(0.5);
+  });
+
+  it('the angel investor buys a real slice of the company', () => {
+    let s = fresh(44);
+    s.cards.push({ id: 'c1', kind: 'angel', day: 0, title: 'Angel', body: '', choices: [{ id: 'yes', label: 'Take', detail: '' }, { id: 'no', label: 'No', detail: '' }], ref: '120000' });
+    s = act(s, { type: 'resolveCard', cardId: 'c1', choiceId: 'yes' });
+    expect(s.stake).toBeCloseTo(0.85);
+    expect(v2.ownership(s)).toBeCloseTo(0.85);
+  });
+
+  it('a card choice you cannot afford cannot be picked', () => {
+    const s = fresh(45);
+    s.cash = 1000;
+    s.cards.push({ id: 'c1', kind: 'tradeshow', day: 0, title: 'Show', body: '', choices: [{ id: 'yes', label: 'Book', detail: '', cost: 15_000 }, { id: 'no', label: 'Skip', detail: '' }], ref: '15000' });
+    expect(v2.applyV2(s, content, { type: 'resolveCard', cardId: 'c1', choiceId: 'yes' }).error).toMatch(/needs/);
+  });
+
+  it('the R&D budget turns cash into research, with diminishing returns', () => {
+    let s = fresh(46);
+    s.cash = 5e6;
+    s = act(s, { type: 'setRdBudget', amount: 100_000 });
+    const pts = s.research.points;
+    s = act(s, { type: 'tick', days: 30 });
+    expect(s.research.points - pts).toBeGreaterThan(30);
+    expect(s.cash).toBeLessThan(5e6 - 90_000);
+    expect(v2.rdPointsPerDay(1_000_000) / v2.rdPointsPerDay(100_000)).toBeLessThan(10);
+  });
+
+  it('office and HR prices keep up with the company', () => {
+    const s = fresh(47);
+    const europe = v2.REGIONS.find((r) => r.id === 'europe')!;
+    const small = v2.officeCost(s, europe);
+    s.books = Array.from({ length: 12 }, (_, i) => ({ month: i, revenue: 50e6, cogs: 0, salaries: 0, facilities: 0, projects: 0, marketing: 0, hiring: 0, other: 0, profit: 0, cash: 0 }));
+    expect(v2.officeCost(s, europe)).toBeGreaterThan(small * 10);
+    const hr = v2.hrPrice(s, 1)!.cost;
+    s.staff = Array.from({ length: 60 }, () => s.staff[0]!);
+    expect(v2.hrPrice(s, 1)!.cost).toBeGreaterThan(hr * 2);
   });
 });

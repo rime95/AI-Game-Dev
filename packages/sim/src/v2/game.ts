@@ -2,12 +2,12 @@ import type { Content } from '@stm/content';
 import { placementError, stageDef, templateDef } from '../hq';
 import type { GameState } from '../types';
 import { rand } from '../rng';
-import { boardScore, chipCosts, clampScore, evaluateBoard, rawBoardScore } from './board';
+import { boardScore, chipCosts, clampScore, dieValue, evaluateBoard, EXPECT_SHARE, expectOf, rawBoardScore, usedTiles } from './board';
 import { acquire, resolveCard, rivalOffers, tickCards } from './cards';
 import { CARD_OWNER, execOf, refreshExecPool, roleInfo, tickExecs } from './execs';
 import { build, buildError, maskCostMult, monthlyInvestor, tickFacilities, unitCostMult } from './facilities';
 import { buyShares, initialMarket, placeOrder, quarterlyMarket, sellShares, weeklyMarket } from './stocks';
-import { goPublic, HR_LEVELS, ipoCheck, loanLimit, loanRate, LOANS, monthlyFinance, REGIONS, salaryCap, weeklyIpo } from './wealth';
+import { goPublic, HR_LEVELS, hrPrice, ipoCheck, loanLimit, loanRate, LOANS, monthlyFinance, officeCost, rdPointsPerDay, REGIONS, salaryCap, weeklyIpo } from './wealth';
 import { BLOCKS, CHAPTERS, kind, KINDS, market, NODES, OUTLETS, QUOTES, SIZES, T, tech, TECHS, type TechDef } from './data';
 import { activeProducts, currentScore, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, takeoverPrice, tickRivals, tickSales } from './markets';
 import { capacity, founder, gainXp, hasPerk, makeCandidate, tickStaff, workRate } from './staff';
@@ -151,6 +151,8 @@ function makeBugs(s: GameV2, pr: Project): Bug[] {
   if (team.some((p) => p.traits.includes('fast'))) rate *= 1.3;
   if (hasPerk(s, 'tools')) rate *= 0.75;
   if (ev.throttle < 1) rate *= 1.5;
+  // The founder's first chip is a labour of love: half the usual bugs.
+  if (!s.products.length && s.projects.length <= 1) rate *= 0.5;
   const n = Math.max(0, Math.round((2 + SIZES[pr.size].work * 2) * rate + between(s, -1, 1)));
   return Array.from({ length: n }, () => ({ id: newId(s, 'bug'), severity: 1 + Math.floor(rand(s) * 3), found: false }));
 }
@@ -235,7 +237,7 @@ function tickProject(s: GameV2, pr: Project): void {
 /** Expected review for a project as things stand (the Studio shows this live). */
 export function projectForecast(s: GameV2, pr: Project, day = s.day): { board: number; team: number; polish: number; bugs: number; total: number } {
   const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
-  const boardPart = boardScore(ev, pr.marketId, day);
+  const boardPart = boardScore(ev, pr.marketId, day, expectOf(s, pr.marketId));
   const avgSkill = pr.designPoints > 0 ? pr.skillSum / pr.designPoints : avgSkillOf(teamOf(s, pr.id), 'design');
   const team = clamp((avgSkill - 5) * 0.15, -0.6, 0.75);
   const polish = Math.min(0.4, pr.polishDays * 0.012) + (pr.kind === 'model' && s.research.done.includes('alignment') ? 0.25 : 0);
@@ -272,7 +274,7 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
     return { outlet, score: sc, quote: pick(s, lines) };
   });
   const avg = Math.round((reviews.reduce((n, r) => n + r.score, 0) / reviews.length) * 10) / 10;
-  const costs = chipCosts(pr.size, pr.nodeId);
+  const costs = chipCosts(pr.size, pr.nodeId, usedTiles(pr.board));
   let costMod = unitCostMult(s);
   for (const m of s.modifiers) if (m.costs && m.until > s.day) costMod *= m.costs;
   const bugsShipped = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).length;
@@ -299,13 +301,18 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
   s.products.push(product);
   s.projects = s.projects.filter((p) => p !== pr);
   for (const p of s.staff) if (p.task === pr.id) p.task = null;
-  s.brand = clamp(s.brand + (avg - 6) * 1.2, 0, 100);
+  // Good launches lift the brand, less so the better known you already are.
+  s.brand = clamp(s.brand + (avg - 6) * 1.2 * (avg > 6 ? 1 - s.brand / 120 : 1), 0, 100);
   s.research.points += T.launchResearch.base + T.launchResearch.perScore * avg;
   // The press tells us what this market cares about, one thing per launch.
   const known = (s.notebook.tastes[pr.marketId] ??= []);
   const order = (Object.entries(market(pr.marketId).taste) as [Stat, number][]).filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).map(([k]) => k);
   const next = order.find((k) => !known.includes(k));
   if (next) known.push(next);
+  // The press remembers: next time they expect most of what this die delivered.
+  const expect = (s.notebook.expect ??= {});
+  const shipped = dieValue(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), pr.marketId) * EXPECT_SHARE;
+  expect[pr.marketId] = Math.max(expect[pr.marketId] ?? 0, shipped);
   const key = `${pr.kind}:${pr.marketId}`;
   s.notebook.best[key] = Math.max(s.notebook.best[key] ?? 0, avg);
   s.records.bestScore = Math.max(s.records.bestScore, avg);
@@ -322,6 +329,13 @@ function tickResearch(s: GameV2): void {
     const r = T.researchPerDay * (p.skills.research / 5) * s.hq.productivity * (p.burnout > 75 ? 0.65 : 1);
     pts += r;
     gainXp(s, p, r * 4, 'research');
+  }
+  // The R&D budget buys contract research and university grants.
+  const budget = s.rdBudget ?? 0;
+  if (budget > 0 && s.cash > budget / 30) {
+    s.cash -= budget / 30;
+    s.month.research = (s.month.research ?? 0) + budget / 30;
+    pts += rdPointsPerDay(budget);
   }
   s.research.points += pts;
   const cur = s.research.current;
@@ -451,7 +465,7 @@ function tickDay(s: GameV2, content: Content): void {
       const pr = s.projects.find((p) => p.id === id);
       if (pr) launch(s, pr, price, push);
     },
-    (pr) => suggestBoard(s, pr, 1),
+    (pr) => engineerBoard(s, pr),
   );
   tickResearch(s);
   tickFacilities(s);
@@ -476,7 +490,12 @@ function tickDay(s: GameV2, content: Content): void {
   s.modifiers = s.modifiers.filter((m) => m.until > s.day);
   if (s.day % 30 === 0) {
     const m = s.month;
-    const costs = m.cogs + m.salaries + m.facilities + m.projects + m.marketing + m.hiring + m.other;
+    let costs = m.cogs + m.salaries + m.facilities + m.projects + m.marketing + m.hiring + (m.research ?? 0) + m.other;
+    if (m.revenue - costs > 0) {
+      m.tax = (m.revenue - costs) * T.taxRate;
+      s.cash -= m.tax;
+      costs += m.tax;
+    }
     s.books.push({ month: monthIndex(s.day) - 1, ...m, profit: m.revenue - costs, cash: s.cash });
     s.month = emptyMonth();
     monthlyRivals(s);
@@ -792,11 +811,17 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       log(s, 'Loan paid off early.', 'good');
       return null;
     }
+    case 'setRdBudget': {
+      if (!(cmd.amount >= 0) || !Number.isFinite(cmd.amount)) return 'Pick a budget of zero or more.';
+      s.rdBudget = Math.round(cmd.amount);
+      return null;
+    }
     case 'upgradeHr': {
       const next = HR_LEVELS[s.hr + 1];
-      if (!next) return 'HR is already at the top level.';
-      if (s.cash < next.cost) return `The next HR level costs ${money(next.cost)}.`;
-      spend(s, 'other', next.cost);
+      const price = hrPrice(s, s.hr + 1);
+      if (!next || !price) return 'HR is already at the top level.';
+      if (s.cash < price.cost) return `The next HR level costs ${money(price.cost)}.`;
+      spend(s, 'other', price.cost);
       s.hr = next.level;
       log(s, `HR department at level ${next.level}: happier people, fewer leaving, better hires.`, 'good');
       return null;
@@ -805,8 +830,9 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       const r = REGIONS.find((x) => x.id === cmd.region);
       if (!r || r.id === 'na') return 'Unknown region.';
       if (s.offices.includes(r.id)) return 'You already sell there.';
-      if (s.cash < r.cost) return `An office in ${r.name} costs ${money(r.cost)}.`;
-      spend(s, 'other', r.cost);
+      const cost = officeCost(s, r);
+      if (s.cash < cost) return `An office in ${r.name} costs ${money(cost)}.`;
+      spend(s, 'other', cost);
       s.offices.push(r.id);
       log(s, `Opened a sales office in ${r.name}. More of the world can buy your chips.`, 'good');
       return null;
@@ -882,13 +908,13 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
  * keep what raises the score. Used by "Auto-layout" in the Studio and by the balance bot. It is
  * deliberately not perfect, so a thoughtful player can beat it.
  */
-export function suggestBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>, passes = 2): (string | null)[] {
+export function suggestBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>, passes = 2, allowed?: string[]): (string | null)[] {
   const { w, h } = SIZES[pr.size];
   const board = [...pr.board];
-  const blocks = BLOCKS.filter((b) => blockUnlocked(s, b.id)).map((b) => b.id);
+  const blocks = BLOCKS.filter((b) => blockUnlocked(s, b.id) && (!allowed || allowed.includes(b.id))).map((b) => b.id);
   const score = (b: (string | null)[]) => {
     const ev = evaluateBoard(b, pr.size, pr.nodeId, pr.kind);
-    return ev.missing.length ? -20 + (kind(pr.kind).needs.length - ev.missing.length) : rawBoardScore(ev, pr.marketId, s.day) + Math.min(0, ev.budget - ev.heat) * 0.05;
+    return ev.missing.length ? -20 + (kind(pr.kind).needs.length - ev.missing.length) : rawBoardScore(ev, pr.marketId, s.day, expectOf(s, pr.marketId)) + Math.min(0, ev.budget - ev.heat) * 0.05;
   };
   let best = score(board);
   for (let pass = 0; pass < passes; pass++) {
@@ -907,6 +933,45 @@ export function suggestBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'k
     }
   }
   return board;
+}
+
+/**
+ * Without a Chief Engineer the Studio only offers a starter layout: the blocks the chip must have,
+ * sensibly placed, and nothing else. Making it good is the player's puzzle.
+ */
+export function starterBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>): (string | null)[] {
+  return suggestBoard(s, { ...pr, board: pr.board.map(() => null) }, 1, kind(pr.kind).needs);
+}
+
+/** Cells a Chief Engineer of this rating leaves unfinished on a die of this many tiles. */
+export const engineerGaps = (stars: number, cells: number) => Math.round(cells * (5 - stars) * 0.06);
+
+/**
+ * The Chief Engineer's draft: a full layout, minus a few tiles they didn't get to (fewer the more
+ * stars they have). The player can finish it, or leave the gaps for a cheaper chip.
+ */
+export function engineerBoard(s: GameV2, pr: Pick<Project, 'id' | 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>): (string | null)[] {
+  const eng = execOf(s, 'engineer');
+  if (!eng) return starterBoard(s, pr);
+  const board = suggestBoard(s, { ...pr, board: pr.board.map(() => null) }, 2);
+  const needs = kind(pr.kind).needs;
+  let gaps = engineerGaps(eng.stars, board.length);
+  // Which tiles stay empty is fixed per project, so asking twice gives the same draft.
+  const order = board.map((_, i) => i).sort((a, b) => hashStr(`${pr.id}:${a}`) - hashStr(`${pr.id}:${b}`));
+  for (const i of order) {
+    if (gaps <= 0) break;
+    const id = board[i];
+    if (!id || (needs.includes(id) && board.filter((c) => c === id).length <= 1)) continue;
+    board[i] = null;
+    gaps--;
+  }
+  return board;
+}
+
+function hashStr(t: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
 export { monthLabel };

@@ -23,7 +23,7 @@ export const T = {
   /** Rivals stay at least this far below our best in a market. */
   rivalMinGap: 0.15,
   /** Before we ship anything in a market, rival products sit at this score. */
-  rivalLegacyScore: 5.4,
+  rivalLegacyScore: 5.0,
   /** Days of pay a hire's agency fee costs. */
   hireFeeMonths: 0.5,
   jobAdCost: 2_500,
@@ -42,6 +42,8 @@ export const T = {
   cardGap: [28, 55] as [number, number],
   cardNoRepeatDays: 168,
   bankruptAfterDays: 90,
+  /** Corporate tax on each month's profit (losses pay none). */
+  taxRate: 0.25,
   /** Marketing push levels: cost as a share of the design spend, and hype gained. */
   marketing: [
     { label: 'No push', costShare: 0, hype: 0 },

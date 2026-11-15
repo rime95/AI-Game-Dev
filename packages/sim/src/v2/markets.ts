@@ -1,6 +1,6 @@
 import { rand } from '../rng';
 import { agingLoss, clampScore } from './board';
-import { kind, market, marketBar, MARKETS, RIVAL_LINES, RIVALS, T, type MarketDef } from './data';
+import { kind, market, MARKETS, RIVAL_LINES, RIVALS, T, type MarketDef } from './data';
 import type { GameV2, Mood, Product, Rival, RivalPlan, RivalProduct } from './types';
 import { servingRatio } from './facilities';
 import { reach, WORLD_WEIGHT } from './wealth';
@@ -64,7 +64,7 @@ export function rivalScore(s: GameV2, rp: RivalProduct, day = s.day): number {
 const pull = (score: number, price: number, fair: number, sens: number, brand: number, hype: number) =>
   brand * Math.pow(2, (score - 5) / T.scorePerDoubling) * Math.pow(fair / Math.max(1, price), sens) * (1 + hype);
 
-export const ourBrandFactor = (s: GameV2) => (0.15 + s.brand / 55) * reach(s);
+export const ourBrandFactor = (s: GameV2) => (0.2 + s.brand / 40) * reach(s);
 
 export function hypeNow(p: Product, day: number): number {
   return p.hype * Math.exp(-(day - p.launchDay) / 40);
@@ -165,16 +165,31 @@ export function rivalActive(s: GameV2, r: Rival): boolean {
   return day !== undefined && s.day >= day + 120;
 }
 
-/** What a rival can build in a market today, before the "never ahead of you" cap. */
+/** How far behind our recent launches each kind of rival aims (review points). */
+export const RIVAL_GAP: Record<Rival['style'], number> = { premium: 0.4, copycat: 0.35, giant: 0.6, priceCutter: 0.9 };
+/** A rival's mood changes how hard it tries: rattled and desperate rivals throw everything at it; one up for sale has given up. */
+const MOOD_EFFORT: Record<Mood, number> = { confident: 1, rattled: 0.75, desperate: 0.55, forSale: 1.3 };
+/** Our launches a rival studies: the last this many days. */
+const STUDY_DAYS = 540;
+
+/** Our best launch score in a market over the last year and a half (before ageing), or null. */
+export function recentLaunch(s: GameV2, marketId: string): number | null {
+  const ours = s.products.filter((p) => p.marketId === marketId && s.day - p.launchDay <= STUDY_DAYS);
+  return ours.length ? Math.max(...ours.map((p) => p.score)) : null;
+}
+
+/**
+ * What a rival builds in a market, before the "never ahead of you" cap. Rivals follow our lead:
+ * they aim a little behind our recent launches there (the gap depends on their style and mood),
+ * and without anything of ours to chase they ship modest chips of their own. So a market you keep
+ * fresh stays a clear lead, and one you neglect is where they catch up (until the cap stops them).
+ */
 function rivalBuild(s: GameV2, r: Rival, marketId: string): number {
-  const m = market(marketId);
-  const tracking = 2.4 * Math.log2(marketBar(m, s.day) / 6) * 0.96;
-  let raw = r.potential + tracking + between(s, -0.35, 0.35);
-  const best = playerBest(s, marketId);
-  if (r.style === 'premium') raw += 0.5;
-  if (r.style === 'giant') raw += 0.25;
-  if (r.style === 'copycat' && best !== null) raw = Math.max(raw, best + 0.3);
-  return clampScore(raw);
+  const own = r.potential - 0.9 + (r.style === 'premium' ? 0.3 : 0) + between(s, -0.3, 0.3);
+  const chase = recentLaunch(s, marketId);
+  if (chase === null) return clampScore(own);
+  const gap = RIVAL_GAP[r.style] * MOOD_EFFORT[r.mood] + between(s, -0.35, 0.35);
+  return clampScore(Math.max(own, chase - Math.max(0.1, gap)));
 }
 
 function nextName(r: Rival): string {
@@ -259,7 +274,9 @@ export function monthlyRivals(s: GameV2): void {
     const ourBest = Math.max(0, ...activeProducts(s).map((p) => currentScore(p, s.day)));
     r.strength = clamp(50 + (110 * (theirs - ours)) / n - Math.max(0, ourBest - 6) * 4, 0, 100);
     // Rivals feel our success: out-selling them wears their brand down (and the reverse, slowly).
-    r.brand = clamp(r.brand * (1 + (0.15 * (theirs - ours)) / n), 0.4, 6);
+    // ...and each rival's name slowly recovers toward what it was, so beaten rivals can come back.
+    const def = RIVALS.find((d) => d.id === r.id)!;
+    r.brand = clamp(r.brand * (1 + (0.15 * (theirs - ours)) / n) + (def.brand - r.brand) * 0.06, 0.4, 5);
     r.mood = moodFor(r.mood, r.strength);
     const truce = r.truceUntil > s.day;
     // A desperate rival starts a price war across every market it shares with us.
@@ -281,7 +298,8 @@ export function monthlyRivals(s: GameV2): void {
   // Our brand grows with the share we hold, and settles slowly without it.
   const selling = s.markets.filter((ms) => activeProducts(s, ms.id).length > 0);
   const avgShare = selling.length ? selling.reduce((n, ms) => n + (ms.shares.you ?? 0), 0) / selling.length : 0;
-  s.brand = clamp(s.brand + 10 * avgShare - (s.brand - T.startBrand) * 0.01, 0, 100);
+  // Brand fades without fresh success, so it stays something to keep up rather than a bar that fills once.
+  s.brand = clamp(s.brand + 3 * avgShare - (s.brand - T.startBrand) * 0.035, 0, 100);
   if (active.length && rand(s) < 0.8) {
     const r = pick(s, active);
     const def = RIVALS.find((d) => d.id === r.id)!;

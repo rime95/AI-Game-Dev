@@ -231,12 +231,11 @@ function ProjectDetail({ g, pr, onBack }: { g: G; pr: Pr; onBack: () => void }) 
       {pr.phase === 'architecture' && (
         <div className="card">
           <h3>Die layout</h3>
-          <p className="small muted">Place blocks on the die in the main view. Neighbours give bonuses; watch the heat budget.</p>
+          <p className="small muted">Place blocks on the die in the main view. Neighbours give bonuses; watch the heat budget. Empty tiles are trimmed off: a cheaper chip.</p>
           <div className="row">
-            <button className="btn" onClick={() => send({ type: 'setBoard', projectId: pr.id, board: v2.suggestBoard(g, pr) })}>
-              Auto-layout
-            </button>
+            <LayoutHelp g={g} pr={pr} className="btn" />
           </div>
+          {!v2.execOf(g, 'engineer') && <p className="small muted">A Chief Engineer can draft whole layouts for you (Team tab).</p>}
         </div>
       )}
 
@@ -323,7 +322,7 @@ function LaunchForm({ g, pr }: { g: G; pr: Pr }) {
   const fair = Math.round(v2.fairPrice(pr.marketId, f.total));
   const [price, setPrice] = useState(fair);
   const [push, setPush] = useState<0 | 1 | 2 | 3>(0);
-  const unit = v2.chipCosts(pr.size, pr.nodeId).unitCost;
+  const unit = v2.chipCosts(pr.size, pr.nodeId, v2.usedTiles(pr.board)).unitCost;
   const plans = v2.visiblePlans(g).filter((p) => p.marketId === pr.marketId);
   const ratio = price / fair;
   return (
@@ -374,6 +373,7 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
   const f = v2.projectForecast(g, pr);
   const m = v2.market(pr.marketId);
   const known = g.notebook.tastes[pr.marketId] ?? [];
+  const best = g.notebook.best[`${pr.kind}:${pr.marketId}`];
   const setCell = (i: number, id: string | null) => {
     const board = [...pr.board];
     board[i] = id;
@@ -452,13 +452,23 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
               {ev.heat.toFixed(1)}/{ev.budget.toFixed(0)}
             </b>
           </div>
+          <div className="db-stat">
+            <span>Chip cost</span>
+            <span className="small muted">
+              {ev.used}/{pr.board.length} tiles · empty ones are trimmed
+            </span>
+            <b>{v2.moneyV2(v2.chipCosts(pr.size, pr.nodeId, ev.used).unitCost)}</b>
+          </div>
+          {best !== undefined && (
+            <p className="small muted">
+              Your best launch here so far: <b>{best.toFixed(1)}</b>. Beat it.
+            </p>
+          )}
           {ev.throttle < 1 && <p className="small neg">Too hot: speed throttled to {Math.round(ev.throttle * 100)}% and more bugs.</p>}
           {ev.missing.length > 0 && <p className="small neg">Missing: {ev.missing.map((b) => v2.block(b).name).join(', ')}.</p>}
           {ev.dead.length > 0 && <p className="small neg">{ev.dead.length} block(s) need the die edge.</p>}
           <div className="row">
-            <button className="bp-btn" onClick={() => send({ type: 'setBoard', projectId: pr.id, board: v2.suggestBoard(g, pr) })}>
-              Auto-layout
-            </button>
+            <LayoutHelp g={g} pr={pr} className="bp-btn" />
             <button className="bp-btn" onClick={() => send({ type: 'setBoard', projectId: pr.id, board: pr.board.map(() => null) })}>
               Clear
             </button>
@@ -467,5 +477,27 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Without a Chief Engineer: a starter layout (just the blocks the chip needs). With one: their draft, better the more stars. */
+function LayoutHelp({ g, pr, className }: { g: G; pr: Pr; className: string }) {
+  const send = useStore((s) => s.send2);
+  const eng = v2.execOf(g, 'engineer');
+  if (!eng)
+    return (
+      <button className={className} title="Places only the blocks this chip must have. Making it good is up to you." onClick={() => send({ type: 'setBoard', projectId: pr.id, board: v2.starterBoard(g, pr) })}>
+        Starter layout
+      </button>
+    );
+  const gaps = v2.engineerGaps(eng.stars, pr.board.length);
+  return (
+    <button
+      className={className}
+      title={gaps ? `${eng.name} drafts a full layout but leaves ${gaps} tile${gaps > 1 ? 's' : ''} for you to finish.` : `${eng.name} drafts a full layout.`}
+      onClick={() => send({ type: 'setBoard', projectId: pr.id, board: v2.engineerBoard(g, pr) })}
+    >
+      Ask {eng.name.split(' ')[0]} for a draft ({'★'.repeat(eng.stars)})
+    </button>
   );
 }

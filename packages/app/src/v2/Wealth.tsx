@@ -350,10 +350,10 @@ export function GrowCards({ g }: { g: G }) {
               {r.name} <span className="muted">(+{Math.round((r.weight / v2.WORLD_WEIGHT) * 100)}% of buyers)</span>
             </span>
             {g.offices.includes(r.id) ? (
-              <span className="up">Open · {$(r.monthly)}/mo</span>
+              <span className="up">Open · {$(v2.officeMonthly(g, r))}/mo</span>
             ) : (
-              <button className="btn sm" disabled={g.cash < r.cost} onClick={() => send({ type: 'openOffice', region: r.id })}>
-                Open ({$(r.cost)})
+              <button className="btn sm" disabled={g.cash < v2.officeCost(g, r)} onClick={() => send({ type: 'openOffice', region: r.id })}>
+                Open ({$(v2.officeCost(g, r))}, then {$(v2.officeMonthly(g, r))}/mo)
               </button>
             )}
           </div>
@@ -392,11 +392,11 @@ export function GrowCards({ g }: { g: G }) {
           <span className="small muted">level {g.hr}</span>
         </div>
         <p className="small muted">
-          {g.hr ? `Morale +${v2.hrLevel(g).morale}, ${Math.round((1 - v2.hrLevel(g).quit) * 100)}% fewer people quit, better candidates. ${$(v2.hrLevel(g).monthly)}/mo.` : 'Happier people, fewer leaving, better candidates.'}
+          {g.hr ? `Morale +${v2.hrLevel(g).morale}, ${Math.round((1 - v2.hrLevel(g).quit) * 100)}% fewer people quit, better candidates. ${$(v2.hrPrice(g, g.hr)?.monthly ?? 0)}/mo.` : 'Happier people, fewer leaving, better candidates.'}
         </p>
         {nextHr && (
-          <button className="btn sm" disabled={g.cash < nextHr.cost} onClick={() => send({ type: 'upgradeHr' })}>
-            {g.hr ? 'Upgrade' : 'Open'} HR level {nextHr.level} ({$(nextHr.cost)}, then {$(nextHr.monthly)}/mo)
+          <button className="btn sm" disabled={g.cash < (v2.hrPrice(g, g.hr + 1)?.cost ?? 0)} onClick={() => send({ type: 'upgradeHr' })}>
+            {g.hr ? 'Upgrade' : 'Open'} HR level {nextHr.level} ({$(v2.hrPrice(g, g.hr + 1)?.cost ?? 0)}, then {$(v2.hrPrice(g, g.hr + 1)?.monthly ?? 0)}/mo)
           </button>
         )}
       </div>

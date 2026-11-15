@@ -33,8 +33,10 @@ function explain(g: G): string[] {
       if (Math.abs(d) >= 0.03) out.push(`Your share of ${v2.market(id).name} ${d > 0 ? 'grew' : 'shrank'} ${Math.abs(Math.round(d * 100))} points.`);
     }
   const old = v2.activeProducts(g).filter((p) => g.day - p.launchDay > 540);
-  if (old.length) out.push(`${old.map((p) => p.name).join(', ')} ${old.length > 1 ? 'are' : 'is'} over 18 months old and slipping behind the market.`);
-  const costs = last.salaries + last.facilities + last.projects + last.marketing + last.hiring + last.other + last.cogs;
+  if (old.length === 1) out.push(`${old[0]!.name} is over 18 months old and slipping behind the market.`);
+  else if (old.length > 1)
+    out.push(`${old.length} chips are over 18 months old and slipping behind the market${old.length > 3 ? '; retire the ones a newer chip has replaced (a CMO on autopilot does it)' : ''}.`);
+  const costs = last.salaries + last.facilities + last.projects + last.marketing + last.hiring + (last.research ?? 0) + (last.tax ?? 0) + last.other + last.cogs;
   out.push(`Costs ${$(costs)}: salaries ${$(last.salaries)}, chips made ${$(last.cogs)}${last.projects ? `, masks ${$(last.projects)}` : ''}${last.marketing ? `, marketing ${$(last.marketing)}` : ''}.`);
   return out;
 }
@@ -442,7 +444,7 @@ export function ResearchPanel({ g }: { g: G }) {
   const available = v2.TECHS.filter((t) => v2.techAvailable(g, t));
   const locked = v2.TECHS.filter((t) => !g.research.done.includes(t.id) && !v2.techAvailable(g, t));
   const done = v2.TECHS.filter((t) => g.research.done.includes(t.id));
-  const rate = researchers.reduce((n, p) => n + v2.T.researchPerDay * (p.skills.research / 5), 0);
+  const rate = researchers.reduce((n, p) => n + v2.T.researchPerDay * (p.skills.research / 5), 0) + v2.rdPointsPerDay(g.rdBudget ?? 0);
   return (
     <>
       <div className="card">
@@ -451,7 +453,7 @@ export function ResearchPanel({ g }: { g: G }) {
           <span className="muted small">{Math.floor(g.research.points)} points banked</span>
         </div>
         <p className="small muted">
-          {researchers.length} researcher{researchers.length === 1 ? '' : 's'} ({(rate * 30).toFixed(1)} points a month). Every launch adds points too. There are no year gates: unlock the future as fast as you can.
+          {researchers.length} researcher{researchers.length === 1 ? '' : 's'}{g.rdBudget ? ' and the R&D budget' : ''} ({(rate * 30).toFixed(1)} points a month). Every launch adds points too. There are no year gates: unlock the future as fast as you can.
         </p>
         {cur ? (
           <>
@@ -469,6 +471,7 @@ export function ResearchPanel({ g }: { g: G }) {
           <p className="small">Nothing being researched.</p>
         )}
       </div>
+      <RdBudget g={g} />
       <div className="card">
         <h3>Can research now</h3>
         {available.map((t) => (
@@ -636,6 +639,8 @@ function Statement({ g }: { g: G }) {
     ['Masks and projects', 'projects', true],
     ['Marketing', 'marketing', true],
     ['Hiring', 'hiring', true],
+    ['R&D budget', 'research', true],
+    ['Tax', 'tax', true],
     ['Other', 'other', true],
   ];
   return (
@@ -914,6 +919,30 @@ function Executives({ g }: { g: G }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Turn cash into research: contract labs and university grants, with diminishing returns. */
+function RdBudget({ g }: { g: G }) {
+  const send = useStore((s) => s.send2);
+  const cur = g.rdBudget ?? 0;
+  const sales = g.books[g.books.length - 1]?.revenue ?? 0;
+  const steps = [0, 10_000, 50_000, 250_000, 1_000_000, 5_000_000, 25_000_000, 100_000_000].filter((b) => b === 0 || b === cur || b <= Math.max(10_000, sales * 0.5));
+  return (
+    <div className="card">
+      <div className="row between">
+        <h3>R&amp;D budget</h3>
+        <span className="small muted">{cur ? `${$(cur)}/mo · +${Math.round(v2.rdPointsPerDay(cur) * 30)} pts/mo` : 'none'}</span>
+      </div>
+      <p className="small muted">Contract labs and university grants turn cash into research points, with diminishing returns. Paid daily; it pauses if cash runs short.</p>
+      <div className="row wrap">
+        {steps.map((b) => (
+          <button key={b} className={`btn sm${b === cur ? '' : ' ghost'}`} onClick={() => send({ type: 'setRdBudget', amount: b })}>
+            {b ? `${$(b)} · +${Math.round(v2.rdPointsPerDay(b) * 30)}` : 'Off'}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

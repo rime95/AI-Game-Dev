@@ -1,5 +1,5 @@
 import { rand } from '../rng';
-import { boardScore, chipCosts, evaluateBoard } from './board';
+import { boardScore, chipCosts, evaluateBoard, expectOf } from './board';
 import { FIRST_NAMES, LAST_NAMES, TECHS, T } from './data';
 import { activeProducts, currentScore, fairPrice } from './markets';
 import { maskCostMult } from './facilities';
@@ -81,7 +81,7 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
     for (const pr of open) {
       if (pr.phase === 'architecture' && pr.board.every((c) => c === null) && s.day - pr.startedDay >= 5) {
         pr.board = suggest(pr);
-        note(s, eng, `Laid out the ${pr.name} die (expected ${boardScore(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), pr.marketId, s.day).toFixed(1)}).`);
+        note(s, eng, `Laid out the ${pr.name} die (expected ${boardScore(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), pr.marketId, s.day, expectOf(s, pr.marketId)).toFixed(1)}).`);
       }
       // Better engineers ignore only minor bugs that cost a lot of time; weaker ones fix everything.
       if (pr.phase === 'verification') {
@@ -110,13 +110,22 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
   if (cmo?.auto) {
     for (const pr of s.projects.filter((p) => p.phase === 'ready')) {
       const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
-      const est = boardScore(ev, pr.marketId, s.day);
+      const est = boardScore(ev, pr.marketId, s.day, expectOf(s, pr.marketId));
       const err = (5 - cmo.stars) * 0.04;
       const price = Math.round(fairPrice(pr.marketId, est) * (1 + (rand(s) * 2 - 1) * err));
       const push: 0 | 1 | 2 | 3 = s.cash > pr.spent * 4 ? 2 : s.cash > pr.spent * 1.5 ? 1 : 0;
       note(s, cmo, `Launched the ${pr.name} at ${money(price)} with ${T.marketing[push].label.toLowerCase()}.`);
       launch(pr.id, price, push);
     }
+    // Monthly: retire chips a newer one of ours has replaced in the same market and that hardly sell.
+    if (s.day % 30 === 20)
+      for (const p of activeProducts(s)) {
+        const newer = activeProducts(s, p.marketId).find((q) => q !== p && q.launchDay > p.launchDay && currentScore(q, s.day) > currentScore(p, s.day));
+        if (newer && p.rate < newer.rate * 0.15) {
+          p.retiredDay = s.day;
+          note(s, cmo, `Retired the ${p.name}: the ${newer.name} replaced it.`);
+        }
+      }
     if (s.day % 30 === 15)
       for (const p of activeProducts(s)) {
         const fair = fairPrice(p.marketId, currentScore(p, s.day));

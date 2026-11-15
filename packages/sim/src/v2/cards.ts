@@ -18,6 +18,12 @@ interface CardDef {
   resolve: (s: GameV2, choice: string, card: PendingCard) => void;
 }
 
+/** The angel investor's slice. */
+export const ANGEL_SHARE = 0.15;
+
+/** Research points the lab makes per day right now. */
+const researchPerDay = (s: GameV2) => s.staff.filter((p) => p.task === 'research').reduce((n, p) => n + (T.researchPerDay * p.skills.research) / 5, 0);
+
 const monthlySales = (s: GameV2) => activeProducts(s).reduce((n, p) => n + p.rate * p.price, 0) * 30;
 const bestPerson = (s: GameV2) => [...s.staff].filter((p) => !p.founder).sort((a, b) => b.level - a.level)[0];
 
@@ -56,7 +62,7 @@ const DEFS: CardDef[] = [
         speaker: 'TSMC sales',
         body: `A customer cancelled. We can have the ${p.name} wafers 20 days sooner for ${money(cost)}.`,
         choices: [
-          { id: 'yes', label: `Pay ${money(cost)}: 20 days sooner`, detail: 'The chip reaches you faster.' },
+          { id: 'yes', label: `Pay ${money(cost)}: 20 days sooner`, detail: 'The chip reaches you faster.', cost },
           { id: 'no', label: 'No thanks', detail: 'The normal schedule holds.' },
         ],
         ref: `${p.id}|${cost}`,
@@ -99,7 +105,7 @@ const DEFS: CardDef[] = [
         speaker: 'Show organisers',
         body: 'A last-minute booth opened up at the biggest computer show of the year.',
         choices: [
-          { id: 'yes', label: `Book it (${money(cost)})`, detail: '+0.6 hype on your next launch.' },
+          { id: 'yes', label: `Book it (${money(cost)})`, detail: 'Your next launch sells about 60% more at first, fading over six weeks.', cost },
           { id: 'no', label: 'Skip this year', detail: 'Nothing changes.' },
         ],
         ref: String(cost),
@@ -121,7 +127,7 @@ const DEFS: CardDef[] = [
         speaker: 'Your foundry rep',
         body: 'Silicon is short this year. Lock in today’s price, or ride it out.',
         choices: [
-          { id: 'lock', label: `Lock in (${money(lock)} now)`, detail: 'Chip costs stay where they are.' },
+          { id: 'lock', label: `Lock in (${money(lock)} now)`, detail: 'Chip costs stay where they are.', cost: lock },
           { id: 'ride', label: 'Ride it out', detail: 'Chip costs +20% for 4 months.' },
         ],
         ref: String(lock),
@@ -142,7 +148,7 @@ const DEFS: CardDef[] = [
         speaker: 'Your team',
         body: 'Half the team stayed up all night and cracked a hard timing problem.',
         choices: [
-          { id: 'bonus', label: `Pay a bonus (${money(bonus)})`, detail: 'Everyone’s morale +12.' },
+          { id: 'bonus', label: `Pay a bonus (${money(bonus)})`, detail: 'Everyone’s morale +12.', cost: bonus },
           { id: 'thanks', label: 'Say thanks', detail: 'Morale +3.' },
         ],
         ref: String(bonus),
@@ -156,19 +162,26 @@ const DEFS: CardDef[] = [
   {
     kind: 'university',
     when: (s) => s.day > 120,
-    make: () => ({
-      title: 'Stanford proposes a partnership',
-      speaker: 'Stanford EE department',
-      body: 'A professor wants to collaborate on next-generation circuits, with your funding.',
-      choices: [
-        { id: 'yes', label: 'Fund it ($20.0K)', detail: '+8 research points.' },
-        { id: 'no', label: 'Not now', detail: 'Nothing changes.' },
-      ],
-    }),
-    resolve: (s, c) => {
+    make: (s) => {
+      // About six weeks of your lab's output, at a fair price for it.
+      const pts = Math.round(Math.max(8, 45 * researchPerDay(s)));
+      const cost = Math.round((pts * 700) / 1000) * 1000;
+      return {
+        title: 'Stanford proposes a partnership',
+        speaker: 'Stanford EE department',
+        body: 'A professor wants to collaborate on next-generation circuits, with your funding.',
+        choices: [
+          { id: 'yes', label: `Fund it (${money(cost)})`, detail: `+${pts} research points (about six weeks of your lab's work).`, cost },
+          { id: 'no', label: 'Not now', detail: 'Nothing changes.' },
+        ],
+        ref: `${pts}:${cost}`,
+      };
+    },
+    resolve: (s, c, card) => {
       if (c !== 'yes') return;
-      spend(s, 'other', 20_000);
-      s.research.points += 8;
+      const [pts, cost] = (card.ref ?? '8:20000').split(':').map(Number);
+      spend(s, 'other', cost!);
+      s.research.points += pts!;
     },
   },
   {
@@ -179,10 +192,10 @@ const DEFS: CardDef[] = [
       return {
         title: 'An angel investor calls',
         speaker: 'A Sand Hill Road investor',
-        body: `${money(amount)} for a slice of the company. They'll want to hear about your progress.`,
+        body: `${money(amount)} for ${Math.round(ANGEL_SHARE * 100)}% of the company. Cash today, a smaller fortune later.`,
         choices: [
-          { id: 'yes', label: `Take ${money(amount)}`, detail: 'Cash now. Brand −2 (people wonder if you’re in trouble).' },
-          { id: 'no', label: 'Stay independent', detail: 'Nothing changes.' },
+          { id: 'yes', label: `Take ${money(amount)}`, detail: `You give up ${Math.round(ANGEL_SHARE * 100)}% of the company for good: your net worth and IPO take shrink with it.` },
+          { id: 'no', label: 'Stay independent', detail: 'You keep everything. Find the cash some other way.' },
         ],
         ref: String(amount),
       };
@@ -190,7 +203,7 @@ const DEFS: CardDef[] = [
     resolve: (s, c, card) => {
       if (c !== 'yes') return;
       s.cash += Number(card.ref);
-      s.brand = clamp(s.brand - 2, 0, 100);
+      s.stake = (s.stake ?? 1) * (1 - ANGEL_SHARE);
     },
   },
   {
@@ -283,7 +296,7 @@ const OFFERS: CardDef[] = [
         speaker: `${r.name} board of directors`,
         body: `Beaten in the market, ${r.name}'s board wants out. They'd sell the whole company for ${money(price)}.`,
         choices: [
-          { id: 'yes', label: `Buy ${r.name} (${money(price)})`, detail: `+${RIVALRY.defeatBrand} brand. Their products leave the market.` },
+          { id: 'yes', label: `Buy ${r.name} (${money(price)})`, detail: `+${RIVALRY.defeatBrand} brand. Their products leave the market.`, cost: price },
           { id: 'no', label: 'Not now', detail: 'You can still buy them later from the Markets tab.' },
         ],
         ref: `${r.id}|${price}`,
@@ -349,7 +362,9 @@ export function tickCards(s: GameV2): PendingCard | null {
 export function resolveCard(s: GameV2, cardId: string, choiceId: string): string | null {
   const card = s.cards.find((c) => c.id === cardId);
   if (!card) return 'That card is gone.';
-  if (!card.choices.some((c: CardChoice) => c.id === choiceId)) return 'Unknown choice.';
+  const choice = card.choices.find((c: CardChoice) => c.id === choiceId);
+  if (!choice) return 'Unknown choice.';
+  if (choice.cost && s.cash < choice.cost) return `That needs ${money(choice.cost)} in the bank.`;
   const def = DEFS.find((d) => d.kind === card.kind) ?? OFFERS.find((d) => d.kind === card.kind);
   s.cards = s.cards.filter((c) => c !== card);
   if (def) def.resolve(s, choiceId, card);

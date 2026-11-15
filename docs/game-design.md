@@ -25,6 +25,8 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
      - Some blocks only count up to a limit (`maxUseful`).
      - There is a heat budget: going over throttles speed and adds bugs, while unused headroom counts as efficiency.
      - Each market weights speed, graphics, efficiency and features differently. Launches teach you those tastes (the design notebook).
+     - Empty tiles are trimmed off the die: a sparser layout makes a cheaper chip.
+     - Layout help: without a Chief Engineer, only a starter layout (just the blocks the chip needs). An engineer drafts full layouts but leaves tiles unfinished (more the fewer stars they have). The puzzle stays yours.
    - **AI models** use the same board as a compute plan, built from compute clusters, training data, safety teams and human feedback.
 2. **Build.**
    - Assigned people turn skill into design points, then engineering points. Morale, burnout, traits, crunch and HQ crowding all matter.
@@ -33,28 +35,33 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
 3. **Launch.**
    - Set the price against the fair-price gauge and pick a launch push. Launching within 15 days of a rival in the same market halves your buzz.
    - Four magazines review the chip. The launch earns research points, brand, and one new fact about what that market's buyers want.
+   - **The press remembers.** Each chip is judged against the market bar or 95% of your best die in that market, whichever is higher. Matching your last chip scores about 6; a big leap scores 9 or more. "Beat your last chip" is the goal all game, and scores don't pile up at 10.
 4. **Sell.**
    - Buyer pull = brand × 2^(score − 5) × (fair ÷ price)^sensitivity × hype × your reach. You share each market with rivals and small makers.
    - Products age as the market bar rises. Refreshes, re-pricing and retiring are real decisions.
 
 ## Systems
+- **Brand** grows with share and good launches (less the better known you are) and fades about 3.5% a month toward where you started.
 - **People:** candidates with three skills, traits, levels, XP, salaries, morale and burnout. Crunch speeds work up but wears people out. Stars get poach offers (counter-offer or let them go). The HR department adds morale, fewer people quitting and better candidates.
-- **Executives:** Chief Engineer, CMO, CFO and Head of Research. Each has 1–5 stars, an autopilot switch and a "Lately" log, and answers the decision cards in their area.
+- **Executives:** Chief Engineer, CMO, CFO and Head of Research. Each has 1–5 stars, an autopilot switch and a "Lately" log, and answers the decision cards in their area. A CMO on autopilot also retires chips a newer one has replaced.
 - **Rivals:**
   - Each one announces products on a launch calendar.
+  - They follow your lead: each new rival chip aims a little behind your best recent launch in that market (premium and copycat rivals close, price-cutters further back; rattled and desperate rivals try harder). The "never ahead" cap is only a ceiling. A market you keep fresh is a clear lead; one you neglect is where they catch up.
   - A monthly **strength** score sets their **mood** (confident, rattled, desperate, for sale), with hysteresis so it doesn't flicker.
   - Rattled rivals offer truces; desperate ones start price wars.
   - Beaten rivals put themselves up for sale, priced by mood. Bought rivals go on a trophy wall.
 - **Research:** a branching tree of about 35 technologies. Deeper technologies cost more.
   - Breakthroughs: 3D graphics, consoles, mobile, multi-core, neural networks on silicon, large language models, and towards general intelligence.
   - Perks: design tools, test lab, marketing, recruiting, driver platform, data center and fab engineering, alignment.
-- **Decision cards:** about a dozen chip-world events whose choices state their numbers. They never repeat within 168 days and they wait for you.
+- **Decision cards:** about a dozen chip-world events whose choices state their numbers. They never repeat within 168 days and they wait for you. A choice that costs more cash than you have can't be picked. The angel investor buys 15% of the company for good.
 - **Money:**
   - Monthly books, and a "last month" report that explains why the numbers moved.
   - Statements, and a year-in-review card.
   - Bank loans: up to 3× a year of profit, at a drifting base rate.
   - Investors offer cash against a sales target; missing it costs you.
-  - Sales offices widen how much of the world can buy from you.
+  - Sales offices widen how much of the world can buy from you. Office and HR prices keep up with the company (offices with a year of sales, HR with headcount).
+  - Corporate tax: 25% of each month's profit.
+  - **R&D budget:** turn cash into research points (contract labs and grants) with diminishing returns: the money sink that stays useful all game.
 - **Late game:**
   - Data centers cap how many AI-model customers you can serve.
   - Your own fab makes chips and masks cheaper.
@@ -62,7 +69,7 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
 - **Endings:**
   - **Safe frontier:** AGI with alignment research and a brand of 55+.
   - **Reckless frontier:** AGI without them.
-  - **Market leader:** 3 years leading 7+ markets.
+  - **Market leader:** 4 years leading 9+ markets.
   - You can keep playing after an ending.
 - **The founder:** your salary (capped at 1% of monthly sales), your own cash and net worth, and a fixed rich list of real names to climb.
 - **Stock market (ported from Grounds Up):**

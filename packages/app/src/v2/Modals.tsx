@@ -6,17 +6,17 @@ import { LAYER } from '../ui/layers';
 type G = v2.GameV2;
 
 /** A decision card. It waits for you; every choice states its numbers. */
-export function CardModal2({ card }: { g: G; card: v2.PendingCard }) {
+export function CardModal2({ g, card }: { g: G; card: v2.PendingCard }) {
   const send = useStore((s) => s.send2);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const i = Number(e.key) - 1;
       const c = card.choices[i];
-      if (c) send({ type: 'resolveCard', cardId: card.id, choiceId: c.id });
+      if (c && !(c.cost && g.cash < c.cost)) send({ type: 'resolveCard', cardId: card.id, choiceId: c.id });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [card, send]);
+  }, [card, send, g.cash]);
   return (
     <div className="overlay" role="dialog" aria-label={card.title}>
       <div className="modal" style={{ ['--c' as string]: LAYER.gold }}>
@@ -27,11 +27,11 @@ export function CardModal2({ card }: { g: G; card: v2.PendingCard }) {
         <div className="body">
           <p>{card.body}</p>
           {card.choices.map((c, i) => (
-            <button key={c.id} className="choice" onClick={() => send({ type: 'resolveCard', cardId: card.id, choiceId: c.id })}>
+            <button key={c.id} className="choice" disabled={!!c.cost && g.cash < c.cost} onClick={() => send({ type: 'resolveCard', cardId: card.id, choiceId: c.id })}>
               <span className="label">
                 <kbd>{i + 1}</kbd> {c.label}
               </span>
-              <span className="detail">{c.detail}</span>
+              <span className="detail">{c.cost && g.cash < c.cost ? 'Not enough cash.' : c.detail}</span>
             </button>
           ))}
           <p className="small muted">The clock waits until you choose.</p>

@@ -15,8 +15,8 @@ export const FAC = {
     { level: 2, cost: 600_000_000, days: 300, unit: 0.55, mask: 0.5, upkeep: 6_000_000 },
   ],
   agi: { cost: 1_000_000_000, days: 360, dc: 6000, upkeep: 20_000_000 },
-  leaderMarkets: 7,
-  leaderDays: 1080,
+  leaderMarkets: 9,
+  leaderDays: 1440,
 };
 
 export const fabLevel = (s: GameV2) => (s.facilities.fab ? FAC.fab[s.facilities.fab - 1]! : null);
@@ -98,7 +98,7 @@ export function tickFacilities(s: GameV2): void {
   if (s.leadDays >= FAC.leaderDays) {
     s.ending = 'leader';
     s.status = 'won';
-    log(s, `Three years leading ${FAC.leaderMarkets}+ markets: ${s.companyName} is the undisputed leader of the industry.`, 'good');
+    log(s, `Four years leading ${FAC.leaderMarkets}+ markets: ${s.companyName} is the undisputed leader of the industry.`, 'good');
   }
 }
 

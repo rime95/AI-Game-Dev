@@ -29,7 +29,23 @@ export const REGIONS = [
 export const WORLD_WEIGHT = REGIONS.reduce((n, r) => n + r.weight, 0);
 /** Share of the world's buyers who can buy from us. */
 export const reach = (s: GameV2) => (1 + REGIONS.filter((r) => s.offices.includes(r.id)).reduce((n, r) => n + r.weight, 0)) / WORLD_WEIGHT;
-export const officesMonthly = (s: GameV2) => REGIONS.filter((r) => s.offices.includes(r.id)).reduce((n, r) => n + r.monthly, 0);
+/** A year of sales (prices below keep up with the company, so growing never makes them trivial). */
+export const annualSales = (s: GameV2) => s.books.slice(-12).reduce((n, b) => n + b.revenue, 0);
+type Region = (typeof REGIONS)[number];
+/** Opening an office: at least its base price, or a quarter of a year's sales weighted by the region's size. */
+export const officeCost = (s: GameV2, r: Region) => Math.max(r.cost, Math.round((annualSales(s) * r.weight * 0.25) / 10_000) * 10_000);
+/** Running an office: at least its base, growing with the sales it supports. */
+export const officeMonthly = (s: GameV2, r: Region) => Math.max(r.monthly, Math.round((annualSales(s) * r.weight * 0.0025) / 1000) * 1000);
+export const officesMonthly = (s: GameV2) => REGIONS.filter((r) => s.offices.includes(r.id)).reduce((n, r) => n + officeMonthly(s, r), 0);
+/** HR costs grow with headcount (priced for 20 people). */
+const hrScale = (s: GameV2) => Math.max(1, s.staff.length / 20);
+export const hrPrice = (s: GameV2, level: number) => {
+  const l = HR_LEVELS[level];
+  return l ? { cost: Math.round((l.cost * hrScale(s)) / 1000) * 1000, monthly: Math.round((l.monthly * hrScale(s)) / 1000) * 1000 } : null;
+};
+
+/** R&D budget: research points per day for a monthly spend (diminishing returns; $10K a month ≈ one researcher). */
+export const rdPointsPerDay = (budget: number) => (budget > 0 ? 0.33 * Math.pow(budget / 10_000, 0.6) : 0);
 
 export const IPO = { quarters: 4, revenue: 50_000_000, shares: 100_000_000, fee: 0.05 };
 
@@ -67,7 +83,7 @@ export function companyValue(s: GameV2): number {
   const annual = s.books.slice(-12).reduce((n, b) => n + b.profit, 0);
   return Math.max(0, s.cash + Math.max(0, annual) * 10 - debt(s));
 }
-export const ownership = (s: GameV2) => s.ipo?.ownership ?? 1;
+export const ownership = (s: GameV2) => s.ipo?.ownership ?? s.stake ?? 1;
 export const netWorth = (s: GameV2) => s.personal.cash + portfolioValue(s) + ownership(s) * companyValue(s);
 export const richRank = (s: GameV2) => RICH_LIST.filter((p) => p.worth > netWorth(s)).length + 1;
 export const salaryCap = (s: GameV2) => Math.max(10_000, (s.books[s.books.length - 1]?.revenue ?? 0) * 0.01);
@@ -98,7 +114,7 @@ export function goPublic(s: GameV2, percent: number): void {
   // Half new shares (cash to the company), half the founder's own shares (cash to you).
   s.cash += raised / 2;
   s.personal.cash += raised / 2;
-  s.ipo = { day: s.day, ownership: 1 - percent, shares: IPO.shares, price: Math.round((val / IPO.shares) * 100) / 100, sentiment: 1, payout: 0, history: [] };
+  s.ipo = { day: s.day, ownership: (s.stake ?? 1) * (1 - percent), shares: IPO.shares, price: Math.round((val / IPO.shares) * 100) / 100, sentiment: 1, payout: 0, history: [] };
   log(s, `${s.companyName} is public! Sold ${Math.round(percent * 100)}% at a ${money(val)} valuation, raising ${money(raised)}.`, 'good');
 }
 
@@ -118,7 +134,7 @@ export function monthlyFinance(s: GameV2): void {
       log(s, 'A loan was paid off.', 'good');
     }
   }
-  const fixed = hrLevel(s).monthly + officesMonthly(s);
+  const fixed = (hrPrice(s, s.hr)?.monthly ?? 0) + officesMonthly(s);
   s.cash -= fixed;
   s.month.facilities += fixed;
   const pay = s.personal.salary;

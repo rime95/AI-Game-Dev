@@ -203,6 +203,8 @@ export interface CardChoice {
   id: string;
   label: string;
   detail: string;
+  /** Cash this choice costs up front (it can't be picked without it). */
+  cost?: number;
 }
 
 export interface PendingCard {
@@ -246,6 +248,10 @@ export interface MonthBook {
   projects: number;
   marketing: number;
   hiring: number;
+  /** The R&D budget (older saves lack it). */
+  research?: number;
+  /** Corporate tax on the month's profit (older saves lack it). */
+  tax?: number;
   other: number;
   profit: number;
   cash: number;
@@ -270,6 +276,11 @@ export interface Notebook {
   tastes: Record<string, Stat[]>;
   /** Best score reached per kind+market. */
   best: Record<string, number>;
+  /**
+   * Per market: what the press now expects, as die value (see board.ts). Reviewers judge each chip
+   * against your own best there, so "beat your last chip" stays the goal all game. Missing = none.
+   */
+  expect?: Record<string, number>;
 }
 
 export interface GameV2 {
@@ -301,6 +312,10 @@ export interface GameV2 {
   /** Sales offices opened (regions besides home). */
   offices: string[];
   /** After the IPO: share of the company the founder still owns, shares, price and dividend payout. */
+  /** The founder's share of the company before any IPO (angel investors take a slice). Missing = 100%. */
+  stake?: number;
+  /** Monthly R&D budget: cash turned into research points (missing = 0). */
+  rdBudget?: number;
   ipo: { day: number; ownership: number; shares: number; price: number; sentiment: number; payout: number; history: number[] } | null;
   /** Investors stopped calling (after the board took a seat). */
   noInvestors?: boolean;
@@ -378,6 +393,7 @@ export type CommandV2 =
   | { type: 'takeLoan'; amount: number }
   | { type: 'repayLoan'; id: string }
   | { type: 'upgradeHr' }
+  | { type: 'setRdBudget'; amount: number }
   | { type: 'openOffice'; region: string }
   | { type: 'ipo'; percent: number }
   | { type: 'setPayout'; payout: number }

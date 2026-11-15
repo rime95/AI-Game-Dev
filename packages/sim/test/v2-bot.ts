@@ -46,7 +46,7 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
     if (acting) {
       // Cards: take the first choice.
       for (const c of s.cards) {
-        s = act(s, { type: 'resolveCard', cardId: c.id, choiceId: c.choices[0]!.id });
+        s = act(s, { type: 'resolveCard', cardId: c.id, choiceId: (c.choices.find((ch) => !ch.cost || ch.cost <= s.cash) ?? c.choices[c.choices.length - 1]!).id });
         didSomething = true;
       }
       // Projects.

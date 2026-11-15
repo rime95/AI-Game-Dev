@@ -1,5 +1,5 @@
 import { ADJACENCY, block, kind, market, marketBar, node, SIZES, type MarketDef } from './data';
-import type { ProductKind, ProjectSize, Stat, Stats } from './types';
+import type { GameV2, ProductKind, ProjectSize, Stat, Stats } from './types';
 
 /** The scale that counts as "par" for each stat (a decent small 1991 chip has about these). */
 export const STAT_PAR: Stats = { perf: 29, gfx: 17, eff: 7, feat: 5 };
@@ -85,20 +85,33 @@ export function marketValue(m: MarketDef, stats: Stats): number {
   return v;
 }
 
-/** The review score the die alone earns in a market on a given day (before team and bugs). */
-export function boardScore(r: BoardResult, marketId: string, day: number): number {
-  return clampScore(rawBoardScore(r, marketId, day));
+/** Share of your best die value in a market that the press expects next time. */
+export const EXPECT_SHARE = 0.95;
+
+/** What reviewers expect in a market: their memory of your best there (0 before your first launch). */
+export const expectOf = (s: GameV2, marketId: string) => s.notebook.expect?.[marketId] ?? 0;
+
+/**
+ * The review score the die alone earns in a market on a given day (before team and bugs). Scores
+ * are measured against the market bar, or against what the press expects of you there, whichever
+ * is higher: a chip that only matches your last one scores about 6.5, a big leap 9 or more.
+ */
+export function boardScore(r: BoardResult, marketId: string, day: number, expect = 0): number {
+  return clampScore(rawBoardScore(r, marketId, day, expect));
 }
 
 /** The same score without the 1–10 clamp (for comparing weak layouts while searching). */
-export function rawBoardScore(r: BoardResult, marketId: string, day: number): number {
+export function rawBoardScore(r: BoardResult, marketId: string, day: number, expect = 0): number {
   if (r.missing.length) return -5;
   const m = market(marketId);
   const value = marketValue(m, r.stats);
   if (value <= 0) return -5;
-  const barFactor = marketBar(m, day) / 6;
+  const barFactor = Math.max(marketBar(m, day) / 6, expect);
   return 6 + POINTS_PER_DOUBLING * Math.log2(value / barFactor);
 }
+
+/** Die value against the plain market bar (what the press remembers after a launch). */
+export const dieValue = (r: BoardResult, marketId: string) => marketValue(market(marketId), r.stats);
 
 /** Review points a product has lost to time: the market bar rose since it launched. */
 export function agingLoss(marketId: string, launchDay: number, day: number): number {
@@ -110,9 +123,21 @@ export function clampScore(s: number): number {
   return Math.max(1, Math.min(10, s));
 }
 
-/** Units per die cell (for unit cost) and the mask cost for a board size and node. */
-export function chipCosts(size: ProjectSize, nodeId: string): { unitCost: number; maskCost: number; fabDays: number } {
+/** Share of a chip's cost fixed by the die size; the rest scales with the tiles actually used. */
+export const AREA_COST = { fixed: 0.3, perUsed: 0.7 };
+
+/**
+ * Unit cost, mask cost and fab time for a board size and node. Empty tiles are trimmed off the
+ * die, so a layout that leaves tiles free makes a cheaper chip (pass `used`, the filled tiles;
+ * without it the die is costed as full).
+ */
+export function chipCosts(size: ProjectSize, nodeId: string, used?: number): { unitCost: number; maskCost: number; fabDays: number } {
   const s = SIZES[size];
   const n = node(nodeId);
-  return { unitCost: Math.round(s.w * s.h * n.unitCostPerCell * 10) / 10, maskCost: Math.round(n.maskCost * s.mask), fabDays: n.fabDays };
+  const cells = s.w * s.h;
+  const area = used === undefined ? cells : cells * AREA_COST.fixed + Math.min(cells, used) * AREA_COST.perUsed;
+  return { unitCost: Math.round(area * n.unitCostPerCell * 10) / 10, maskCost: Math.round(n.maskCost * s.mask), fabDays: n.fabDays };
 }
+
+/** Filled tiles on a board. */
+export const usedTiles = (board: (string | null)[]) => board.filter(Boolean).length;
