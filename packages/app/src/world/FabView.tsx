@@ -49,7 +49,7 @@ export function FabView({ game }: { game: GameState }) {
   return (
     <>
       <Canvas orthographic shadows camera={{ position: [30, 30, 30], zoom: 20, near: 0.1, far: 400 }}>
-        <color attach="background" args={['#0e141c']} />
+        <color attach="background" args={['#080e22']} />
         <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.95]} />
         <directionalLight
           position={[14, 24, 8]}

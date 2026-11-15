@@ -1,16 +1,16 @@
 import type { Era } from '@stm/sim';
 import type { Tab } from '../store';
 
-/** One color per stack layer (art-direction §3), tuned to glow on the dark UI. Keep in sync with styles.css. */
+/** One color per stack layer (art-direction §3), Night Lab pastels that glow on navy. Keep in sync with styles.css. */
 export const LAYER = {
-  silicon: '#2dd4bf',
-  compute: '#5b8cff',
-  power: '#f5a524',
-  env: '#4ade80',
-  models: '#a78bfa',
-  products: '#ff7a59',
-  trust: '#94a3b8',
-  gold: '#facc15',
+  silicon: '#5eead4',
+  compute: '#7aa2ff',
+  power: '#fbbf24',
+  env: '#6ee7a8',
+  models: '#b49cff',
+  products: '#ff8f73',
+  trust: '#a3b1d1',
+  gold: '#fcd34d',
 } as const;
 
 export const BAD = '#f87171';

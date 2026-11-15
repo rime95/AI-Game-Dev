@@ -1,37 +1,50 @@
-/* Sand to Mind: dark "mission control" theme. Layer colors glow against graphite panels. */
+/*
+ * Sand to Mind: "Night Lab" theme. Deep navy, glassy panels with a faint top highlight, pastel
+ * mint / lavender / amber accents that glow, monospace numbers, a soft blueprint grid behind it all.
+ */
 :root {
   color-scheme: dark;
-  /* Neutrals */
-  --bg: #0b0f15;
-  --surface: #121821;
-  --surface-2: #19212d;
-  --surface-3: #222c3b;
-  --line: #273243;
-  --line-2: #34415a;
-  --ink: #e8edf4;
-  --ink-2: #a9b4c4;
-  --ink-3: #7d8a9c;
-  --on-accent: #0b0f15;
+  /* Neutrals: navy, from the night sky to raised glass */
+  --bg: #070c1d;
+  --surface: #0d1530;
+  --surface-2: #121c3d;
+  --surface-3: #1a2650;
+  --line: #1f2c56;
+  --line-2: #2c3d72;
+  --ink: #eaf0ff;
+  --ink-2: #a9b5da;
+  --ink-3: #7180ad;
+  --on-accent: #071022;
 
-  /* Layer colors (art-direction §3, dark-tuned; keep in sync with ui/layers.tsx) */
-  --silicon: #2dd4bf;
-  --compute: #5b8cff;
-  --power: #f5a524;
-  --env: #4ade80;
-  --models: #a78bfa;
-  --products: #ff7a59;
-  --trust: #94a3b8;
-  --gold: #facc15;
+  /* Layer colors (art-direction §3, Night Lab pastels; keep in sync with ui/layers.tsx) */
+  --silicon: #5eead4;
+  --compute: #7aa2ff;
+  --power: #fbbf24;
+  --env: #6ee7a8;
+  --models: #b49cff;
+  --products: #ff8f73;
+  --trust: #a3b1d1;
+  --gold: #fcd34d;
 
-  --good: #4ade80;
-  --bad: #f87171;
+  --good: #6ee7a8;
+  --bad: #ff7b8a;
 
-  --glass: rgb(14 19 27 / 0.78);
-  --glass-line: rgb(255 255 255 / 0.09);
-  --radius: 12px;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
-  --font-ui: 'Inter', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  /* The signature accents */
+  --mint: var(--silicon);
+  --lav: var(--models);
+  --grad: linear-gradient(100deg, var(--mint), #8fd3ff 50%, var(--lav));
+
+  --glass: rgb(13 21 48 / 0.72);
+  --glass-strong: rgb(13 21 48 / 0.9);
+  --glass-line: rgb(150 175 255 / 0.13);
+  --glass-hi: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --radius: 14px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 32px rgb(2 6 20 / 0.55);
+  --glow: 0 0 22px color-mix(in srgb, var(--c, var(--mint)) 30%, transparent);
+  --font-ui: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', 'Inter Variable', system-ui, sans-serif;
+  --font-num: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --grid: linear-gradient(rgb(130 160 255 / 0.045) 1px, transparent 1px), linear-gradient(90deg, rgb(130 160 255 / 0.045) 1px, transparent 1px);
   --panel-w: 480px;
   --rail-w: 196px;
 }

@@ -161,7 +161,7 @@ export function WorldMap({ game }: { game: GameState }) {
               role="button"
               aria-label={`${l.name}, ${l.region}`}
             >
-              <circle r={site ? 9 : 7} fill={site ? LAYER.compute : '#121821'} stroke={color} strokeWidth={site ? 3 : 2.5} />
+              <circle r={site ? 9 : 7} fill={site ? LAYER.compute : '#0d1530'} stroke={color} strokeWidth={site ? 3 : 2.5} />
               {site && <rect x={-3.5} y={-3.5} width={7} height={7} fill="#fff" />}
               <text x={LEFT_LABEL.has(l.id) ? -11 : 11} y={4} textAnchor={LEFT_LABEL.has(l.id) ? 'end' : 'start'} className="map-label">
                 {l.name}

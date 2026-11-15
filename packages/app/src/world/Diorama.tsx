@@ -16,7 +16,7 @@ export function Diorama({ game }: { game: GameState }) {
   return (
     <>
       <Canvas orthographic shadows camera={{ position: [24, 22, 24], zoom: 32, near: 0.1, far: 300 }}>
-        <color attach="background" args={['#0e141c']} />
+        <color attach="background" args={['#080e22']} />
         <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.9]} />
         <directionalLight
           position={[12, 22, 8]}

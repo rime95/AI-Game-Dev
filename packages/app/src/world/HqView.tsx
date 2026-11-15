@@ -52,7 +52,7 @@ const MAX_ANIMATED = 40;
 export function HqView({ game }: { game: GameState }) {
   return (
     <Canvas orthographic shadows camera={{ position: [20, 20, 20], zoom: 40, near: 0.1, far: 300 }}>
-      <color attach="background" args={['#0e141c']} />
+      <color attach="background" args={['#080e22']} />
       <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.6]} />
       {/* Soft studio light and reflections from a CC0 Poly Haven HDRI. */}
       <Suspense fallback={null}>

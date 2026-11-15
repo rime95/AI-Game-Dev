@@ -35,6 +35,8 @@ export function ReviewCard({ game }: { game: GameState }) {
         : chip.reception < chip.score
           ? 'People expected more after all that buzz.'
           : 'The buzz matched the chip.';
+  const verdict = reception(chip.reception);
+  const ring = 2 * Math.PI * 40;
   return (
     <div className="milestone" role="dialog" aria-label={`Reviews for ${chip.design.name}`}>
       <div className="milestone-card review-card" style={{ ['--c' as string]: great ? LAYER.gold : LAYER.silicon }}>
@@ -42,46 +44,103 @@ export function ReviewCard({ game }: { game: GameState }) {
           <span>THE REVIEWS ARE IN</span>
           <span>{turnLabel(game, chip.month)}</span>
         </div>
-        <h2>{chip.design.name}</h2>
-        <p className="review-sub">
-          {type.name} · {gen} · {money(chip.price)}
-        </p>
-        <div className="reviews">
+        <div className="rv-head">
+          <span className="rv-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2M7 9h7M7 12.5h7M7 16h4" />
+            </svg>
+          </span>
+          <div>
+            <h2>Launch day: {chip.design.name}</h2>
+            <p>
+              {type.name} · {gen} · {money(chip.price)}. Here's what the magazines think.
+            </p>
+          </div>
+        </div>
+        <div className="rv-grid">
           {chip.reviews.map((r, i) => {
             const mag = content.founding.reviewers.find((x) => x.id === r.reviewerId)?.name ?? r.reviewerId;
+            const open = i < shown;
             return (
-              <div key={r.reviewerId} className={`review${i < shown ? ' in' : ''}`}>
-                <span className="review-score" data-tone={r.score >= 8 ? 'good' : r.score <= 4 ? 'bad' : 'mid'}>
-                  {i < shown ? r.score : '?'}
-                </span>
-                <span className="review-text">
-                  <strong>{mag}</strong>
-                  <em>{i < shown ? `“${r.quote}”` : '…'}</em>
-                </span>
+              <div key={r.reviewerId} className={`rv-tile${open ? ' in' : ''}`}>
+                <div className="rv-top">
+                  <span className="rv-logo" aria-hidden="true">
+                    {mag.charAt(0)}
+                  </span>
+                  <span className="rv-name">{mag}</span>
+                  <span className="rv-score">
+                    {open ? r.score : '?'}
+                    <small>/10</small>
+                  </span>
+                </div>
+                <p className="rv-quote">{open ? `“${r.quote}”` : 'Reading…'}</p>
               </div>
             );
           })}
         </div>
-        <div className={`review-avg${done ? ' in' : ''}`}>
-          Average <strong>{done ? chip.score.toFixed(1) : '–'}</strong> / 10
-          {done && (
-            <span className="review-fit">
-              {' '}
-              · launch {chip.reception.toFixed(1)}. {landed}
+        <div className="rv-foot">
+          <div className="rv-avg">
+            <span>Average score</span>
+            <span className="rv-ring">
+              <svg viewBox="0 0 92 92" aria-hidden="true">
+                <defs>
+                  <linearGradient id="rv-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor={LAYER.silicon} />
+                    <stop offset="1" stopColor={LAYER.models} />
+                  </linearGradient>
+                </defs>
+                <circle className="track" cx="46" cy="46" r="40" />
+                <circle
+                  className="fill"
+                  cx="46"
+                  cy="46"
+                  r="40"
+                  stroke="url(#rv-grad)"
+                  strokeDasharray={`${done ? (chip.score / 10) * ring : 0} ${ring}`}
+                />
+              </svg>
+              <b>
+                {done ? chip.score.toFixed(1) : '–'}
+                <small>/10</small>
+              </b>
             </span>
+          </div>
+          <i aria-hidden="true" />
+          <div className="rv-rec">
+            <span className="k">Reception</span>
+            {done ? (
+              <>
+                <span className="rv-pill" style={{ ['--rc' as string]: verdict.color }}>
+                  {verdict.label} · {chip.reception.toFixed(1)}
+                </span>
+                <p>{landed}</p>
+              </>
+            ) : (
+              <p>Waiting for the last review…</p>
+            )}
+          </div>
+          {done && great && (
+            <div className="confetti small" aria-hidden="true">
+              {Array.from({ length: 24 }, (_, i) => (
+                <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.08}s`, ['--h' as string]: `${(i * 53) % 360}` }} />
+              ))}
+            </div>
           )}
         </div>
-        {done && great && (
-          <div className="confetti small" aria-hidden="true">
-            {Array.from({ length: 20 }, (_, i) => (
-              <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.08}s`, ['--h' as string]: `${(i * 53) % 360}` }} />
-            ))}
-          </div>
-        )}
-        <button className="btn primary" disabled={!done} onClick={close}>
-          {done ? 'Back to work' : 'Reading the reviews…'}
-        </button>
+        <div className="rv-actions">
+          <button className="btn primary" disabled={!done} onClick={close}>
+            {done ? 'Back to work →' : 'Reading the reviews…'}
+          </button>
+        </div>
       </div>
     </div>
   );
+}
+
+/** How a launch landed, as one word and a color. */
+function reception(r: number): { label: string; color: string } {
+  if (r >= 8) return { label: 'Hit', color: LAYER.silicon };
+  if (r >= 6) return { label: 'Solid', color: LAYER.models };
+  if (r >= 4) return { label: 'Mixed', color: LAYER.power };
+  return { label: 'Flop', color: '#ff7b8a' };
 }
