@@ -12,6 +12,7 @@ import { HOTKEYS, navOrder } from './ui/layers';
 import { Panel } from './panels/Panel';
 import { World } from './world/World';
 import { AlertsTray } from './world/Nudges';
+import { Shell2 } from './v2/Shell2';
 
 export function App() {
   const screen = useStore((s) => s.screen);
@@ -23,6 +24,7 @@ export function App() {
   const clearNotice = useStore((s) => s.clearNotice);
   const setPauseOpen = useStore((s) => s.setPauseOpen);
   const settings = useStore((s) => s.settings);
+  const g2 = useStore((s) => s.v2);
 
   useClock();
 
@@ -40,7 +42,7 @@ export function App() {
 
   // Esc closes the innermost thing first, then opens the pause menu. Number keys jump between sections.
   useEffect(() => {
-    if (screen !== 'game') return;
+    if (screen !== 'game' || useStore.getState().v2) return;
     const onKey = (e: KeyboardEvent) => {
       const st = useStore.getState();
       const el = e.target as HTMLElement;
@@ -91,6 +93,13 @@ export function App() {
       </div>
     );
   }
+  if (g2)
+    return (
+      <div className="app-root" style={style}>
+        <Shell2 g={g2} />
+        {toasts}
+      </div>
+    );
   if (!game) return null;
 
   return (

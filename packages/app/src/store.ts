@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import type { ChipDesign, Command, GameState, TrainingSpec } from '@stm/sim';
+import type { ChipDesign, Command, GameState, TrainingSpec, v2 } from '@stm/sim';
+import type { FromWorker2, ToWorker2 } from './sim2.worker';
+import { hqShim } from './v2/shim';
+import { needsOf } from './v2/needs';
+import { v2 as V2 } from '@stm/sim';
+const V2_TECHS = V2.TECHS;
 import type { FromWorker, ToWorker } from './sim.worker';
 import { detectMilestone, type Milestone } from './milestones';
 
@@ -10,6 +15,8 @@ import {
   deleteSave,
   listSaves,
   loadGame,
+  loadGameV2,
+  saveGameV2,
   loadSettings,
   saveGame,
   storeSettings,
@@ -21,6 +28,8 @@ import {
 import { viewForTab, type Tab, type WorldView } from './time';
 export type { Tab, WorldView };
 export type Screen = 'menu' | 'game';
+/** Sections of the rebooted (v2) game. */
+export type Tab2 = 'company' | 'studio' | 'products' | 'markets' | 'team' | 'research' | 'stats' | 'hq';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {
@@ -35,6 +44,23 @@ export interface BuildState {
 interface Store {
   screen: Screen;
   game: GameState | null;
+  /** The rebooted game, when one is running (game then holds an HQ adapter for the 3D view). */
+  v2: v2.GameV2 | null;
+  tab2: Tab2;
+  /** Project open in the Studio. */
+  project2: string | null;
+  /** A product whose launch reviews are showing. */
+  review2: string | null;
+  /** A breakthrough being announced. */
+  breakthrough2: string | null;
+  /** Why the clock stopped by itself (shown in the top bar). */
+  autoPaused: string | null;
+  newGameV2: (companyName: string, seed?: number) => void;
+  send2: (cmd: v2.CommandV2) => void;
+  setTab2: (tab: Tab2) => void;
+  openProject2: (id: string | null) => void;
+  closeReview2: () => void;
+  closeBreakthrough2: () => void;
   error: string | null;
   notice: string | null;
   tab: Tab;
@@ -112,10 +138,20 @@ interface Store {
 
 const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
 const post = (msg: ToWorker) => worker.postMessage(msg);
+const worker2 = new Worker(new URL('./sim2.worker.ts', import.meta.url), { type: 'module' });
+const post2 = (msg: ToWorker2) => worker2.postMessage(msg);
+/** Room and HQ commands from the shared build mode, which the v2 game understands too. */
+const V2_SHARED = new Set(['placeRoom', 'moveRoom', 'demolishRoom', 'moveHq']);
 
 export const useStore = create<Store>((set, get) => ({
   screen: 'menu',
   game: null,
+  v2: null,
+  tab2: 'studio',
+  project2: null,
+  review2: null,
+  breakthrough2: null,
+  autoPaused: null,
   error: null,
   notice: null,
   tab: 'overview',
@@ -143,7 +179,25 @@ export const useStore = create<Store>((set, get) => ({
   saves: [],
   settings: loadSettings(),
 
-  send: (cmd) => post({ type: 'command', cmd }),
+  send: (cmd) => {
+    if (get().v2) {
+      if (V2_SHARED.has(cmd.type)) post2({ type: 'command', cmd: cmd as unknown as v2.CommandV2 });
+      return;
+    }
+    post({ type: 'command', cmd });
+  },
+  send2: (cmd) => {
+    if (cmd.type !== 'tick' && get().autoPaused) set({ autoPaused: null });
+    post2({ type: 'command', cmd });
+  },
+  newGameV2: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
+    set({ screen: 'game', v2: null, game: null, tab2: 'studio', project2: null, review2: null, breakthrough2: null, autoPaused: null, pauseOpen: false, build: null, selectedRoom: null, worldView: 'hq', floor: 0, speed: 0, inFlight: false });
+    post2({ type: 'newGame', seed, companyName });
+  },
+  setTab2: (tab2) => set({ tab2, build: null, selectedRoom: null }),
+  openProject2: (project2) => set({ project2, tab2: 'studio' }),
+  closeReview2: () => set({ review2: null }),
+  closeBreakthrough2: () => set({ breakthrough2: null }),
 
   newGame: (companyName, seed = Math.floor(Math.random() * 2 ** 31)) => {
     set({ screen: 'game', tab: 'overview', pauseOpen: false, game: null, build: null, selectedRoom: null, worldView: 'hq', floor: 0, chipDraft: null, modelDraft: null, reveal: null, review: null, siteId: null, hallId: null, milestone: null, dismissedNudges: [], memorialOpen: false, speed: get().settings.defaultSpeed, inFlight: false, activityOpen: false, alertsOpen: false, seenWeek: 0 });
@@ -151,6 +205,13 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   loadSave: async (id) => {
+    const g2 = await loadGameV2(id);
+    if (g2) {
+      set({ screen: 'game', v2: null, game: null, tab2: 'company', project2: null, review2: null, breakthrough2: null, autoPaused: null, pauseOpen: false, build: null, selectedRoom: null, worldView: 'hq', floor: 0, speed: 0, inFlight: false });
+      post2({ type: 'load', state: g2 });
+      return;
+    }
+    set({ v2: null });
     const res = await loadGame(id);
     if ('error' in res) {
       set({ error: res.error });
@@ -162,6 +223,13 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   saveTo: async (label) => {
+    const g2 = get().v2;
+    if (g2) {
+      await saveGameV2(g2, { label });
+      set({ notice: 'Game saved.' });
+      await get().refreshSaves();
+      return;
+    }
     const game = get().game;
     if (!game) return;
     await saveGame(game, { label });
@@ -177,6 +245,13 @@ export const useStore = create<Store>((set, get) => ({
   refreshSaves: async () => set({ saves: await listSaves() }),
 
   quitToMenu: async () => {
+    const g2 = get().v2;
+    if (g2) {
+      if (g2.status === 'playing') await saveGameV2(g2, { id: AUTOSAVE_ID, auto: true });
+      set({ screen: 'menu', pauseOpen: false, game: null, v2: null, speed: 0 });
+      await get().refreshSaves();
+      return;
+    }
     const game = get().game;
     if (game && game.status === 'playing') await saveGame(game, { id: AUTOSAVE_ID, auto: true });
     set({ screen: 'menu', pauseOpen: false, game: null });
@@ -251,6 +326,35 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
     void saveGame(state, { id: AUTOSAVE_ID, auto: true }).catch(() => undefined);
   }
 };
+
+worker2.onmessage = (e: MessageEvent<FromWorker2>) => {
+  const { state, error } = e.data;
+  const st = useStore.getState();
+  const prev = st.v2;
+  const patch: Partial<Store> = { v2: state, game: hqShim(state), error: error ?? null, inFlight: false };
+  if (prev) {
+    // A launch: show the reviews.
+    if (state.products.length > prev.products.length) patch.review2 = state.products[state.products.length - 1]!.id;
+    // A breakthrough: announce it.
+    const bt = state.research.done.find((d) => !prev.research.done.includes(d) && v2Breakthrough(d));
+    if (bt) patch.breakthrough2 = bt;
+    // Anything new that needs the player stops the clock (prompts never time out).
+    if (st.speed > 0) {
+      const before = new Set(needsOf(prev).map((n) => n.key));
+      const fresh = needsOf(state).find((n) => !before.has(n.key));
+      if (fresh || patch.review2 || patch.breakthrough2) {
+        patch.speed = 0;
+        patch.autoPaused = fresh?.text ?? (patch.review2 ? 'Launch day' : 'Breakthrough');
+      }
+    }
+    // Autosave at the start of each month.
+    if (Math.floor(state.day / 30) !== Math.floor(prev.day / 30) && st.settings.autosaveEveryWeeks > 0 && state.status === 'playing')
+      void saveGameV2(state, { id: AUTOSAVE_ID, auto: true }).catch(() => undefined);
+  }
+  useStore.setState(patch);
+};
+
+const v2Breakthrough = (id: string) => !!V2_TECHS.find((t) => t.id === id)?.breakthrough;
 
 export function boot(): void {
   cleanupLegacySaves();

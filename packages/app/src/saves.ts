@@ -1,5 +1,5 @@
 import { content } from '@stm/content';
-import { migrateSave, totalUsers, type GameState, type MigrationResult } from '@stm/sim';
+import { migrateSave, totalUsers, v2, type GameState, type MigrationResult } from '@stm/sim';
 
 /** What the load screen shows without reading the whole save. */
 export interface SaveMeta {
@@ -137,6 +137,30 @@ export async function loadGame(id: string): Promise<MigrationResult> {
   const file = await backend.read(id);
   if (!file) return { error: 'That save could not be found.' };
   return migrateSave(file.state, content);
+}
+
+/** A v2 save (the rebooted game), or null if the slot holds an older game. */
+export async function loadGameV2(id: string): Promise<v2.GameV2 | null> {
+  const file = await backend.read(id);
+  const st = file?.state as unknown as { version?: number } | undefined;
+  return st?.version === 2 ? (st as unknown as v2.GameV2) : null;
+}
+
+export async function saveGameV2(state: v2.GameV2, opts: { id?: string; label?: string; auto?: boolean } = {}): Promise<SaveMeta> {
+  const id = opts.id ?? `slot-${Date.now().toString(36)}`;
+  const meta: SaveMeta = {
+    id,
+    label: opts.label?.trim() || (opts.auto ? 'Autosave' : `${state.companyName} · ${v2.monthLabelV2(state.day)}`),
+    companyName: state.companyName,
+    week: Math.floor(state.day / 7),
+    cash: state.cash,
+    users: 0,
+    savedAt: new Date().toISOString(),
+    version: 2,
+    auto: !!opts.auto,
+  };
+  await backend.write({ meta, state: state as unknown as GameState });
+  return meta;
 }
 
 export async function deleteSave(id: string): Promise<void> {

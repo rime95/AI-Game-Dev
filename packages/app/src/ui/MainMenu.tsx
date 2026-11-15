@@ -91,10 +91,10 @@ export function MainMenu() {
 }
 
 function NewGameForm({ onBack }: { onBack: () => void }) {
-  const newGame = useStore((s) => s.newGame);
+  const newGameV2 = useStore((s) => s.newGameV2);
   const [name, setName] = useState(() => NAME_IDEAS[Math.floor(Math.random() * NAME_IDEAS.length)]!);
   const [seed, setSeed] = useState('');
-  const start = () => newGame(name, seed.trim() ? Math.abs(Math.floor(Number(seed))) || undefined : undefined);
+  const start = () => newGameV2(name, seed.trim() ? Math.abs(Math.floor(Number(seed))) || undefined : undefined);
   return (
     <form
       className="menu-section"

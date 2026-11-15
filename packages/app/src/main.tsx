@@ -5,6 +5,7 @@ import '@fontsource-variable/space-grotesk';
 import '@fontsource-variable/jetbrains-mono';
 import './styles.css';
 import './nightlab.css';
+import './v2/v2.css';
 import { App } from './App';
 import { boot } from './store';
 
