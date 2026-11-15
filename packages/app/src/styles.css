@@ -578,6 +578,7 @@ kbd {
 }
 .card h3 { font-size: 14.5px; }
 .card .sub { color: var(--ink-3); font-size: 12px; }
+.card.selection .row:not(.between) { flex-wrap: wrap; }
 .card.selection { border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 6%, var(--surface-2)); animation: slide-in 0.2s ease-out; }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .section-toggle { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--ink); }

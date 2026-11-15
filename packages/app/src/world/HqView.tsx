@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Html, MapControls } from '@react-three/drei';
-import { BufferGeometry, Float32BufferAttribute, type Group, type MeshStandardMaterial } from 'three';
+import { Environment, Html, MapControls, useTexture } from '@react-three/drei';
+import { BufferGeometry, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace, type Group, type MeshStandardMaterial } from 'three';
 import { content, type Discipline } from '@stm/content';
 import {
   deskStats,
@@ -27,6 +27,7 @@ import { useStore } from '../store';
 import { money } from '../format';
 import { LAYER } from '../ui/layers';
 import { DISCIPLINE_COLOR, roomArt, type Seat } from './roomArt';
+import { FitModel } from './Model';
 
 const DISCIPLINES: Discipline[] = ['research', 'modelEng', 'hardwareEng', 'product', 'ops'];
 
@@ -45,7 +46,11 @@ export function HqView({ game }: { game: GameState }) {
   return (
     <Canvas orthographic shadows camera={{ position: [20, 20, 20], zoom: 40, near: 0.1, far: 300 }}>
       <color attach="background" args={['#0e141c']} />
-      <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.95]} />
+      <hemisphereLight args={['#fffaf0', '#d9cfbb', 0.6]} />
+      {/* Soft studio light and reflections from a CC0 Poly Haven HDRI. */}
+      <Suspense fallback={null}>
+        <Environment files={`${import.meta.env.BASE_URL}env/poly_haven_studio_1k.exr`} environmentIntensity={0.55} />
+      </Suspense>
       <directionalLight
         position={[10, 18, 6]}
         intensity={1.5}
@@ -151,7 +156,7 @@ function Hq({ game }: { game: GameState }) {
   // Tile under the pointer, from a point on the floor plane.
   const toTile = (e: ThreeEvent<PointerEvent>) => ({ x: Math.floor(e.point.x + w / 2), y: Math.floor(e.point.z + h / 2) });
 
-  const ghost = build && hoverTile ? ghostFor(game, build.kind, build.templateId, build.rot, hoverTile, floor) : null;
+  const ghost = build && hoverTile ? ghostFor(game, build.kind, build.templateId, build.rot, hoverTile, floor, build.moveId) : null;
   const servers = useMemo(() => serverLayout(game, content), [game]);
   const rooms = game.hq.rooms.filter((r) => (r.floor ?? 0) === floor);
   const roomIds = new Set(rooms.map((r) => r.id));
@@ -174,7 +179,10 @@ function Hq({ game }: { game: GameState }) {
         onClick={(e) => {
           if (e.delta > 4) return; // a drag to pan, not a click
           if (ghost) {
-            if (ghost.ok)
+            if (ghost.ok && build!.moveId) {
+              send({ type: 'moveRoom', roomId: build!.moveId, x: ghost.x, y: ghost.y, rot: build!.rot, floor });
+              useStore.getState().cancelBuild();
+            } else if (ghost.ok)
               send(
                 build!.kind === 'room'
                   ? { type: 'placeRoom', templateId: build!.templateId, x: ghost.x, y: ghost.y, rot: build!.rot, floor }
@@ -185,12 +193,19 @@ function Hq({ game }: { game: GameState }) {
         onContextMenu={() => useStore.getState().cancelBuild()}
       >
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial color={look.floor} />
+        {stage.id === 'garage' ? (
+          <Suspense fallback={<meshStandardMaterial color={look.floor} />}>
+            <TiledFloor w={w} h={h} />
+          </Suspense>
+        ) : (
+          <meshStandardMaterial color={look.floor} />
+        )}
       </mesh>
       <GridLines w={w} h={h} strong={!!build} />
       <Walls w={w} h={h} look={look} garage={stage.id === 'garage'} />
+      {stage.id === 'garage' && floor === 0 && <GarageClutter game={game} w={w} h={h} />}
 
-      {rooms.map((room) => (
+      {rooms.filter((room) => room.id !== build?.moveId).map((room) => (
         <Room
           key={room.id}
           room={room}
@@ -269,6 +284,7 @@ function ghostFor(
   rot: number,
   tile: { x: number; y: number },
   floor: number,
+  moveId?: string,
 ) {
   const t = kind === 'room' ? templateDef(content, templateId) : equipmentDef(content, templateId);
   if (!t) return null;
@@ -276,6 +292,13 @@ function ghostFor(
   // Center the footprint on the pointer.
   const x = tile.x - Math.floor((f.w - 1) / 2);
   const y = tile.y - Math.floor((f.h - 1) / 2);
+  if (moveId) {
+    const moved = game.hq.rooms.find((r) => r.id === moveId);
+    const err =
+      placementError(game, content, templateId, x, y, rot, floor, moveId) ??
+      (moved && rot !== moved.rot && game.hq.equipment.some((e) => e.roomId === moveId) ? 'Empty the server room before turning it.' : null);
+    return { x, y, w: f.w, h: f.h, ok: !err, text: err ?? `Move the ${t.name.toLowerCase()} here · free` };
+  }
   const err =
     (kind === 'room'
       ? placementError(game, content, templateId, x, y, rot, floor)
@@ -316,6 +339,48 @@ export function Ghost({
           {text}
         </div>
       </Html>
+    </group>
+  );
+}
+
+/** Garage floor: CC0 Poly Haven "interior tiles", one texture repeat per 2 tiles. */
+function TiledFloor({ w, h }: { w: number; h: number }) {
+  const tex = useTexture(`${import.meta.env.BASE_URL}textures/interior-tiles/diff_1k.jpg`);
+  const map = useMemo(() => {
+    const t = tex.clone();
+    t.wrapS = t.wrapT = RepeatWrapping;
+    t.repeat.set(w / 2, h / 2);
+    t.colorSpace = SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
+  }, [tex, w, h]);
+  return <meshStandardMaterial map={map} roughness={0.85} />;
+}
+
+/** Boxes, a bin, a coat rack and a plant on free tiles along the garage's back and left walls. */
+function GarageClutter({ game, w, h }: { game: GameState; w: number; h: number }) {
+  const spots = useMemo(() => {
+    const free = freeTiles(game, w, h).filter((t) => t.x === 0 || t.y === 0);
+    return free.sort((a, b) => a.x + a.y - (b.x + b.y));
+  }, [game, w, h]);
+  const items: { model: string; size: [number, number, number]; face: number }[] = [
+    { model: 'cardboardBoxClosed', size: [0.3, 0.32, 0.3], face: 0.3 },
+    { model: 'coatRackStanding', size: [0.3, 0.85, 0.3], face: 0 },
+    { model: 'cardboardBoxOpen', size: [0.42, 0.3, 0.3], face: -0.2 },
+    { model: 'trashcan', size: [0.3, 0.4, 0.3], face: 0 },
+    { model: 'pottedPlant', size: [0.34, 0.62, 0.34], face: 0 },
+    { model: 'cardboardBoxClosed', size: [0.26, 0.26, 0.26], face: 0.8 },
+  ];
+  return (
+    <group>
+      {spots.slice(0, items.length).map((t, i) => (
+        <Suspense key={`${t.x},${t.y}`} fallback={null}>
+          {/* Tucked toward the wall corner of the tile, leaving room for people. */}
+          <group position={[t.x - w / 2 + (t.x === 0 ? 0.25 : 0.5), 0, t.y - h / 2 + (t.y === 0 ? 0.25 : 0.5)]}>
+            <FitModel name={items[i].model} size={items[i].size} face={items[i].face} />
+          </group>
+        </Suspense>
+      ))}
     </group>
   );
 }
@@ -428,7 +493,9 @@ function Room({
 }: RoomProps) {
   const t = templateDef(content, room.templateId)!;
   const rect = roomRect(content, room);
-  const art = useMemo(() => roomArt(t, room.tier), [t, room.tier]);
+  const retro = useStore((s) => s.game?.era === 'founding');
+  const tiled = useStore((s) => s.game?.hq.stage === 'garage');
+  const art = useMemo(() => roomArt(t, room.tier, retro), [t, room.tier, retro]);
   const cx = rect.x + rect.w / 2 - stageW / 2;
   const cz = rect.y + rect.h / 2 - stageH / 2;
   const wallH = 0.22;
@@ -460,7 +527,8 @@ function Room({
         }}
       >
         <planeGeometry args={[rect.w - 0.04, rect.h - 0.04]} />
-        <meshStandardMaterial color={heat ? heatTint(heat.itKW, heat.coolingKW) : art.floor} />
+        {/* On a tiled floor the room tint is see-through so the tiles show. */}
+        <meshStandardMaterial color={heat ? heatTint(heat.itKW, heat.coolingKW) : art.floor} transparent={tiled} opacity={tiled ? 0.45 : 1} />
       </mesh>
       {/* Low walls in the layer color */}
       {(
@@ -479,16 +547,30 @@ function Room({
       {/* Furniture and people, laid out in the template frame and rotated with the room */}
       <group rotation={[0, (-room.rot * Math.PI) / 2, 0]}>
         <group position={[-t.w / 2, 0, -t.h / 2]}>
-          {art.props.map((p, i) => (
-            <mesh key={i} position={[p.u, (p.y ?? 0) + p.size[1] / 2, p.v]} castShadow receiveShadow raycast={() => null}>
-              <boxGeometry args={p.size} />
-              <meshStandardMaterial
-                color={p.trainingGlow && training ? LAYER.models : p.color}
-                emissive={p.trainingGlow && training ? LAYER.models : p.color}
-                emissiveIntensity={p.trainingGlow && training ? 0.8 : (p.glow ?? 0)}
-              />
-            </mesh>
-          ))}
+          {art.props.map((p, i) => {
+            const box = (
+              <mesh position={[p.u, (p.y ?? 0) + p.size[1] / 2, p.v]} castShadow receiveShadow raycast={() => null}>
+                <boxGeometry args={p.size} />
+                <meshStandardMaterial
+                  color={p.trainingGlow && training ? LAYER.models : p.color}
+                  emissive={p.trainingGlow && training ? LAYER.models : p.color}
+                  emissiveIntensity={p.trainingGlow && training ? 0.8 : (p.glow ?? 0)}
+                />
+              </mesh>
+            );
+            if (!p.model) return <group key={i}>{box}</group>;
+            return (
+              <Suspense key={i} fallback={box}>
+                <group position={[p.u, p.y ?? 0, p.v]}>
+                  <FitModel name={p.model} size={p.size} face={p.face} stretch={p.stretch} />
+                  {p.trainingGlow && training && (
+                    // Screens glow while a model trains.
+                    <pointLight position={[0, p.size[1] * 0.6, 0]} color={LAYER.models} intensity={0.6} distance={0.9} />
+                  )}
+                </group>
+              </Suspense>
+            );
+          })}
           {people.slice(0, seats.length).map((person, i) => (
             <SeatedFigure
               key={person.key}

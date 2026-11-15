@@ -505,6 +505,8 @@ export type Command =
   | { type: 'declineOffer'; offerId: string }
   | { type: 'placeRoom'; templateId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'demolishRoom'; roomId: string }
+  /** Pick a room up and put it somewhere else on the same building, free. */
+  | { type: 'moveRoom'; roomId: string; x: number; y: number; rot: number; floor?: number }
   | { type: 'upgradeRoom'; roomId: string }
   | { type: 'moveHq' }
   | { type: 'placeEquipment'; equipId: string; x: number; y: number; rot: number; floor?: number; hallId?: string }

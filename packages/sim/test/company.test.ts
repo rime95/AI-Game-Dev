@@ -183,3 +183,20 @@ describe('the chip-company years', () => {
     expect('state' in res && res.state.era).toBe('ai');
   });
 });
+
+describe('moving rooms', () => {
+  it('moves a room for free and refuses spots that are taken or outside', () => {
+    let s = createFoundingGame(content, 1);
+    const bench = s.hq.rooms.find((r) => r.templateId === 'workbench')!;
+    const cash = s.cash;
+    s = act(s, { type: 'moveRoom', roomId: bench.id, x: 5, y: 4, rot: 0 });
+    const moved = s.hq.rooms.find((r) => r.id === bench.id)!;
+    expect([moved.x, moved.y]).toEqual([5, 4]);
+    expect(s.cash).toBe(cash);
+    // Nudging it one tile over its own old spot is fine; off the edge is not.
+    s = act(s, { type: 'moveRoom', roomId: bench.id, x: 4, y: 4, rot: 0 });
+    expect(applyCommand(s, content, { type: 'moveRoom', roomId: bench.id, x: 7, y: 4, rot: 0 }).error).toBeTruthy();
+    const other = s.hq.rooms.find((r) => r.id !== bench.id)!;
+    expect(applyCommand(s, content, { type: 'moveRoom', roomId: bench.id, x: other.x, y: other.y, rot: other.rot }).error).toBeTruthy();
+  });
+});

@@ -28,6 +28,8 @@ export interface BuildState {
   kind: 'room' | 'equipment';
   templateId: string;
   rot: number;
+  /** Moving an existing room instead of building a new one. */
+  moveId?: string;
 }
 
 interface Store {
@@ -82,6 +84,8 @@ interface Store {
   setTab: (tab: Tab) => void;
   setWorldView: (v: WorldView) => void;
   startBuild: (templateId: string, kind?: 'room' | 'equipment') => void;
+  /** Pick up a placed room to put it somewhere else. */
+  startMove: (roomId: string) => void;
   rotateBuild: () => void;
   cancelBuild: () => void;
   selectRoom: (id: string | null) => void;
@@ -186,6 +190,10 @@ export const useStore = create<Store>((set, get) => ({
   },
   setWorldView: (worldView) => set({ worldView, build: null, selectedRoom: null }),
   startBuild: (templateId, kind = 'room') => set({ build: { kind, templateId, rot: 0 }, worldView: 'hq', selectedRoom: null }),
+  startMove: (roomId) => {
+    const room = get().game?.hq.rooms.find((r) => r.id === roomId);
+    if (room) set({ build: { kind: 'room', templateId: room.templateId, rot: room.rot, moveId: room.id }, worldView: 'hq', selectedRoom: null, floor: room.floor ?? 0 });
+  },
   rotateBuild: () => {
     const b = get().build;
     if (b) set({ build: { ...b, rot: (b.rot + 1) % 4 } });

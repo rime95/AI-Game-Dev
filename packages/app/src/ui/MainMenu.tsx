@@ -4,7 +4,7 @@ import { isDesktop } from '../saves';
 import { money } from '../format';
 import { SaveList, SettingsForm } from './SaveList';
 
-type View = 'home' | 'new' | 'load' | 'settings';
+type View = 'home' | 'new' | 'load' | 'settings' | 'credits';
 
 const NAME_IDEAS = ['Sandbox Labs', 'Quartz Mind', 'Lumen Works', 'First Principles AI', 'Copperline Intelligence', 'Northlight'];
 
@@ -42,6 +42,9 @@ export function MainMenu() {
             <button className="btn big" onClick={() => setView('settings')}>
               Settings
             </button>
+            <button className="btn big" onClick={() => setView('credits')}>
+              Credits
+            </button>
             {isDesktop && (
               <button className="btn big" onClick={() => window.stmDesktop?.quit()}>
                 Quit
@@ -66,6 +69,17 @@ export function MainMenu() {
           <section className="menu-section">
             <h2>Settings</h2>
             <SettingsForm />
+            <button className="btn" onClick={() => setView('home')}>
+              Back
+            </button>
+          </section>
+        )}
+        {view === 'credits' && (
+          <section className="menu-section">
+            <h2>Credits</h2>
+            <p className="small">Furniture and props: Furniture Kit by Kenney (kenney.nl), CC0.</p>
+            <p className="small">Beige computer: “Computer” by Poly by Google, via poly.pizza, CC-BY 3.0.</p>
+            <p className="small">Floor texture and studio lighting: Poly Haven (polyhaven.com), CC0.</p>
             <button className="btn" onClick={() => setView('home')}>
               Back
             </button>

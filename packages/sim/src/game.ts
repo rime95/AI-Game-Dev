@@ -255,6 +255,7 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
         if (!content.founding.rooms.includes(cmd.templateId)) return fail('That kind of room comes later in the company\'s story.');
         break;
       case 'demolishRoom':
+      case 'moveRoom':
       case 'upgradeRoom':
       case 'moveHq':
       case 'resolveEvent':
@@ -447,6 +448,26 @@ function runCommand(prev: GameState, content: Content, cmd: Command): CommandRes
       if (state.cash < cost) return fail('Not enough cash.');
       state.cash -= cost;
       state.hq.rooms.push({ id: `room-${state.nextId++}`, templateId: t.id, x: cmd.x, y: cmd.y, rot, floor, tier: 1, spent: cost });
+      return { state };
+    }
+
+    case 'moveRoom': {
+      const room = state.hq.rooms.find((r) => r.id === cmd.roomId);
+      if (!room) return fail('Unknown room.');
+      const rot = ((Math.floor(cmd.rot) % 4) + 4) % 4;
+      const floor = cmd.floor ?? room.floor ?? 0;
+      const err = placementError(state, content, room.templateId, cmd.x, cmd.y, rot, floor, room.id);
+      if (err) return fail(err);
+      const inRoom = state.hq.equipment.filter((e) => e.roomId === room.id);
+      if (inRoom.length && rot !== room.rot) return fail('Empty the server room before turning it.');
+      for (const e of inRoom) {
+        e.x += cmd.x - room.x;
+        e.y += cmd.y - room.y;
+      }
+      room.x = cmd.x;
+      room.y = cmd.y;
+      room.rot = rot;
+      room.floor = floor;
       return { state };
     }
 

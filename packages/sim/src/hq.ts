@@ -58,6 +58,8 @@ export function placementError(
   y: number,
   rot: number,
   floor = 0,
+  /** A room being moved: it doesn't block its own new spot. */
+  ignoreId?: string,
 ): string | null {
   const t = templateDef(content, templateId);
   if (!t) return 'Unknown room.';
@@ -68,7 +70,7 @@ export function placementError(
   if (floor < 0 || floor >= stage.floors) return 'There is no such floor.';
   const r = { x, y, ...footprint(t, rot) };
   if (r.x < 0 || r.y < 0 || r.x + r.w > stage.w || r.y + r.h > stage.h) return `It doesn't fit inside the ${lowerName(stage.name)}.`;
-  if (state.hq.rooms.some((o) => (o.floor ?? 0) === floor && overlaps(r, roomRect(content, o)))) return 'Something is already there.';
+  if (state.hq.rooms.some((o) => o.id !== ignoreId && (o.floor ?? 0) === floor && overlaps(r, roomRect(content, o)))) return 'Something is already there.';
   return null;
 }
 

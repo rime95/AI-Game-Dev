@@ -435,13 +435,20 @@ function RoomCard({ game, id }: { game: GameState; id: string }) {
       </div>
       <div className="small">{effect}</div>
       {adjacentBreak && <div className="small muted">Next to a break room: +{TUNING.labNextToBreakBonus * 100}%.</div>}
-      <div className="small muted">Upkeep {money(t.upkeepPerWeek * room.tier)}/wk</div>
+      <div className="small muted">
+        {game.era === 'founding'
+          ? `Upkeep ${money(t.upkeepPerWeek * room.tier * (52 / 12) * TUNING.foundingCostScale)}/month`
+          : `Upkeep ${money(t.upkeepPerWeek * room.tier)}/wk`}
+      </div>
       <div className="row">
         {up !== null && (
           <button className="btn primary" disabled={game.cash < up} onClick={() => send({ type: 'upgradeRoom', roomId: room.id })}>
             Upgrade to tier {room.tier + 1} ({money(up)}) · ×{t.tierEffect[room.tier].toFixed(1)}
           </button>
         )}
+        <button className="btn" title="Pick it up and place it somewhere else (R turns it)" onClick={() => useStore.getState().startMove(room.id)}>
+          Move
+        </button>
         <button
           className="btn"
           onClick={() => {
