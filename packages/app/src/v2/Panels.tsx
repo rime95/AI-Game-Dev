@@ -3,6 +3,7 @@ import { content } from '@stm/content';
 import { templateDef, v2 } from '@stm/sim';
 import { useStore } from '../store';
 import { LAYER } from '../ui/layers';
+import { BoxArt } from './art/BoxArt';
 import { Bars, LineChart, OWNER_COLORS, Sparkline } from './charts';
 import { GrowCards } from './Wealth';
 
@@ -123,12 +124,23 @@ export function CompanyPanel({ g }: { g: G }) {
 
 export function ProductsPanel({ g }: { g: G }) {
   const send = useStore((s) => s.send2);
-  const openProject = useStore((s) => s.openProject2);
+  const openWizard = useStore((s) => s.openWizard);
   const onSale = v2.activeProducts(g);
   const retired = g.products.filter((p) => p.retiredDay !== undefined);
+  const showcase = useStore((s) => s.showcase);
+  const setShowcase = useStore((s) => s.setShowcase);
   if (!g.products.length) return <div className="empty">Nothing on the shelf yet. Design your first chip in the Studio.</div>;
+  const shelf = [...onSale].sort((a, b) => b.launchDay - a.launchDay).slice(0, 12);
   return (
     <>
+      <div className="shelf">
+        {shelf.map((p) => (
+          <button key={p.id} className="shelf-item" aria-pressed={showcase === p.id} onClick={() => setShowcase(showcase === p.id ? null : p.id)} title="Show it in 3D">
+            <BoxArt product={p} company={g.companyName} width={124} />
+            <small>{v2.monthLabelV2(p.launchDay)}</small>
+          </button>
+        ))}
+      </div>
       {onSale.map((p) => {
         const now = v2.currentScore(p, g.day);
         const fair = v2.fairPrice(p.marketId, now);
@@ -176,18 +188,8 @@ export function ProductsPanel({ g }: { g: G }) {
               </span>
             </div>
             <div className="row">
-              <button
-                className="btn sm"
-                onClick={() => {
-                  send({ type: 'startProject', name: `${p.name}+`, kind: p.kind, marketId: p.marketId, size: p.size, nodeId: v2.bestNode(g).id, refreshOf: p.id });
-                  setTimeout(() => {
-                    const last = useStore.getState().v2?.projects.at(-1);
-                    if (last) openProject(last.id);
-                  }, 80);
-                }}
-                title="A refresh starts from this die layout and needs 40% less design work."
-              >
-                Refresh (newer process)
+              <button className="btn sm" onClick={() => openWizard(p.id)} title="Starts from this die layout and keeps its learnings: +5% performance, fewer bugs, 40% less design work.">
+                Build on this
               </button>
               <button className="btn sm ghost" onClick={() => send({ type: 'retireProduct', productId: p.id })}>
                 Retire
@@ -739,6 +741,7 @@ export { Sparkline };
 /** Data centers, your own fab and the AGI program: the late game's strategic builds. */
 function Facilities({ g }: { g: G }) {
   const send = useStore((s) => s.send2);
+  const setTab = useStore((s) => s.setTab2);
   const done = g.research.done;
   if (!done.includes('datacenters') && !done.includes('ownfab') && !done.includes('agi')) return null;
   const f = g.facilities;
@@ -750,20 +753,17 @@ function Facilities({ g }: { g: G }) {
       {done.includes('datacenters') && (
         <div className="exec">
           <div className="row between">
-            <b>Data centers</b>
-            <span className="small muted">{f.dc.toLocaleString('en-US')} AI customers a day</span>
+            <b>Data center campuses</b>
+            <span className="small muted">
+              {(g.compute?.campuses.length ?? 0)} campus{(g.compute?.campuses.length ?? 0) === 1 ? '' : 'es'} · {Math.round(v2.totalPf(g)).toLocaleString('en-US')} PF
+            </span>
           </div>
           <div className="small muted">
-            AI models can only serve as many customers as your data centers hold. Each adds {v2.FAC.dc.add.toLocaleString('en-US')} a day ({$(v2.FAC.dc.upkeep)}/mo upkeep).
-            {modelDemand > 0 && ` Serving ${Math.round(modelDemand).toLocaleString('en-US')} a day now.`}
+            Your AI models train and serve on your campuses; fill them with your own accelerators for more compute per dollar.
+            {modelDemand > 0 && ` Serving ${Math.round(modelDemand).toLocaleString('en-US')} AI customers a day.`}
           </div>
-          {f.dcBuilds.map((b, i) => (
-            <div key={i} className="small">
-              Building: online {v2.dateLabel(b.doneDay)}
-            </div>
-          ))}
-          <button className="btn sm" disabled={!!v2.buildError(g, 'dc')} title={v2.buildError(g, 'dc') ?? ''} onClick={() => send({ type: 'buildDatacenter' })}>
-            Build a data center ({$(v2.FAC.dc.cost)}, {v2.FAC.dc.days} days)
+          <button className="btn sm" onClick={() => setTab('compute')}>
+            Open Compute
           </button>
         </div>
       )}
@@ -788,14 +788,14 @@ function Facilities({ g }: { g: G }) {
         <div className="exec">
           <div className="row between">
             <b>The AGI program</b>
-            <span className="small muted">{g.agi ? `ends ${v2.dateLabel(g.agi.doneDay)}` : 'not started'}</span>
+            <span className="small muted">{g.agi ? `${Math.round(((g.agi.pfDays ?? 0) / (g.agi.need ?? 1)) * 100)}% trained` : 'not started'}</span>
           </div>
           <div className="small muted">
-            A year-long push to general intelligence. It needs data centers serving {v2.FAC.agi.dc.toLocaleString('en-US')} a day. With alignment research and a trusted brand (55+) it ends safely; without, recklessly.
+            The final training run. It needs {v2.FAC.agi.mw} MW of campuses and shares your training compute until it has had enough: the more and better your compute, the sooner. With alignment research and a trusted brand (55+) it ends safely; without, recklessly.
           </div>
           {g.agi ? (
             <div className="bar" style={{ ['--c' as string]: LAYER.models }}>
-              <div style={{ width: `${Math.min(100, ((g.day - g.agi.startDay) / (g.agi.doneDay - g.agi.startDay)) * 100)}%` }} />
+              <div style={{ width: `${Math.min(100, ((g.agi.pfDays ?? 0) / (g.agi.need ?? 1)) * 100)}%` }} />
             </div>
           ) : (
             <button className="btn primary sm" disabled={!!v2.buildError(g, 'agi')} title={v2.buildError(g, 'agi') ?? ''} onClick={() => confirm('Start the AGI program? This is the final chapter.') && send({ type: 'startAgi' })}>

@@ -28,6 +28,7 @@ import { money } from '../format';
 import { LAYER } from '../ui/layers';
 import { DISCIPLINE_COLOR, roomArt } from './roomArt';
 import { FitModel } from './Model';
+import { DisplayWall } from './DisplayWall';
 import { Character, type Activity } from './Character';
 import { FOUNDER_PALETTE, personPalette, propPalette } from './palettes';
 
@@ -244,6 +245,7 @@ function Hq({ game }: { game: GameState }) {
       </mesh>
       <GridLines w={w} h={h} strong={!!build} />
       <Walls w={w} h={h} look={look} garage={stage.id === 'garage'} />
+      {floor === 0 && <DisplayWall w={w} h={h} wallHeight={look.backWall} />}
       {stage.id === 'garage' && floor === 0 && <GarageClutter game={game} w={w} h={h} />}
       {stage.id === 'garage' && floor === 0 && (
         <Suspense fallback={null}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { v2 } from '@stm/sim';
 import { useStore } from '../store';
 import { LAYER } from '../ui/layers';
+import { ProductHero } from './hero/ProductHero';
 
 type G = v2.GameV2;
 type Pr = v2.Project;
@@ -46,123 +47,21 @@ export function StudioPanel({ g }: { g: G }) {
 const phasePct = (p: Pr) => (p.phase === 'ready' ? 100 : Math.round((Math.min(p.progress, p.need) / Math.max(1, p.need)) * 100));
 
 function NewProject({ g }: { g: G }) {
-  const send = useStore((s) => s.send2);
-  const openProject = useStore((s) => s.openProject2);
-  const kinds = v2.KINDS.filter((k) => v2.kindUnlocked(g, k.id));
-  const [kind, setKind] = useState<v2.ProductKind>(kinds[0]!.id);
-  const markets = g.markets.map((m) => v2.market(m.id)).filter((m) => m.kind === kind);
-  const [marketId, setMarket] = useState(markets[0]?.id ?? '');
-  const [size, setSize] = useState<v2.ProjectSize>('S');
-  const nodes = v2.NODES.filter((n) => v2.nodeUnlocked(g, n.id));
-  const [nodeId, setNode] = useState(nodes[nodes.length - 1]!.id);
-  const [name, setName] = useState('');
-  const count = g.products.length + g.projects.length + 1;
-  const suggested = `${g.companyName.split(' ')[0]} ${kind === 'gpu' ? 'G' : kind === 'cpu' ? 'X' : kind[0]!.toUpperCase()}${count}`;
-  const m = markets.find((x) => x.id === marketId) ?? markets[0];
-  useEffect(() => {
-    if (!markets.some((x) => x.id === marketId)) setMarket(markets[0]?.id ?? '');
-  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
-  const costs = v2.chipCosts(size, nodeId);
-  const sz = v2.SIZES[size];
-  const known = m ? g.notebook.tastes[m.id] ?? [] : [];
-  const best = m ? v2.playerBest(g, m.id) : null;
-  const rivalTop = m ? Math.max(0, ...g.rivals.flatMap((r) => r.products.filter((p) => p.marketId === m.id).map((p) => v2.rivalScore(g, p)))) : 0;
+  const openWizard = useStore((s) => s.openWizard);
   const idle = g.staff.filter((p) => p.task === null).length;
+  const recent = g.products.slice(-2).reverse();
   return (
-    <div className="card">
-      <h3>Design a new chip</h3>
-      <div className="field">
-        <label>Name</label>
-        <input value={name} placeholder={suggested} onChange={(e) => setName(e.target.value)} maxLength={40} />
-      </div>
-      <div className="field">
-        <span className="label">What kind of chip?</span>
-        <div className="pick-grid">
-          {kinds.map((k) => (
-            <button key={k.id} className="pick" aria-pressed={kind === k.id} onClick={() => setKind(k.id)} style={{ ['--c' as string]: LAYER.silicon }}>
-              <span className="pick-title">{k.name}</span>
-              <span className="pick-sub">{k.blurb}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="field">
-        <span className="label">For which buyers?</span>
-        <div className="pick-grid">
-          {markets.map((mk) => (
-            <button key={mk.id} className="pick" aria-pressed={m?.id === mk.id} onClick={() => setMarket(mk.id)} style={{ ['--c' as string]: LAYER.compute }}>
-              <span className="pick-title">{mk.name}</span>
-              <span className="pick-sub">{mk.blurb}</span>
-            </button>
-          ))}
-        </div>
-        {m && (
-          <p className="small muted">
-            {known.length ? `You know they care about: ${known.map((k) => v2.STAT_NAMES[k].toLowerCase()).join(', then ')}.` : 'You don’t know what they care about yet; launches will teach you.'}{' '}
-            {best !== null ? `Your best here: ${best.toFixed(1)}.` : ''} Best rival: {rivalTop.toFixed(1)}.
-          </p>
-        )}
-      </div>
-      <div className="field">
-        <span className="label">How big?</span>
-        <div className="pick-grid three">
-          {(['S', 'M', 'L', 'XL'] as const)
-            .filter((k) => !v2.SIZES[k].tech || g.research.done.includes(v2.SIZES[k].tech!))
-            .map((k) => (
-            <button key={k} className="pick" aria-pressed={size === k} onClick={() => setSize(k)} style={{ ['--c' as string]: LAYER.models }}>
-              <span className="pick-title">{v2.SIZES[k].name}</span>
-              <span className="pick-sub">
-                {v2.SIZES[k].w}×{v2.SIZES[k].h} die · {v2.SIZES[k].work}× work · best with {v2.SIZES[k].minTeam}+ people
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="field">
-        <label>Process</label>
-        <select value={nodeId} onChange={(e) => setNode(e.target.value)}>
-          {nodes.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name} · masks {v2.moneyV2(v2.chipCosts(size, n.id).maskCost)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="outcomes">
-        <div>
-          <span className="k">Masks (at tape-out)</span>
-          <span className="v">{v2.moneyV2(costs.maskCost)}</span>
-        </div>
-        <div>
-          <span className="k">Cost per chip</span>
-          <span className="v">{v2.moneyV2(costs.unitCost)}</span>
-        </div>
-        <div>
-          <span className="k">At the fab</span>
-          <span className="v">{costs.fabDays} days</span>
-        </div>
-        <div>
-          <span className="k">Die</span>
-          <span className="v">
-            {sz.w}×{sz.h}
-          </span>
-        </div>
-      </div>
-      <button
-        className="btn primary"
-        disabled={!m}
-        onClick={() => {
-          if (!m) return;
-          send({ type: 'startProject', name: name.trim() || suggested, kind, marketId: m.id, size, nodeId });
-          setName('');
-          setTimeout(() => {
-            const last = useStore.getState().v2?.projects.at(-1);
-            if (last) openProject(last.id);
-          }, 80);
-        }}
-      >
-        Start designing{idle ? ` (${idle} free ${idle === 1 ? 'person joins' : 'people join'})` : ''}
+    <div className="card new-chip">
+      <h3>Make something new</h3>
+      <p className="small muted">Step by step: what it's for, the process, the die, memory and cooling, the team.</p>
+      <button className="btn primary big" onClick={() => openWizard()}>
+        Design a new chip{idle ? ` · ${idle} free ${idle === 1 ? 'person' : 'people'}` : ''}
       </button>
+      {recent.map((p) => (
+        <button key={p.id} className="btn ghost" onClick={() => openWizard(p.id)}>
+          Build on the {p.name} (keeps its learnings)
+        </button>
+      ))}
     </div>
   );
 }
@@ -230,6 +129,9 @@ function ProjectDetail({ g, pr, onBack }: { g: G; pr: Pr; onBack: () => void }) 
 
       {pr.phase === 'architecture' && (
         <div className="card">
+          <div className="hero-box">
+            <ProductHero spec={pr} compact caption="Live preview · drag to rotate" />
+          </div>
           <h3>Die layout</h3>
           <p className="small muted">Place blocks on the die in the main view. Neighbours give bonuses; watch the heat budget. Empty tiles are trimmed off: a cheaper chip.</p>
           <div className="row">
@@ -366,28 +268,80 @@ function LaunchForm({ g, pr }: { g: G; pr: Pr }) {
 
 export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
   const send = useStore((s) => s.send2);
-  const blocks = v2.BLOCKS.filter((b) => v2.blockUnlocked(g, b.id));
-  const [brush, setBrush] = useState<string | null>('core');
-  const { w, h } = v2.SIZES[pr.size];
-  const ev = useMemo(() => v2.evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), [pr.board, pr.size, pr.nodeId, pr.kind]);
   const f = v2.projectForecast(g, pr);
-  const m = v2.market(pr.marketId);
-  const known = g.notebook.tastes[pr.marketId] ?? [];
-  const best = g.notebook.best[`${pr.kind}:${pr.marketId}`];
+  return (
+    <DieEditor
+      g={g}
+      draft={pr}
+      name={pr.name}
+      forecast={f.total}
+      onChange={(board) => send({ type: 'setBoard', projectId: pr.id, board })}
+      layoutBoard={() => (v2.execOf(g, 'engineer') ? v2.engineerBoard(g, pr) : v2.starterBoard(g, pr))}
+    />
+  );
+}
+
+/** Expected die score for a wizard draft (before any work is done). */
+export function draftForecast(g: G, d: v2.DraftLike): number {
+  const ev = v2.evaluateBoard(d.board, d.size, d.nodeId, d.kind, v2.specOf(d));
+  return v2.boardScore(ev, d.marketId, g.day, v2.expectOf(g, d.marketId));
+}
+
+/**
+ * The die board: pick a block, click tiles. Keeps its own copy of the layout so quick clicks never
+ * get lost while the game state catches up, and reports every change.
+ */
+export function DieEditor({
+  g,
+  draft,
+  name,
+  forecast,
+  onChange,
+  layoutBoard,
+}: {
+  g: G;
+  draft: v2.DraftLike;
+  name: string;
+  forecast: number;
+  onChange: (board: (string | null)[]) => void;
+  layoutBoard: () => (string | null)[];
+}) {
+  const blocks = v2.BLOCKS.filter((b) => v2.blockUnlocked(g, b.id));
+  const [brush, setBrush] = useState<string | null>(v2.kind(draft.kind).needs[0] ?? 'core');
+  const [board, setBoard] = useState(draft.board);
+  // Follow outside changes (auto-layout, undo, a new draft) but not our own echo.
+  const outside = draft.board.join(',');
+  useEffect(() => setBoard(draft.board), [outside]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { w, h } = v2.SIZES[draft.size];
+  const spec = v2.specOf(draft);
+  const key = board.join(',');
+  const ev = useMemo(
+    () => v2.evaluateBoard(board, draft.size, draft.nodeId, draft.kind, spec),
+    [key, draft.size, draft.nodeId, draft.kind, spec.tier, spec.memory, spec.cooling, spec.lineage], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const m = v2.market(draft.marketId);
+  const known = g.notebook.tastes[draft.marketId] ?? [];
+  const best = g.notebook.best[`${draft.kind}:${draft.marketId}`];
+  const commit = (next: (string | null)[]) => {
+    setBoard(next);
+    onChange(next);
+  };
   const setCell = (i: number, id: string | null) => {
-    const board = [...pr.board];
-    board[i] = id;
-    send({ type: 'setBoard', projectId: pr.id, board });
+    if (board[i] === id) return;
+    const next = [...board];
+    next[i] = id;
+    commit(next);
   };
   const heatPct = Math.min(140, (ev.heat / ev.budget) * 100);
+  const eng = v2.execOf(g, 'engineer');
   return (
     <div className="dieboard">
       <div className="db-head">
         <span className="bp-tag">Die layout</span>
         <div>
-          <div className="bp-title">{pr.name}</div>
+          <div className="bp-title">{name}</div>
           <div className="bp-sub">
-            {v2.kind(pr.kind).name} for {m.name} · needs {v2.kind(pr.kind).needs.map((b) => v2.block(b).short).join(', ')}
+            {v2.kind(draft.kind).name} for {m.name} · needs {v2.kind(draft.kind).needs.map((b) => v2.block(b).short).join(', ')}
           </div>
         </div>
       </div>
@@ -405,7 +359,7 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
           </button>
         </div>
         <div className="db-grid die" style={{ gridTemplateColumns: `repeat(${w}, 1fr)`, aspectRatio: `${w} / ${h}` }}>
-          {pr.board.map((c, i) => {
+          {board.map((c, i) => {
             const b = c ? v2.block(c) : null;
             const dead = ev.dead.includes(i);
             const gain = ev.cells[i];
@@ -421,7 +375,14 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
                 title={b ? `${b.name}${dead ? ' (does nothing here: needs the edge)' : ''}` : 'Empty'}
               >
                 {b && <span>{b.short}</span>}
-                {b && gain && !dead && <small>{Object.entries(gain).filter(([, v]) => (v ?? 0) > 0).map(([k, v]) => `${v2.STAT_NAMES[k as v2.Stat][0]}${Math.round((v as number) * 10) / 10}`).join(' ')}</small>}
+                {b && gain && !dead && (
+                  <small>
+                    {Object.entries(gain)
+                      .filter(([, v]) => (v ?? 0) > 0)
+                      .map(([k, v]) => `${v2.STAT_NAMES[k as v2.Stat][0]}${Math.round((v as number) * 10) / 10}`)
+                      .join(' ')}
+                  </small>
+                )}
               </button>
             );
           })}
@@ -429,12 +390,17 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
         <div className="db-stats">
           <div className="db-score">
             <span className="k">Expected review</span>
-            <span className="big">{f.total.toFixed(1)}</span>
+            <span className="big">{forecast.toFixed(1)}</span>
           </div>
           {(['perf', 'gfx', 'eff', 'feat'] as v2.Stat[]).map((k) => (
             <div key={k} className="db-stat">
               <span>
-                {v2.STAT_NAMES[k]} {known.includes(k) && <span className="chip" style={{ ['--c' as string]: LAYER.silicon }}>buyers want #{known.indexOf(k) + 1}</span>}
+                {v2.STAT_NAMES[k]}{' '}
+                {known.includes(k) && (
+                  <span className="chip" style={{ ['--c' as string]: LAYER.silicon }}>
+                    buyers want #{known.indexOf(k) + 1}
+                  </span>
+                )}
               </span>
               <span className="bar">
                 <div style={{ width: `${Math.min(100, (ev.stats[k] / (v2.STAT_PAR[k] * 2.2)) * 100)}%` }} />
@@ -455,9 +421,9 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
           <div className="db-stat">
             <span>Chip cost</span>
             <span className="small muted">
-              {ev.used}/{pr.board.length} tiles · empty ones are trimmed
+              {ev.used}/{board.length} tiles · empty ones are trimmed
             </span>
-            <b>{v2.moneyV2(v2.chipCosts(pr.size, pr.nodeId, ev.used).unitCost)}</b>
+            <b>{v2.moneyV2(v2.chipCosts(draft.size, draft.nodeId, ev.used, spec).unitCost)}</b>
           </div>
           {best !== undefined && (
             <p className="small muted">
@@ -468,8 +434,14 @@ export function DieBoardView({ g, pr }: { g: G; pr: Pr }) {
           {ev.missing.length > 0 && <p className="small neg">Missing: {ev.missing.map((b) => v2.block(b).name).join(', ')}.</p>}
           {ev.dead.length > 0 && <p className="small neg">{ev.dead.length} block(s) need the die edge.</p>}
           <div className="row">
-            <LayoutHelp g={g} pr={pr} className="bp-btn" />
-            <button className="bp-btn" onClick={() => send({ type: 'setBoard', projectId: pr.id, board: pr.board.map(() => null) })}>
+            <button
+              className="bp-btn"
+              title={eng ? `${eng.name} drafts a full layout, leaving a few tiles for you.` : 'Places only the blocks this chip must have. Making it good is up to you.'}
+              onClick={() => commit(layoutBoard())}
+            >
+              {eng ? `Ask ${eng.name.split(' ')[0]} for a draft (${'★'.repeat(eng.stars)})` : 'Starter layout'}
+            </button>
+            <button className="bp-btn" onClick={() => commit(board.map(() => null))}>
               Clear
             </button>
           </div>

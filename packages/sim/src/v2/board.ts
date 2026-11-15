@@ -1,5 +1,21 @@
-import { ADJACENCY, block, kind, market, marketBar, node, SIZES, type MarketDef } from './data';
-import type { GameV2, ProductKind, ProjectSize, Stat, Stats } from './types';
+import { ADJACENCY, block, COOLING, kind, LINEAGE, market, marketBar, MEMORY, node, SIZES, TIERS, type MarketDef } from './data';
+import type { GameV2, ProductKind, ProjectSize, Stat, Stats, Tier } from './types';
+
+/** The wizard's choices that shape a chip beyond its layout. */
+export interface ChipSpec {
+  tier?: Tier;
+  memory?: number;
+  cooling?: number;
+  /** Built on an earlier chip (its learnings carry over). */
+  lineage?: boolean;
+}
+/** The spec of a project or product (missing fields = Standard, level 0). */
+export const specOf = (x: { tier?: Tier; memory?: number; cooling?: number; refreshOf?: string }): ChipSpec => ({
+  tier: x.tier ?? 'std',
+  memory: x.memory ?? 0,
+  cooling: x.cooling ?? 0,
+  lineage: !!x.refreshOf,
+});
 
 /** The scale that counts as "par" for each stat (a decent small 1991 chip has about these). */
 export const STAT_PAR: Stats = { perf: 29, gfx: 17, eff: 7, feat: 5 };
@@ -24,7 +40,7 @@ export interface BoardResult {
 const zero = (): Stats => ({ perf: 0, gfx: 0, eff: 0, feat: 0 });
 
 /** Evaluate a die layout: block stats, neighbour bonuses, edge rules and the heat budget. */
-export function evaluateBoard(board: (string | null)[], size: ProjectSize, nodeId: string, productKind: ProductKind): BoardResult {
+export function evaluateBoard(board: (string | null)[], size: ProjectSize, nodeId: string, productKind: ProductKind, spec: ChipSpec = {}): BoardResult {
   const { w, h } = SIZES[size];
   const n = node(nodeId);
   const stats = zero();
@@ -63,11 +79,15 @@ export function evaluateBoard(board: (string | null)[], size: ProjectSize, nodeI
     for (const k of Object.keys(mine) as Stat[]) stats[k] += mine[k];
     cells.push(mine);
   }
-  const budget = w * h * n.heatPerCell;
+  const budget = w * h * n.heatPerCell * (COOLING[spec.cooling ?? 0]?.heat ?? 1);
   const throttle = heat > budget ? Math.pow(budget / heat, 1.5) : 1;
   // A cool die is an efficient die: unused heat headroom counts as efficiency.
   stats.eff += Math.max(0, budget - heat) * 0.35;
-  for (const k of Object.keys(stats) as Stat[]) stats[k] *= n.speed;
+  const care = TIERS[spec.tier ?? 'std'].stat * (spec.lineage ? LINEAGE.stat : 1);
+  for (const k of Object.keys(stats) as Stat[]) stats[k] *= n.speed * care;
+  const mem = MEMORY[spec.memory ?? 0]?.stat ?? 1;
+  stats.perf *= mem;
+  stats.gfx *= mem;
   stats.perf *= throttle;
   stats.gfx *= throttle;
   const present = new Set(board.filter(Boolean));
@@ -131,12 +151,13 @@ export const AREA_COST = { fixed: 0.3, perUsed: 0.7 };
  * die, so a layout that leaves tiles free makes a cheaper chip (pass `used`, the filled tiles;
  * without it the die is costed as full).
  */
-export function chipCosts(size: ProjectSize, nodeId: string, used?: number): { unitCost: number; maskCost: number; fabDays: number } {
+export function chipCosts(size: ProjectSize, nodeId: string, used?: number, spec: ChipSpec = {}): { unitCost: number; maskCost: number; fabDays: number } {
   const s = SIZES[size];
   const n = node(nodeId);
   const cells = s.w * s.h;
   const area = used === undefined ? cells : cells * AREA_COST.fixed + Math.min(cells, used) * AREA_COST.perUsed;
-  return { unitCost: Math.round(area * n.unitCostPerCell * 10) / 10, maskCost: Math.round(n.maskCost * s.mask), fabDays: n.fabDays };
+  const extras = TIERS[spec.tier ?? 'std'].unit * (MEMORY[spec.memory ?? 0]?.unit ?? 1) * (COOLING[spec.cooling ?? 0]?.unit ?? 1);
+  return { unitCost: Math.round(area * n.unitCostPerCell * extras * 10) / 10, maskCost: Math.round(n.maskCost * s.mask), fabDays: n.fabDays };
 }
 
 /** Filled tiles on a board. */

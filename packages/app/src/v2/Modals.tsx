@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { v2 } from '@stm/sim';
 import { useStore } from '../store';
 import { LAYER } from '../ui/layers';
+import { BoxArt } from './art/BoxArt';
 
 type G = v2.GameV2;
 
@@ -82,6 +83,10 @@ export function Review2({ g }: { g: G }) {
             </p>
           </div>
         </div>
+        <div className="rv-body">
+          <div className={`rv-box${shown >= p.reviews.length ? ' in' : ''}`}>
+            <BoxArt product={p} company={g.companyName} width={150} />
+          </div>
         <div className="rv-grid">
           {p.reviews.map((r, i) => (
             <div key={r.outlet} className={`rv-tile${i < shown ? ' in' : ''}`}>
@@ -98,6 +103,7 @@ export function Review2({ g }: { g: G }) {
               <p className="rv-quote">{i < shown ? `“${r.quote}”` : 'Reading…'}</p>
             </div>
           ))}
+        </div>
         </div>
         <div className="rv-foot">
           <div className="rv-avg">

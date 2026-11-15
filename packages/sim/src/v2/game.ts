@@ -2,16 +2,17 @@ import type { Content } from '@stm/content';
 import { placementError, stageDef, templateDef } from '../hq';
 import type { GameState } from '../types';
 import { rand } from '../rng';
-import { boardScore, chipCosts, clampScore, dieValue, evaluateBoard, EXPECT_SHARE, expectOf, rawBoardScore, usedTiles } from './board';
+import { boardScore, chipCosts, clampScore, dieValue, evaluateBoard, EXPECT_SHARE, expectOf, rawBoardScore, specOf, usedTiles } from './board';
 import { acquire, resolveCard, rivalOffers, tickCards } from './cards';
 import { CARD_OWNER, execOf, refreshExecPool, roleInfo, tickExecs } from './execs';
 import { build, buildError, maskCostMult, monthlyInvestor, tickFacilities, unitCostMult } from './facilities';
+import { buildCampus, ensureCompute, growCompute, scaleBonus, tickCloud, tickCompute, totalMw, trainingNeed, upgradeCampus } from './compute';
 import { buyShares, initialMarket, placeOrder, quarterlyMarket, sellShares, weeklyMarket } from './stocks';
 import { goPublic, HR_LEVELS, hrPrice, ipoCheck, loanLimit, loanRate, LOANS, monthlyFinance, officeCost, rdPointsPerDay, REGIONS, salaryCap, weeklyIpo } from './wealth';
-import { BLOCKS, CHAPTERS, kind, KINDS, market, NODES, OUTLETS, QUOTES, SIZES, T, tech, TECHS, type TechDef } from './data';
+import { BLOCKS, CHAPTERS, kind, KINDS, LINEAGE, market, NODES, OUTLETS, QUOTES, SIZES, T, tech, TECHS, TIERS, type TechDef } from './data';
 import { activeProducts, currentScore, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, takeoverPrice, tickRivals, tickSales } from './markets';
 import { capacity, founder, gainXp, hasPerk, makeCandidate, tickStaff, workRate } from './staff';
-import type { Bug, CommandV2, GameV2, Person, Product, Project, ResultV2, Snapshot, Stat } from './types';
+import type { Bug, CommandV2, GameV2, Person, Product, Project, ProjectSize, ResultV2, Snapshot, Stat, Tier } from './types';
 import { between, clamp, log, money, monthIndex, monthLabel, newId, pick, spend } from './util';
 
 const ROOM_COST_SCALE = 0.25;
@@ -25,6 +26,22 @@ const STAGE_TERMS: Record<string, { moveCost: number; rentPerMonth: number }> = 
 
 const ARCH_WORK = 18;
 const VERIFY_WORK = 26;
+
+/** Yield: a new process node starts with many bad dies and matures over about two years; your own fab learns faster. */
+export const YIELD = { fresh: 0.72, mature: 0.93, days: 300, perBug: 0.015 };
+export function chipYield(s: GameV2, pr: Pick<Project, 'nodeId' | 'bugs'>): number {
+  const n = NODES.find((x) => x.id === pr.nodeId);
+  const since = n?.tech ? s.day - (s.research.doneDay[n.tech] ?? 0) : s.day + 360;
+  const learn = since / (YIELD.days * (s.facilities.fab ? 0.6 : 1));
+  const base = YIELD.fresh + (YIELD.mature - YIELD.fresh) * (1 - Math.exp(-learn));
+  const shipped = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).reduce((n2, b) => n2 + b.severity, 0);
+  return Math.round(clamp(base - shipped * YIELD.perBug, 0.4, 0.97) * 1000) / 1000;
+}
+
+/** Work points a project needs: design (architecture) and testing (verification). */
+export function projectWork(size: ProjectSize, tier: Tier = 'std', lineage = false): { design: number; verify: number } {
+  return { design: ARCH_WORK * SIZES[size].work * (lineage ? LINEAGE.work : 1) * TIERS[tier].work, verify: VERIFY_WORK * SIZES[size].work };
+}
 
 // ---------------------------------------------------------------- New game
 
@@ -146,8 +163,9 @@ function avgTeamMorale(team: Person[]): number {
 function makeBugs(s: GameV2, pr: Project): Bug[] {
   const team = teamOf(s, pr.id);
   const avgEng = team.length ? team.reduce((n, p) => n + p.skills.eng, 0) / team.length : 5;
-  const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
+  const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr));
   let rate = 1 - (avgEng - 5) * 0.07;
+  if (pr.refreshOf) rate *= LINEAGE.bugs;
   if (team.some((p) => p.traits.includes('fast'))) rate *= 1.3;
   if (hasPerk(s, 'tools')) rate *= 0.75;
   if (ev.throttle < 1) rate *= 1.5;
@@ -173,20 +191,29 @@ function tickProject(s: GameV2, pr: Project): void {
     pr.designPoints += pts;
     pr.progress = Math.min(pr.need, pr.progress + pts);
     if (pr.progress >= pr.need) {
-      const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
+      const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr));
       if (ev.missing.length || ev.used === 0) {
         if (!pr.readyNoted) log(s, `${pr.name}: architecture done, but the die layout is missing ${ev.missing.length ? ev.missing.join(', ') : 'everything'}.`, 'bad');
         pr.readyNoted = true;
         return;
       }
-      pr.phase = 'verification';
       pr.progress = 0;
-      pr.need = VERIFY_WORK * SIZES[pr.size].work;
       pr.readyNoted = false;
       pr.bugs = makeBugs(s, pr);
-      log(s, `${pr.name} moved to verification. Hunting for bugs.`);
+      if (pr.kind === 'model') {
+        // A model trains on your campuses' training compute; the team runs evals meanwhile.
+        pr.phase = 'training';
+        pr.need = trainingNeed(s, pr.size);
+        pr.pfDays = 0;
+        log(s, `${pr.name} started training: it needs ${Math.round(pr.need).toLocaleString('en-US')} PF-days. Evals will look for problems.`);
+      } else {
+        pr.phase = 'verification';
+        pr.need = VERIFY_WORK * SIZES[pr.size].work;
+        log(s, `${pr.name} moved to verification. Hunting for bugs.`);
+      }
     }
-  } else if (pr.phase === 'verification') {
+  } else if (pr.phase === 'verification' || pr.phase === 'training') {
+    const training = pr.phase === 'training';
     let pts = 0;
     let engSum = 0;
     for (const p of team) {
@@ -206,7 +233,8 @@ function tickProject(s: GameV2, pr: Project): void {
         if (b.fixLeft! <= 0) log(s, `${pr.name}: a bug was fixed.`, 'good');
       }
     }
-    pr.progress = Math.min(pr.need, pr.progress + pts);
+    // Chips test with the team's work; models train on compute (see compute.ts).
+    if (!training) pr.progress = Math.min(pr.need, pr.progress + pts);
     const done = pr.progress >= pr.need;
     if (done) pr.polishDays += 1;
     if (team.length) {
@@ -223,7 +251,7 @@ function tickProject(s: GameV2, pr: Project): void {
     }
     if (done && !pr.readyNoted) {
       pr.readyNoted = true;
-      log(s, `${pr.name} passed verification. Tape out now, or keep testing to catch more bugs.`, 'good');
+      log(s, training ? `${pr.name} finished training. Ship it now, or keep training: more compute, a smarter model.` : `${pr.name} passed verification. Tape out now, or keep testing to catch more bugs.`, 'good');
     }
   } else if (pr.phase === 'tapeout') {
     pr.progress = Math.min(pr.need, pr.progress + 1);
@@ -236,11 +264,14 @@ function tickProject(s: GameV2, pr: Project): void {
 
 /** Expected review for a project as things stand (the Studio shows this live). */
 export function projectForecast(s: GameV2, pr: Project, day = s.day): { board: number; team: number; polish: number; bugs: number; total: number } {
-  const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
+  const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr));
   const boardPart = boardScore(ev, pr.marketId, day, expectOf(s, pr.marketId));
   const avgSkill = pr.designPoints > 0 ? pr.skillSum / pr.designPoints : avgSkillOf(teamOf(s, pr.id), 'design');
   const team = clamp((avgSkill - 5) * 0.15, -0.6, 0.75);
-  const polish = Math.min(0.4, pr.polishDays * 0.012) + (pr.kind === 'model' && s.research.done.includes('alignment') ? 0.25 : 0);
+  const polish =
+    Math.min(0.4, pr.polishDays * 0.012) +
+    (pr.kind === 'model' && s.research.done.includes('alignment') ? 0.25 : 0) +
+    (pr.kind === 'model' && pr.pfDays !== undefined ? scaleBonus(pr.pfDays, pr.need) : 0);
   const m = market(pr.marketId);
   const bugs = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).reduce((n, b) => n + b.severity * 0.22 * m.bugPenalty, 0);
   return { board: boardPart, team, polish, bugs, total: clampScore(boardPart + team + polish - bugs) };
@@ -274,7 +305,8 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
     return { outlet, score: sc, quote: pick(s, lines) };
   });
   const avg = Math.round((reviews.reduce((n, r) => n + r.score, 0) / reviews.length) * 10) / 10;
-  const costs = chipCosts(pr.size, pr.nodeId, usedTiles(pr.board));
+  const costs = chipCosts(pr.size, pr.nodeId, usedTiles(pr.board), specOf(pr));
+  if (pr.kind !== 'model' && pr.yield === undefined) pr.yield = chipYield(s, pr);
   let costMod = unitCostMult(s);
   for (const m of s.modifiers) if (m.costs && m.until > s.day) costMod *= m.costs;
   const bugsShipped = pr.bugs.filter((b) => !b.found || b.ignored || (b.fixLeft ?? 0) > 0).length;
@@ -286,10 +318,14 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
     size: pr.size,
     nodeId: pr.nodeId,
     board: [...pr.board],
+    tier: pr.tier,
+    memory: pr.memory,
+    cooling: pr.cooling,
     score: avg,
     reviews,
     price,
-    unitCost: Math.round(costs.unitCost * costMod * 10) / 10,
+    unitCost: Math.round(costs.unitCost * costMod * (pr.kind === 'model' ? 1 : YIELD.mature / (pr.yield ?? YIELD.mature)) * 10) / 10,
+    yield: pr.kind === 'model' ? undefined : pr.yield ?? YIELD.mature,
     launchDay: s.day,
     hype,
     bugsShipped,
@@ -311,7 +347,7 @@ function launch(s: GameV2, pr: Project, price: number, level: 0 | 1 | 2 | 3): Pr
   if (next) known.push(next);
   // The press remembers: next time they expect most of what this die delivered.
   const expect = (s.notebook.expect ??= {});
-  const shipped = dieValue(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), pr.marketId) * EXPECT_SHARE;
+  const shipped = dieValue(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr)), pr.marketId) * EXPECT_SHARE;
   expect[pr.marketId] = Math.max(expect[pr.marketId] ?? 0, shipped);
   const key = `${pr.kind}:${pr.marketId}`;
   s.notebook.best[key] = Math.max(s.notebook.best[key] ?? 0, avg);
@@ -395,7 +431,7 @@ export function goalMet(s: GameV2, content: Content, id: string): boolean {
     case 'llm':
       return s.research.done.includes('llm');
     case 'dc':
-      return s.facilities.dc > 0;
+      return totalMw(s) > 0;
     case 'model1':
       return s.products.some((p) => p.kind === 'model');
     case 'agi':
@@ -469,7 +505,11 @@ function tickDay(s: GameV2, content: Content): void {
   );
   tickResearch(s);
   tickFacilities(s);
-  const { revenue, cogs } = tickSales(s);
+  tickCompute(s);
+  const sold = tickSales(s);
+  const cloud = tickCloud(s);
+  const revenue = sold.revenue + cloud;
+  const cogs = sold.cogs;
   s.cash += revenue - cogs;
   s.month.revenue += revenue;
   s.month.cogs += cogs;
@@ -570,6 +610,9 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       if (SIZES[cmd.size].tech && !s.research.done.includes(SIZES[cmd.size].tech!)) return `${SIZES[cmd.size].name} dies need ${tech(SIZES[cmd.size].tech!).name} first.`;
       const { w, h } = SIZES[cmd.size];
       const base = cmd.refreshOf ? s.products.find((p) => p.id === cmd.refreshOf) : undefined;
+      const tier = cmd.tier && TIERS[cmd.tier] ? cmd.tier : 'std';
+      const level = (n: number | undefined) => Math.max(0, Math.min(3, Math.round(n ?? 0)));
+      const drafted = cmd.board && cmd.board.length === w * h ? cmd.board.map((c) => (c && BLOCKS.some((b) => b.id === c) && blockUnlocked(s, c) ? c : null)) : null;
       const pr: Project = {
         id: newId(s, 'proj'),
         name: cmd.name.trim().slice(0, 40),
@@ -577,10 +620,10 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
         marketId: cmd.marketId,
         size: cmd.size,
         nodeId: cmd.nodeId,
-        board: base && base.size === cmd.size ? [...base.board] : Array.from({ length: w * h }, () => null),
+        board: drafted ?? (base && base.size === cmd.size ? [...base.board] : Array.from({ length: w * h }, () => null)),
         phase: 'architecture',
         progress: 0,
-        need: ARCH_WORK * SIZES[cmd.size].work * (base ? 0.6 : 1),
+        need: ARCH_WORK * SIZES[cmd.size].work * (base ? LINEAGE.work : 1) * TIERS[tier].work,
         polishDays: 0,
         bugs: [],
         crunch: false,
@@ -590,6 +633,9 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
         engPoints: 0,
         spent: 0,
         refreshOf: base?.id,
+        tier,
+        memory: cmd.kind === 'model' ? 0 : level(cmd.memory),
+        cooling: cmd.kind === 'model' ? 0 : level(cmd.cooling),
       };
       s.projects.push(pr);
       for (const p of s.staff) if (p.task === null) p.task = pr.id;
@@ -634,6 +680,13 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
     }
     case 'finishVerification': {
       const pr = s.projects.find((p) => p.id === cmd.projectId);
+      if (pr && pr.phase === 'training') {
+        if (pr.progress < pr.need) return 'Training isn’t finished yet.';
+        pr.phase = 'ready';
+        for (const p of s.staff) if (p.task === pr.id) p.task = null;
+        log(s, `${pr.name} is trained and ready. Set its price and launch it.`, 'good');
+        return null;
+      }
       if (!pr || pr.phase !== 'verification') return 'Nothing to tape out.';
       if (pr.progress < pr.need) return 'Verification isn’t finished yet.';
       const raw = chipCosts(pr.size, pr.nodeId);
@@ -641,6 +694,7 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       if (s.cash < costs.maskCost) return `The mask set costs ${money(costs.maskCost)}. Earn or raise the cash first (or keep testing meanwhile).`;
       spend(s, 'projects', costs.maskCost);
       pr.spent += costs.maskCost;
+      pr.yield = chipYield(s, pr);
       pr.phase = 'tapeout';
       pr.progress = 0;
       pr.need = costs.fabDays;
@@ -757,10 +811,22 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       s.cash += Math.round(r.spent * 0.5);
       return null;
     }
-    case 'buildDatacenter':
+    case 'buildDatacenter': {
+      if (!s.research.done.includes('datacenters')) return 'Research data center engineering first.';
+      return growCompute(s);
+    }
+    case 'buildCampus':
+      return buildCampus(s, cmd.siteId);
+    case 'upgradeCampus':
+      return upgradeCampus(s, cmd.campusId, cmd.part, cmd.option);
+    case 'setTrainShare': {
+      if (!(cmd.share >= 0 && cmd.share <= 1)) return 'Pick a share between 0 and 100%.';
+      ensureCompute(s).trainShare = Math.round(cmd.share * 100) / 100;
+      return null;
+    }
     case 'buildFab':
     case 'startAgi': {
-      const what = cmd.type === 'buildDatacenter' ? 'dc' : cmd.type === 'buildFab' ? 'fab' : 'agi';
+      const what = cmd.type === 'buildFab' ? 'fab' : 'agi';
       const e = buildError(s, what);
       if (e) return e;
       build(s, what);
@@ -908,12 +974,15 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
  * keep what raises the score. Used by "Auto-layout" in the Studio and by the balance bot. It is
  * deliberately not perfect, so a thoughtful player can beat it.
  */
-export function suggestBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>, passes = 2, allowed?: string[]): (string | null)[] {
+/** A project, or a wizard draft that isn't a project yet. */
+export type DraftLike = Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'> & Partial<Pick<Project, 'tier' | 'memory' | 'cooling' | 'refreshOf'>>;
+
+export function suggestBoard(s: GameV2, pr: DraftLike, passes = 2, allowed?: string[]): (string | null)[] {
   const { w, h } = SIZES[pr.size];
   const board = [...pr.board];
   const blocks = BLOCKS.filter((b) => blockUnlocked(s, b.id) && (!allowed || allowed.includes(b.id))).map((b) => b.id);
   const score = (b: (string | null)[]) => {
-    const ev = evaluateBoard(b, pr.size, pr.nodeId, pr.kind);
+    const ev = evaluateBoard(b, pr.size, pr.nodeId, pr.kind, specOf(pr));
     return ev.missing.length ? -20 + (kind(pr.kind).needs.length - ev.missing.length) : rawBoardScore(ev, pr.marketId, s.day, expectOf(s, pr.marketId)) + Math.min(0, ev.budget - ev.heat) * 0.05;
   };
   let best = score(board);
@@ -939,7 +1008,7 @@ export function suggestBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'k
  * Without a Chief Engineer the Studio only offers a starter layout: the blocks the chip must have,
  * sensibly placed, and nothing else. Making it good is the player's puzzle.
  */
-export function starterBoard(s: GameV2, pr: Pick<Project, 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>): (string | null)[] {
+export function starterBoard(s: GameV2, pr: DraftLike): (string | null)[] {
   return suggestBoard(s, { ...pr, board: pr.board.map(() => null) }, 1, kind(pr.kind).needs);
 }
 
@@ -950,7 +1019,7 @@ export const engineerGaps = (stars: number, cells: number) => Math.round(cells *
  * The Chief Engineer's draft: a full layout, minus a few tiles they didn't get to (fewer the more
  * stars they have). The player can finish it, or leave the gaps for a cheaper chip.
  */
-export function engineerBoard(s: GameV2, pr: Pick<Project, 'id' | 'size' | 'nodeId' | 'kind' | 'marketId' | 'board'>): (string | null)[] {
+export function engineerBoard(s: GameV2, pr: DraftLike & { id: string }): (string | null)[] {
   const eng = execOf(s, 'engineer');
   if (!eng) return starterBoard(s, pr);
   const board = suggestBoard(s, { ...pr, board: pr.board.map(() => null) }, 2);

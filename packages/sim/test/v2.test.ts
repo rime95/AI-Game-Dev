@@ -325,11 +325,11 @@ describe('the late game', () => {
     s = act(s, { type: 'tick' });
     expect(s.products.find((p) => p.id === 'm')!.rate).toBe(0);
     s.cash = 1e9;
-    s = act(s, { type: 'buildDatacenter' });
+    s = act(s, { type: 'buildCampus', siteId: 'dalles' });
     for (let i = 0; i < 4; i++) s = act(s, { type: 'tick', days: 30 });
-    expect(s.facilities.dc).toBe(v2.FAC.dc.add);
+    expect(s.compute!.campuses[0]!.halls).toBe(1);
     expect(s.products.find((p) => p.id === 'm')!.rate).toBeGreaterThan(0);
-    expect(s.products.find((p) => p.id === 'm')!.rate).toBeLessThanOrEqual(v2.FAC.dc.add + 1e-6);
+    expect(s.products.find((p) => p.id === 'm')!.rate).toBeLessThanOrEqual(v2.servingCustomers(s) + 1e-6);
   });
 
   it('your own fab makes masks and chips cheaper', () => {
@@ -346,7 +346,7 @@ describe('the late game', () => {
     const run = (aligned: boolean) => {
       let s = withTech(fresh(34), 'agi', 'llm', ...(aligned ? ['alignment'] : []));
       s.cash = 5e9;
-      s.facilities.dc = v2.FAC.agi.dc;
+      s.compute = { trainShare: 1, campuses: [{ id: 'c', siteId: 'dalles', size: 2, halls: 10, building: [], chip: { source: 'own', name: 'X', pfPerMw: 2000, unitPrice: 1 }, cooling: 0, power: 0, network: 0, openedDay: 0 }] };
       s.brand = 100;
       s = act(s, { type: 'startAgi' });
       for (let i = 0; i < 13 && s.status === 'playing'; i++) s = act(s, { type: 'tick', days: 30 });
@@ -553,3 +553,100 @@ describe('design: choices that matter', () => {
     expect(v2.hrPrice(s, 1)!.cost).toBeGreaterThan(hr * 2);
   });
 });
+
+describe('the design wizard, campuses and yield', () => {
+  const board = (s: G, kind: v2.ProductKind, marketId: string, size: v2.ProjectSize = 'M') => v2.suggestBoard(s, { size, nodeId: 'n1000', kind, marketId, board: empty(size) });
+
+  it('tier, memory and cooling change performance, work and cost', () => {
+    const s = fresh(51);
+    const b = board(s, 'gpu', 'gamers');
+    const score = (spec: v2.ChipSpec) => v2.boardScore(v2.evaluateBoard(b, 'M', 'n1000', 'gpu', spec), 'gamers', 0);
+    expect(score({ tier: 'flagship' })).toBeGreaterThan(score({ tier: 'std' }));
+    expect(score({ tier: 'proto' })).toBeLessThan(score({ tier: 'std' }));
+    expect(score({ memory: 3 })).toBeGreaterThan(score({ memory: 0 }));
+    expect(v2.evaluateBoard(b, 'M', 'n1000', 'gpu', { cooling: 3 }).budget).toBeGreaterThan(v2.evaluateBoard(b, 'M', 'n1000', 'gpu', {}).budget);
+    expect(v2.chipCosts('M', 'n1000', 25, { memory: 3, cooling: 3 }).unitCost).toBeGreaterThan(v2.chipCosts('M', 'n1000', 25).unitCost);
+    expect(v2.projectWork('M', 'flagship').design).toBeGreaterThan(v2.projectWork('M', 'std').design);
+  });
+
+  it('building on an earlier chip keeps its layout and learnings', () => {
+    let s = fresh(52);
+    s = act(s, { type: 'startProject', name: 'One', kind: 'cpu', marketId: 'homepc', size: 'S', nodeId: 'n1000', board: board(s, 'cpu', 'homepc', 'S') });
+    const pr = s.projects[0]!;
+    pr.phase = 'ready';
+    s = act(s, { type: 'launch', projectId: pr.id, price: 60, marketing: 0 });
+    const base = s.products[0]!;
+    s = act(s, { type: 'startProject', name: 'Two', kind: 'cpu', marketId: 'homepc', size: 'S', nodeId: 'n1000', refreshOf: base.id });
+    const two = s.projects[0]!;
+    expect(two.board).toEqual(base.board);
+    expect(two.need).toBeLessThan(v2.projectWork('S').design);
+    const plain = v2.evaluateBoard(two.board, 'S', 'n1000', 'cpu', {});
+    expect(v2.evaluateBoard(two.board, 'S', 'n1000', 'cpu', v2.specOf(two)).stats.perf).toBeGreaterThan(plain.stats.perf);
+  });
+
+  it('campus capacity follows MW × PF per MW × bonuses, and your own chips beat bought GPUs', () => {
+    const c: v2.Campus = { id: 'c', siteId: 'dalles', size: 0, halls: 2, building: [], chip: { source: 'own', name: 'X', pfPerMw: 100, unitPrice: 1 }, cooling: 0, power: 2, network: 1, openedDay: 0 };
+    expect(v2.campusPf(c)).toBeCloseTo(2 * v2.COMPUTE.hall.mw * 100 * (1 + 0.08) * (1 + 0.03), 3);
+    const s = fresh(53);
+    s.products.push({ id: 'a', name: 'Mine', kind: 'accel', marketId: 'datacenter', size: 'M', nodeId: 'n1000', board: [], score: 8, reviews: [], price: 2000, unitCost: 300, launchDay: 0, hype: 0, bugsShipped: 0, units: 0, revenue: 0, profit: 0, rate: 0 });
+    const own = v2.ownChip(s.products[0]!);
+    const bought = v2.boughtChip(s);
+    expect(own.pfPerMw).toBeGreaterThan(bought.pfPerMw);
+    expect(v2.refitCost(c, own)).toBeLessThan(v2.refitCost(c, bought));
+  });
+
+  it('a model trains on campus compute, and more compute makes a better model', () => {
+    let s = withTech2(fresh(54), 'llm', 'datacenters');
+    v2.openMarkets(s);
+    s.cash = 1e9;
+    s = act(s, { type: 'startProject', name: 'Mind', kind: 'model', marketId: 'chatbots', size: 'S', nodeId: 'n1000', board: board(s, 'model', 'chatbots', 'S') });
+    const id = s.projects[0]!.id;
+    for (let i = 0; i < 60 && s.projects[0]!.phase === 'architecture'; i++) s = act(s, { type: 'tick' });
+    expect(s.projects[0]!.phase).toBe('training');
+    const stuck = act(s, { type: 'tick', days: 10 });
+    expect(stuck.projects[0]!.progress).toBe(0);
+    s.compute = { trainShare: 1, campuses: [{ id: 'c', siteId: 'dalles', size: 2, halls: 4, building: [], chip: { source: 'own', name: 'X', pfPerMw: 200, unitPrice: 1 }, cooling: 0, power: 0, network: 0, openedDay: 0 }] };
+    s = act(s, { type: 'tick', days: 3 });
+    expect(s.projects[0]!.pfDays).toBeGreaterThan(0);
+    const early = { ...s.projects[0]!, pfDays: s.projects[0]!.need };
+    const late = { ...s.projects[0]!, pfDays: s.projects[0]!.need * 4 };
+    expect(v2.projectForecast(s, late).total).toBeGreaterThan(v2.projectForecast(s, early).total);
+  });
+
+  it('serving is capped by serving capacity, and idle capacity earns cloud revenue', () => {
+    const s = withTech2(fresh(55), 'llm', 'datacenters');
+    s.compute = { trainShare: 0.5, campuses: [{ id: 'c', siteId: 'dalles', size: 0, halls: 1, building: [], chip: { source: 'own', name: 'X', pfPerMw: 50, unitPrice: 1 }, cooling: 0, power: 0, network: 0, openedDay: 0 }] };
+    const cap = v2.servingCustomers(s);
+    expect(v2.servingRatio(s, cap * 2)).toBeCloseTo(0.5, 5);
+    v2.servingRatio(s, 0);
+    expect(v2.tickCloud(s)).toBeGreaterThan(0);
+  });
+
+  it('yield is low on a fresh node and matures with time', () => {
+    const s = withTech2(fresh(56), 'n800');
+    const pr = { nodeId: 'n800', bugs: [] };
+    const young = v2.chipYield(s, pr);
+    s.day += 720;
+    expect(v2.chipYield(s, pr)).toBeGreaterThan(young + 0.1);
+  });
+
+  it('the AGI run needs a big campus and enough compute; older saves get their data centers as a campus', () => {
+    const s = withTech2(fresh(57), 'agi', 'llm', 'datacenters');
+    s.cash = 5e9;
+    expect(v2.buildError(s, 'agi')).toMatch(/MW/);
+    const old = fresh(58);
+    old.facilities.dc = 3000;
+    delete old.compute;
+    const c = v2.ensureCompute(old);
+    expect(c.campuses[0]!.halls).toBe(2);
+    expect(old.facilities.dc).toBe(0);
+  });
+});
+
+function withTech2(s: v2.GameV2, ...ids: string[]): v2.GameV2 {
+  for (const id of ids) {
+    s.research.done.push(id);
+    s.research.doneDay[id] = s.day;
+  }
+  return s;
+}

@@ -1,5 +1,6 @@
 import { rand } from '../rng';
 import { activeProducts } from './markets';
+import { agiNeed, ensureCompute, totalMw } from './compute';
 import type { GameV2 } from './types';
 import { log, money, newId } from './util';
 
@@ -14,7 +15,8 @@ export const FAC = {
     { level: 1, cost: 150_000_000, days: 240, unit: 0.7, mask: 0.7, upkeep: 2_000_000 },
     { level: 2, cost: 600_000_000, days: 300, unit: 0.55, mask: 0.5, upkeep: 6_000_000 },
   ],
-  agi: { cost: 1_000_000_000, days: 360, dc: 6000, upkeep: 20_000_000 },
+  /** The AGI run: a program cost, monthly upkeep, and the MW of campuses it needs before it can start. */
+  agi: { cost: 300_000_000, days: 360, mw: 200, upkeep: 10_000_000 },
   leaderMarkets: 9,
   leaderDays: 1440,
 };
@@ -23,7 +25,10 @@ export const fabLevel = (s: GameV2) => (s.facilities.fab ? FAC.fab[s.facilities.
 export const unitCostMult = (s: GameV2) => fabLevel(s)?.unit ?? 1;
 export const maskCostMult = (s: GameV2) => fabLevel(s)?.mask ?? 1;
 export const facilitiesUpkeep = (s: GameV2) =>
-  (s.facilities.dc / FAC.dc.add) * FAC.dc.upkeep + (fabLevel(s)?.upkeep ?? 0) + (s.agi && s.day < s.agi.doneDay ? FAC.agi.upkeep : 0);
+  (fabLevel(s)?.upkeep ?? 0) + (agiRunning(s) ? FAC.agi.upkeep : 0);
+
+/** The AGI run is going (started, and no AGI ending yet; a market-leader ending doesn't stop it). */
+export const agiRunning = (s: GameV2) => !!s.agi && s.ending !== 'safe' && s.ending !== 'reckless';
 
 export function buildError(s: GameV2, what: 'dc' | 'fab' | 'agi'): string | null {
   const done = s.research.done;
@@ -42,7 +47,7 @@ export function buildError(s: GameV2, what: 'dc' | 'fab' | 'agi'): string | null
   }
   if (!done.includes('agi')) return 'Research towards general intelligence first.';
   if (s.agi) return 'The AGI program is already running.';
-  if (s.facilities.dc < FAC.agi.dc) return `The AGI program needs data centers serving ${FAC.agi.dc.toLocaleString('en-US')} a day (you have ${s.facilities.dc.toLocaleString('en-US')}).`;
+  if (totalMw(s) < FAC.agi.mw) return `The AGI run needs ${FAC.agi.mw} MW of campuses (you have ${totalMw(s)} MW).`;
   if (s.cash < FAC.agi.cost) return `The AGI program costs ${money(FAC.agi.cost)}.`;
   return null;
 }
@@ -62,8 +67,9 @@ export function build(s: GameV2, what: 'dc' | 'fab' | 'agi'): void {
   } else {
     s.cash -= FAC.agi.cost;
     s.month.other += FAC.agi.cost;
-    s.agi = { startDay: s.day, doneDay: s.day + FAC.agi.days };
-    log(s, `The AGI program begins. A year from now, the world changes.`, 'good');
+    ensureCompute(s);
+    s.agi = { startDay: s.day, doneDay: s.day + FAC.agi.days, pfDays: 0, need: agiNeed(s) };
+    log(s, `The AGI run begins. It shares your training compute until it has had ${Math.round(s.agi.need!).toLocaleString('en-US')} PF-days.`, 'good');
   }
 }
 
@@ -85,14 +91,16 @@ export function tickFacilities(s: GameV2): void {
   s.cash -= up;
   s.month.facilities += up;
 
-  if (s.ending) return;
-  if (s.agi && s.day >= s.agi.doneDay) {
+  if (s.ending === 'safe' || s.ending === 'reckless') return;
+  // AGI can still arrive after a market-leader ending, if the player kept playing.
+  if (s.agi && (s.agi.need !== undefined ? (s.agi.pfDays ?? 0) >= s.agi.need : s.day >= s.agi.doneDay)) {
     const safe = s.research.done.includes('alignment') && s.brand >= 55;
     s.ending = safe ? 'safe' : 'reckless';
     s.status = 'won';
     log(s, safe ? 'AGI arrives, safely. The world exhales.' : 'AGI arrives, untamed. The world will never be the same.', safe ? 'good' : 'bad');
     return;
   }
+  if (s.ending) return;
   const led = s.markets.filter((m) => (m.shares.you ?? 0) > 0 && Object.entries(m.shares).every(([k, v]) => k === 'you' || k === 'others' || v <= (m.shares.you ?? 0))).length;
   s.leadDays = led >= FAC.leaderMarkets ? s.leadDays + 1 : 0;
   if (s.leadDays >= FAC.leaderDays) {
@@ -168,10 +176,5 @@ export function resolveInvestorCard(s: GameV2, kind: string, choice: string, ref
   return false;
 }
 
-/** Share of AI-model demand the data centers can serve today. */
-export function servingRatio(s: GameV2, demand: number): number {
-  if (demand <= 0) return 1;
-  return Math.min(1, s.facilities.dc / demand);
-}
 
 export const modelProducts = (s: GameV2) => activeProducts(s).filter((p) => p.kind === 'model');

@@ -17,8 +17,15 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
 - **Real brands, simulated behaviour.** Rivals, magazines and stocks are real names. This is a private build: all results and events are fictional.
 
 ## The loop
-1. **Studio: start a project.**
-   - Choose the product (CPU, GPU, console, phone chip, server CPU, AI accelerator, AI model), the market, the die size (S, M, L, or XL after multi-core) and the process node.
+1. **Studio: the design wizard.**
+   - One question per step, with the product as a big rotatable exploded 3D model above it (`v2/hero`), built from your choices: the die face is your actual layout.
+   - Steps:
+     1. **Brief:** name; build on an earlier chip (keeps its layout and learnings: +5% performance, fewer bugs, 40% less design work); product (CPU, GPU, console, phone chip, server CPU, AI accelerator, AI model); market; quality tier (Prototype −10% / Standard / Refined +12% / Flagship +25%, more work as you go up).
+     2. **Process:** die size (S, M, L, or XL after multi-core) and process node.
+     3. **Die layout** (or the compute plan for AI models).
+     4. **Memory and cooling:** more memory is faster but costs more; a bigger cooler raises the heat budget. Both show on the 3D model (memory chips, HBM stacks, fans).
+     5. **Team.**
+     6. **Review:** expected score, best rival, cost per chip, masks.
    - **Die board:** place blocks on a grid.
      - Neighbour bonuses: cache next to cores, FPU next to a core, pixel pipe next to memory, and so on.
      - I/O must sit on the edge.
@@ -62,10 +69,18 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
   - Sales offices widen how much of the world can buy from you. Office and HR prices keep up with the company (offices with a year of sales, HR with headcount).
   - Corporate tax: 25% of each month's profit.
   - **R&D budget:** turn cash into research points (contract labs and grants) with diminishing returns: the money sink that stays useful all game.
+- **Products you can see:**
+  - **First silicon:** when a chip comes back from the fab, its wafer spins and the dies light up good or bad. Yield is real: a fresh node starts around 72% and matures toward 93% over about two years (faster in your own fab), shipped bugs lower it, and cost per chip = cost ÷ yield.
+  - **Box art:** every chip gets an era-styled box with its die shot, score sticker and node. It appears on the review card, on the Products shelf (click a box to see the chip in 3D), and on the display wall in the HQ.
+- **Compute campuses** (`v2/compute.ts`, the Compute tab):
+  - You build at real data-center towns, each with its own power price and climate (Dublin, Tokyo and Singapore need an office in that region).
+  - A campus has six parts, each upgraded with one button: halls (20 MW each), chips (refit with your own AI accelerators or bought Nvidia GPUs: PF per MW), cooling (PUE, so running cost), power (grid / solar and storage / redundant +3%), network (+8%), and campus size (2, 4 or 8 halls).
+  - **Capacity** = MW × PF per MW × (1 + network) × (1 + power). Your own chips give more PF per MW, and a refit costs your unit cost rather than the market price.
+  - One slider splits compute between **training** and **serving**. AI models train in a visible run that needs PF-days; going past what they need gives a smarter model (a scale bonus), and evals work like bugs. Serving caps AI-model customers. Idle serving capacity is rented out as cloud.
+- **World** tab: voxel continents with every place you own or could build (HQ, foundry partner or your own fab, sales offices, compute sites, the AGI run). Clicking a place opens a card with one action.
 - **Late game:**
-  - Data centers cap how many AI-model customers you can serve.
   - Your own fab makes chips and masks cheaper.
-  - The AGI program is the final chapter.
+  - The AGI run is the final chapter: it needs 200 MW of campuses, then shares your training compute until it has had enough PF-days. Market growth for AI products is about 45–55% a year.
 - **Endings:**
   - **Safe frontier:** AGI with alignment research and a brand of 55+.
   - **Reckless frontier:** AGI without them.

@@ -10,8 +10,9 @@ import type { Listed, StockOrder } from './stocks';
 export type Stat = 'perf' | 'gfx' | 'eff' | 'feat';
 export type Stats = Record<Stat, number>;
 export type ProductKind = 'cpu' | 'gpu' | 'console' | 'mobile' | 'accel' | 'server' | 'model';
+export type Tier = 'proto' | 'std' | 'refined' | 'flagship';
 export type ProjectSize = 'S' | 'M' | 'L' | 'XL';
-export type Phase = 'architecture' | 'verification' | 'tapeout' | 'ready';
+export type Phase = 'architecture' | 'verification' | 'training' | 'tapeout' | 'ready';
 export type Skill = 'design' | 'eng' | 'research';
 export type Tone = 'info' | 'good' | 'bad' | 'rival';
 
@@ -75,6 +76,14 @@ export interface Project {
   spent: number;
   /** A revision of an earlier product (a refresh). */
   refreshOf?: string;
+  /** PF-days of training an AI model has had. */
+  pfDays?: number;
+  /** Share of good dies on the first wafers (set at tape-out). */
+  yield?: number;
+  /** Design wizard choices (missing = Standard, level 0). */
+  tier?: Tier;
+  memory?: number;
+  cooling?: number;
 }
 
 export interface Review {
@@ -91,10 +100,15 @@ export interface Product {
   size: ProjectSize;
   nodeId: string;
   board: (string | null)[];
+  tier?: Tier;
+  memory?: number;
+  cooling?: number;
   score: number;
   reviews: Review[];
   price: number;
   unitCost: number;
+  /** Share of good dies (chips only; missing on older saves). */
+  yield?: number;
   launchDay: number;
   hype: number;
   bugsShipped: number;
@@ -271,6 +285,31 @@ export interface Snapshot {
   bestScore: number;
 }
 
+/** A data center campus (see compute.ts). */
+export interface Campus {
+  id: string;
+  siteId: string;
+  /** 0 small, 1 large, 2 hyperscale. */
+  size: number;
+  /** Halls running. */
+  halls: number;
+  /** Halls being built: the day each opens. */
+  building: number[];
+  chip: { source: 'own' | 'bought'; productId?: string; name: string; pfPerMw: number; unitPrice: number };
+  cooling: number;
+  power: number;
+  network: number;
+  openedDay: number;
+}
+
+export interface ComputeState {
+  campuses: Campus[];
+  /** Share of all compute that trains (the rest serves customers). */
+  trainShare: number;
+  /** AI-model customers who wanted service today. */
+  demand?: number;
+}
+
 export interface Notebook {
   /** Per market: stats the player has learned buyers care about, in order. */
   tastes: Record<string, Stat[]>;
@@ -298,7 +337,10 @@ export interface GameV2 {
     fab: number;
     fabBuild: { doneDay: number; level: number } | null;
   };
-  agi: { startDay: number; doneDay: number } | null;
+  /** The AGI run: compute poured in so far and what it needs (older saves only have the days). */
+  agi: { startDay: number; doneDay: number; pfDays?: number; need?: number } | null;
+  /** Data center campuses (created on first use; older saves convert their data centers). */
+  compute?: ComputeState;
   /** Days in a row leading 5+ markets (the market-leader ending). */
   leadDays: number;
   investor: { amount: number; target: number; startRevenue: number; dueDay: number } | null;
@@ -356,7 +398,20 @@ export interface GameV2 {
 
 export type CommandV2 =
   | { type: 'tick'; days?: number }
-  | { type: 'startProject'; name: string; kind: ProductKind; marketId: string; size: ProjectSize; nodeId: string; refreshOf?: string }
+  | {
+      type: 'startProject';
+      name: string;
+      kind: ProductKind;
+      marketId: string;
+      size: ProjectSize;
+      nodeId: string;
+      refreshOf?: string;
+      tier?: Tier;
+      memory?: number;
+      cooling?: number;
+      /** A layout drafted in the wizard. */
+      board?: (string | null)[];
+    }
   | { type: 'setBoard'; projectId: string; board: (string | null)[] }
   | { type: 'assign'; personId: string; task: string | null }
   | { type: 'setCrunch'; projectId: string; on: boolean }
@@ -394,6 +449,9 @@ export type CommandV2 =
   | { type: 'repayLoan'; id: string }
   | { type: 'upgradeHr' }
   | { type: 'setRdBudget'; amount: number }
+  | { type: 'buildCampus'; siteId: string }
+  | { type: 'upgradeCampus'; campusId: string; part: 'hall' | 'chips' | 'cooling' | 'power' | 'network' | 'size'; option?: number | string }
+  | { type: 'setTrainShare'; share: number }
   | { type: 'openOffice'; region: string }
   | { type: 'ipo'; percent: number }
   | { type: 'setPayout'; payout: number }

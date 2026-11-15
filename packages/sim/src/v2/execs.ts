@@ -1,5 +1,5 @@
 import { rand } from '../rng';
-import { boardScore, chipCosts, evaluateBoard, expectOf } from './board';
+import { boardScore, chipCosts, evaluateBoard, expectOf, specOf } from './board';
 import { FIRST_NAMES, LAST_NAMES, TECHS, T } from './data';
 import { activeProducts, currentScore, fairPrice } from './markets';
 import { maskCostMult } from './facilities';
@@ -71,7 +71,7 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
   const eng = execOf(s, 'engineer');
   if (eng?.auto && s.day % 3 === 0) {
     // Idle people join the busiest-looking project that has the fewest hands.
-    const open = s.projects.filter((p) => p.phase === 'architecture' || p.phase === 'verification');
+    const open = s.projects.filter((p) => p.phase === 'architecture' || p.phase === 'verification' || p.phase === 'training');
     for (const p of s.staff.filter((x) => x.task === null)) {
       if (!open.length) break;
       const target = [...open].sort((a, b) => s.staff.filter((x) => x.task === a.id).length - s.staff.filter((x) => x.task === b.id).length)[0]!;
@@ -81,9 +81,16 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
     for (const pr of open) {
       if (pr.phase === 'architecture' && pr.board.every((c) => c === null) && s.day - pr.startedDay >= 5) {
         pr.board = suggest(pr);
-        note(s, eng, `Laid out the ${pr.name} die (expected ${boardScore(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind), pr.marketId, s.day, expectOf(s, pr.marketId)).toFixed(1)}).`);
+        note(s, eng, `Laid out the ${pr.name} die (expected ${boardScore(evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr)), pr.marketId, s.day, expectOf(s, pr.marketId)).toFixed(1)}).`);
       }
       // Better engineers ignore only minor bugs that cost a lot of time; weaker ones fix everything.
+      // A trained model ships once its evals are fixed and it has had a little extra training.
+      if (pr.phase === 'training' && pr.progress >= pr.need && pr.polishDays >= 2 + eng.stars * 2 && !pr.bugs.some((b) => b.found && !b.ignored && (b.fixLeft ?? 0) > 0)) {
+        pr.phase = 'ready';
+        for (const p of s.staff) if (p.task === pr.id) p.task = null;
+        note(s, eng, `Finished training the ${pr.name}.`);
+        continue;
+      }
       if (pr.phase === 'verification') {
         for (const b of pr.bugs) if (b.found && !b.ignored && b.severity === 1 && (b.fixLeft ?? 0) > 6 && eng.stars >= 4) {
           b.ignored = true;
@@ -109,7 +116,7 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
   const cmo = execOf(s, 'cmo');
   if (cmo?.auto) {
     for (const pr of s.projects.filter((p) => p.phase === 'ready')) {
-      const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind);
+      const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr));
       const est = boardScore(ev, pr.marketId, s.day, expectOf(s, pr.marketId));
       const err = (5 - cmo.stars) * 0.04;
       const price = Math.round(fairPrice(pr.marketId, est) * (1 + (rand(s) * 2 - 1) * err));

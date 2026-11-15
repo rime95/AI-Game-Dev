@@ -9,13 +9,18 @@ import { Sparkline } from './charts';
 import { needsOf } from './needs';
 import { CompanyPanel, HqPanel, MarketsPanel, ProductsPanel, ResearchPanel, StatsPanel, TeamPanel } from './Panels';
 import { DieBoardView, StudioPanel } from './Studio';
+import { DesignWizard, WizardStage } from './DesignWizard';
+import { ProductHero } from './hero/ProductHero';
+import { CampusStage, ComputePanel } from './Campus';
+import { WorldPanel, WorldStage } from './WorldView';
+import { WaferReveal } from './art/WaferReveal';
 import { Breakthrough2, CardModal2, Review2, YearReview2 } from './Modals';
 import { WealthPanel } from './Wealth';
 import type { GameState } from '@stm/sim';
 
 type G = v2.GameV2;
 
-export const TABS2: { id: Tab2; label: string; color: string; icon: string; key: string }[] = [
+export const TABS2: { id: Tab2; label: string; color: string; icon: string; key: string; tech?: string }[] = [
   { id: 'company', label: 'Company', color: LAYER.trust, icon: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6', key: '1' },
   { id: 'studio', label: 'Studio', color: LAYER.silicon, icon: 'M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4M10 10h4v4h-4z', key: '2' },
   { id: 'products', label: 'Products', color: LAYER.products, icon: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2', key: '3' },
@@ -25,6 +30,8 @@ export const TABS2: { id: Tab2; label: string; color: string; icon: string; key:
   { id: 'stats', label: 'Stats', color: LAYER.env, icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2', key: '7' },
   { id: 'hq', label: 'HQ', color: LAYER.power, icon: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01', key: '8' },
   { id: 'wealth', label: 'Wealth', color: LAYER.gold, icon: 'M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', key: '9' },
+  { id: 'world', label: 'World', color: LAYER.env, icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z', key: '-' },
+  { id: 'compute', label: 'Compute', color: LAYER.compute, icon: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01', key: '0', tech: 'datacenters' },
 ];
 
 /** Milliseconds per clock step; each step advances `speed` days. */
@@ -77,16 +84,36 @@ export function Shell2({ g }: { g: G }) {
   const pauseOpen = useStore((s) => s.pauseOpen);
   const shim = useStore((s) => s.game);
   const project = useStore((s) => s.project2);
-  const editing = tab === 'studio' && g.projects.find((p) => p.id === project && p.phase === 'architecture');
+  const wizard = useStore((s) => s.wizard);
+  const showcaseId = useStore((s) => s.showcase);
+  const showcase = g.products.find((p) => p.id === showcaseId);
+  const inStudio = tab === 'studio';
+  const opened = inStudio ? g.projects.find((p) => p.id === project) : undefined;
+  const editing = opened?.phase === 'architecture' ? opened : undefined;
+  const showWizard = inStudio && wizard;
   return (
     <div className="shell v2">
       <TopBar2 g={g} />
       <Rail2 g={g} />
       <div className="world">
-        {editing ? <DieBoardView g={g} pr={editing} /> : shim && <HqView game={shim as GameState} />}
+        {showWizard ? (
+          <WizardStage g={g} d={wizard} />
+        ) : editing ? (
+          <DieBoardView g={g} pr={editing} />
+        ) : opened ? (
+          <ProductHero spec={opened} />
+        ) : tab === 'products' && showcase ? (
+          <ProductHero spec={showcase} caption={`${showcase.name} · shipped ${v2.monthLabelV2(showcase.launchDay)} · drag to rotate`} />
+        ) : tab === 'compute' ? (
+          <CampusStage g={g} />
+        ) : tab === 'world' ? (
+          <WorldStage g={g} />
+        ) : (
+          shim && <HqView game={shim as GameState} />
+        )}
         <NeedsStrip g={g} />
         <Ticker2 g={g} />
-        {!editing && <Timeline g={g} />}
+        {!editing && !showWizard && !opened && tab !== 'compute' && tab !== 'world' && <Timeline g={g} />}
         <UndoChip />
       </div>
       <aside className="panel" style={{ ['--c' as string]: TABS2.find((t) => t.id === tab)!.color }}>
@@ -98,7 +125,7 @@ export function Shell2({ g }: { g: G }) {
         </div>
         <div className="panel-body">
           {tab === 'company' && <CompanyPanel g={g} />}
-          {tab === 'studio' && <StudioPanel g={g} />}
+          {tab === 'studio' && (wizard ? <DesignWizard g={g} d={wizard} /> : <StudioPanel g={g} />)}
           {tab === 'products' && <ProductsPanel g={g} />}
           {tab === 'markets' && <MarketsPanel g={g} />}
           {tab === 'team' && <TeamPanel g={g} />}
@@ -106,9 +133,12 @@ export function Shell2({ g }: { g: G }) {
           {tab === 'stats' && <StatsPanel g={g} />}
           {tab === 'hq' && <HqPanel g={g} />}
           {tab === 'wealth' && <WealthPanel g={g} />}
+          {tab === 'compute' && <ComputePanel g={g} />}
+          {tab === 'world' && <WorldPanel g={g} />}
         </div>
       </aside>
       {g.cards[0] && !pauseOpen && <CardModal2 g={g} card={g.cards[0]} />}
+      <WaferReveal g={g} />
       <Review2 g={g} />
       <Breakthrough2 g={g} />
       <YearReview2 g={g} />
@@ -226,7 +256,14 @@ function Rail2({ g }: { g: G }) {
         {TABS2.map((t) => {
           const alert = needs.find((n) => n.tab === t.id);
           return (
-            <button key={t.id} style={{ ['--c' as string]: t.color }} aria-current={tab === t.id ? 'page' : undefined} title={`${t.label} (${t.key})`} onClick={() => setTab(t.id)}>
+            <button
+              key={t.id}
+              className={t.tech && !g.research.done.includes(t.tech) ? 'sleep' : undefined}
+              style={{ ['--c' as string]: t.color }}
+              aria-current={tab === t.id ? 'page' : undefined}
+              title={`${t.label} (${t.key})${t.tech && !g.research.done.includes(t.tech) ? ` · wakes up with ${v2.tech(t.tech).name}` : ''}`}
+              onClick={() => setTab(t.id)}
+            >
               <span className="rail-icon">
                 <Icon d={t.icon} />
               </span>

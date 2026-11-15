@@ -2,7 +2,7 @@ import { rand } from '../rng';
 import { agingLoss, clampScore } from './board';
 import { kind, market, MARKETS, RIVAL_LINES, RIVALS, T, type MarketDef } from './data';
 import type { GameV2, Mood, Product, Rival, RivalPlan, RivalProduct } from './types';
-import { servingRatio } from './facilities';
+import { servingRatio } from './compute';
 import { reach, WORLD_WEIGHT } from './wealth';
 import { between, clamp, log, money, pick } from './util';
 

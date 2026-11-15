@@ -1,4 +1,4 @@
-import type { ProductKind, ProjectSize, Skill, Stat, Stats } from './types';
+import type { ProductKind, ProjectSize, Skill, Stat, Stats, Tier } from './types';
 
 /**
  * Sand to Mind v2 content. Every balancing number is TEMPORARY and lives here or in T (tuning).
@@ -107,6 +107,53 @@ export const ADJACENCY: { a: string; b: string; stat: Stat; bonus: number; max: 
   { a: 'rlhf', b: 'safety', stat: 'eff', bonus: 1, max: 1 },
 ];
 
+// ---------------------------------------------------------------- Chip spec (the design wizard)
+
+/** Quality tier: how much care goes into the design. Better tiers take longer and cost a little more per chip. */
+export const TIERS: Record<Tier, { name: string; stat: number; work: number; unit: number; effect: string }> = {
+  proto: { name: 'Prototype', stat: 0.9, work: 0.65, unit: 1, effect: '−10% performance · a third less work' },
+  std: { name: 'Standard', stat: 1, work: 1, unit: 1, effect: 'The baseline' },
+  refined: { name: 'Refined', stat: 1.12, work: 1.35, unit: 1.05, effect: '+12% performance · 35% more work' },
+  flagship: { name: 'Flagship', stat: 1.25, work: 1.8, unit: 1.12, effect: '+25% performance · 80% more work' },
+};
+export const TIER_ORDER: Tier[] = ['proto', 'std', 'refined', 'flagship'];
+
+/** Memory: feeds the compute and graphics blocks. More is faster and costs more per chip. */
+export const MEMORY = [
+  { stat: 1, unit: 1 },
+  { stat: 1.07, unit: 1.08 },
+  { stat: 1.14, unit: 1.18 },
+  { stat: 1.22, unit: 1.3 },
+];
+/** Cooling: a bigger cooler raises the heat budget (more hot blocks fit, or a cooler, more efficient die). */
+export const COOLING = [
+  { heat: 1, unit: 1 },
+  { heat: 1.15, unit: 1.03 },
+  { heat: 1.32, unit: 1.08 },
+  { heat: 1.55, unit: 1.15 },
+];
+/** Bonus for building on an earlier chip: its learnings carry over. */
+export const LINEAGE = { stat: 1.05, bugs: 0.8, work: 0.6 };
+
+const MEM_NAMES: Record<string, string[]> = {
+  cpu: ['Basic bus', 'Wide bus', 'Fast cache bus', 'Top-end memory'],
+  gpu: ['Shared memory', 'Dedicated VRAM', 'Fast VRAM', 'Wide, fast VRAM'],
+  console: ['Shared memory', 'Unified memory', 'Fast unified memory', 'Top-end memory'],
+  mobile: ['Basic LPDDR', 'LPDDR', 'Fast LPDDR', 'Stacked LPDDR'],
+  server: ['Basic channels', 'More channels', 'Fast channels', 'Top-end channels'],
+  accel: ['GDDR', '2 HBM stacks', '4 HBM stacks', '8 HBM stacks'],
+};
+const COOL_NAMES: Record<string, string[]> = {
+  cpu: ['No heatsink', 'Heatsink', 'Heatsink and fan', 'Tower cooler'],
+  gpu: ['Bare chip', 'Heatsink', 'One fan', 'Triple-fan cooler'],
+  console: ['Passive', 'Heatsink', 'Fan', 'Vapour chamber'],
+  mobile: ['Passive', 'Graphite pad', 'Heat pipe', 'Vapour chamber'],
+  server: ['Heatsink', 'Big heatsink', 'Server fans', 'Liquid cooling'],
+  accel: ['Heatsink', 'Air module', 'Liquid plate', 'Immersion-ready'],
+};
+export const memoryName = (k: ProductKind, level: number) => (MEM_NAMES[k] ?? MEM_NAMES.cpu!)[level] ?? '';
+export const coolingName = (k: ProductKind, level: number) => (COOL_NAMES[k] ?? COOL_NAMES.cpu!)[level] ?? '';
+
 export const SIZES: Record<ProjectSize, { name: string; w: number; h: number; work: number; mask: number; minTeam: number; tech?: string }> = {
   S: { name: 'Small', w: 4, h: 4, work: 1, mask: 1, minTeam: 1 },
   M: { name: 'Medium', w: 5, h: 5, work: 1.7, mask: 1.6, minTeam: 2 },
@@ -167,9 +214,9 @@ export const MARKETS: MarketDef[] = [
   { id: 'consoles', name: 'Game consoles', kind: 'console', taste: { perf: 0.3, gfx: 0.5, eff: 0.1, feat: 0.1 }, priceSensitivity: 1.4, basePrice: 60, startSize: 125, growth: 0.25, tech: 'consoles', bugPenalty: 1.3, blurb: 'Console makers order millions, at a hard price.' },
   { id: 'phones', name: 'Phones', kind: 'mobile', taste: { perf: 0.3, gfx: 0.1, eff: 0.45, feat: 0.15 }, priceSensitivity: 1.5, basePrice: 35, startSize: 150, growth: 0.7, tech: 'mobile', bugPenalty: 1.2, blurb: 'A computer in every pocket. Battery life sells.' },
   { id: 'servers', name: 'Servers', kind: 'server', taste: { perf: 0.5, gfx: 0, eff: 0.35, feat: 0.15 }, priceSensitivity: 0.9, basePrice: 900, startSize: 60, growth: 0.3, tech: 'multicore', bugPenalty: 1.6, blurb: 'Racks of them. Speed per watt rules.' },
-  { id: 'chatbots', name: 'AI assistants', kind: 'model', taste: { perf: 0.35, gfx: 0, eff: 0.25, feat: 0.4 }, priceSensitivity: 1.3, basePrice: 20, startSize: 3000, growth: 1.2, tech: 'llm', bugPenalty: 1.2, blurb: 'Subscriptions to a helpful, safe assistant.' },
-  { id: 'enterpriseai', name: 'Enterprise AI', kind: 'model', taste: { perf: 0.4, gfx: 0, eff: 0.35, feat: 0.25 }, priceSensitivity: 0.9, basePrice: 300, startSize: 120, growth: 0.9, tech: 'llm', bugPenalty: 1.5, blurb: 'Companies pay well for capable models they can trust.' },
-  { id: 'datacenter', name: 'Data centers', kind: 'accel', taste: { perf: 0.7, gfx: 0, eff: 0.25, feat: 0.05 }, priceSensitivity: 0.7, basePrice: 2500, startSize: 10, growth: 0.9, tech: 'tensor', bugPenalty: 1.4, blurb: 'Neural networks eat compute. Clouds pay for it.' },
+  { id: 'chatbots', name: 'AI assistants', kind: 'model', taste: { perf: 0.35, gfx: 0, eff: 0.25, feat: 0.4 }, priceSensitivity: 1.3, basePrice: 20, startSize: 3000, growth: 0.55, tech: 'llm', bugPenalty: 1.2, blurb: 'Subscriptions to a helpful, safe assistant.' },
+  { id: 'enterpriseai', name: 'Enterprise AI', kind: 'model', taste: { perf: 0.4, gfx: 0, eff: 0.35, feat: 0.25 }, priceSensitivity: 0.9, basePrice: 300, startSize: 120, growth: 0.45, tech: 'llm', bugPenalty: 1.5, blurb: 'Companies pay well for capable models they can trust.' },
+  { id: 'datacenter', name: 'Data centers', kind: 'accel', taste: { perf: 0.7, gfx: 0, eff: 0.25, feat: 0.05 }, priceSensitivity: 0.7, basePrice: 2500, startSize: 10, growth: 0.5, tech: 'tensor', bugPenalty: 1.4, blurb: 'Neural networks eat compute. Clouds pay for it.' },
 ];
 export const market = (id: string) => MARKETS.find((m) => m.id === id)!;
 

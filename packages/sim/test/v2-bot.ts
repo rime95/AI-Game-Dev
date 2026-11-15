@@ -29,7 +29,7 @@ const act = (s: G, cmd: v2.CommandV2): G => {
   return r.error ? s : r.state;
 };
 
-export function runBot(seed: number, days: number, lazy = false): BotResult {
+export function runBot(seed: number, days: number, lazy = false, keepPlaying = false): BotResult {
   let s = v2.createGameV2(content, seed, 'Bot Silicon');
   let idleDays = 0;
   let minGap = Infinity;
@@ -56,7 +56,7 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
           didSomething = true;
         }
         for (const b of pr.bugs) if (b.found && !b.ignored && b.fixLeft === undefined) didSomething = true;
-        if (pr.phase === 'verification' && pr.progress >= pr.need && pr.polishDays >= 6 && !pr.bugs.some((b) => b.found && !b.ignored && (b.fixLeft ?? 0) > 0)) {
+        if ((pr.phase === 'verification' || pr.phase === 'training') && pr.progress >= pr.need && pr.polishDays >= 6 && !pr.bugs.some((b) => b.found && !b.ignored && (b.fixLeft ?? 0) > 0)) {
           s = act(s, { type: 'finishVerification', projectId: pr.id });
           didSomething = true;
         }
@@ -71,7 +71,7 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
       }
       // Idle people start a project or research.
       const idle = s.staff.filter((p) => p.task === null);
-      const working = s.projects.filter((p) => p.phase === 'architecture' || p.phase === 'verification');
+      const working = s.projects.filter((p) => p.phase === 'architecture' || p.phase === 'verification' || p.phase === 'training');
       if (idle.length && working.length === 0) {
         const markets = s.markets.map((m) => v2.market(m.id)).filter((m) => v2.kindUnlocked(s, m.kind));
         // Pick the market where we are weakest relative to its size.
@@ -115,6 +115,14 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
       if (!v2.buildError(s, 'agi')) s = act(s, { type: 'startAgi' });
       if (s.research.done.includes('llm') && !v2.buildError(s, 'dc') && s.cash > v2.FAC.dc.cost * 3) s = act(s, { type: 'buildDatacenter' });
       if (!v2.buildError(s, 'fab') && s.cash > (v2.FAC.fab[s.facilities.fab]?.cost ?? Infinity) * 2) s = act(s, { type: 'buildFab' });
+      // Refit campuses when one of our own chips is clearly better than what is installed.
+      const best = v2.ownChips(s)[0];
+      if (best)
+        for (const c of s.compute?.campuses ?? []) {
+          const chip = v2.ownChip(best);
+          const q = v2.upgradeQuote(s, c, 'chips', best.id);
+          if (chip.pfPerMw > c.chip.pfPerMw * 1.3 && !q.error && s.cash > q.cost * 3) s = act(s, { type: 'upgradeCampus', campusId: c.id, part: 'chips', option: best.id });
+        }
       if (s.hq.stage === 'office' && s.cash > 6_000_000) s = act(s, { type: 'moveHq' });
       if (s.hq.stage === 'garage' && s.cash > 250_000) {
         s = act(s, { type: 'moveHq' });
@@ -139,6 +147,8 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
       else wasClose.delete(m.id);
     }
     const costsPerMonth = v2.salaryBill(s) + 1000;
+    // Optionally play on past the market-leader ending (to reach the AGI run).
+    if (keepPlaying && s.status === 'won' && s.ending === 'leader') s = act(s, { type: 'keepPlaying' });
     const tight = s.hq.stage === 'garage' && s.cash < costsPerMonth * 3;
     if (tight && !wasTight) tightCash++;
     wasTight = tight;
@@ -149,12 +159,12 @@ export function runBot(seed: number, days: number, lazy = false): BotResult {
 // Run directly: npx tsx packages/sim/test/v2-bot.ts
 if (process.argv[1]?.endsWith('v2-bot.ts') && process.argv[2] === 'long') {
   for (const seed of [1, 2]) {
-    const r = runBot(seed, 360 * 30);
+    const r = runBot(seed, 360 * 30, false, true);
     const s = r.state;
     const when = (id: string) => (s.research.doneDay[id] !== undefined ? v2.monthLabelV2(s.research.doneDay[id]!) : '-');
     console.log(
       `seed ${seed}: ${v2.monthLabelV2(s.day)} ${s.status} ending ${s.ending ?? '-'} cash ${v2.moneyV2(s.cash)} staff ${s.staff.length} stage ${s.hq.stage} launches ${r.launches.length} ` +
-        `research ${s.research.done.length}/${v2.TECHS.length} 3d ${when('3d')} multicore ${when('multicore')} llm ${when('llm')} agi ${when('agi')} dc ${s.facilities.dc} fab ${s.facilities.fab} minGap ${r.minGap.toFixed(2)} chapter ${s.chapter.index}`,
+        `research ${s.research.done.length}/${v2.TECHS.length} 3d ${when('3d')} multicore ${when('multicore')} llm ${when('llm')} agi ${when('agi')} agiRun ${s.agi ? v2.monthLabelV2(s.agi.startDay) : '-'} campuses ${s.compute?.campuses.length ?? 0} PF ${Math.round(v2.totalPf(s))} fab ${s.facilities.fab} minGap ${r.minGap.toFixed(2)} chapter ${s.chapter.index}`,
     );
   }
 } else if (process.argv[1]?.endsWith('v2-bot.ts')) {

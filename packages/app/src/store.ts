@@ -19,7 +19,7 @@ import {
 
 export type Screen = 'menu' | 'game';
 /** Sections of the game. */
-export type Tab2 = 'company' | 'studio' | 'products' | 'markets' | 'team' | 'research' | 'stats' | 'hq' | 'wealth';
+export type Tab2 = 'company' | 'studio' | 'products' | 'markets' | 'team' | 'research' | 'stats' | 'hq' | 'wealth' | 'compute' | 'world';
 
 /** Build mode: the room template being placed and its rotation (90° steps). */
 export interface BuildState {
@@ -28,6 +28,23 @@ export interface BuildState {
   rot: number;
   /** Moving an existing room instead of building a new one. */
   moveId?: string;
+}
+
+/** A chip being planned in the design wizard (not a project until Start). */
+export interface WizardDraft {
+  step: number;
+  name: string;
+  refreshOf?: string;
+  kind: v2.ProductKind;
+  marketId: string;
+  size: v2.ProjectSize;
+  nodeId: string;
+  tier: v2.Tier;
+  memory: number;
+  cooling: number;
+  board: (string | null)[];
+  /** People who will join (ids). */
+  team: string[];
 }
 
 interface Store {
@@ -41,6 +58,19 @@ interface Store {
   tab2: Tab2;
   /** Project open in the Studio. */
   project2: string | null;
+  /** A chip whose first wafer is being revealed (it just came back from the fab). */
+  reveal2: string | null;
+  closeReveal2: () => void;
+  /** A shipped product shown big in the main view (from the Products shelf). */
+  showcase: string | null;
+  setShowcase: (id: string | null) => void;
+  /** The place picked on the world map. */
+  place: string | null;
+  selectPlace: (id: string | null) => void;
+  /** The campus shown in the Compute view. */
+  campus: string | null;
+  /** The design wizard, when open. */
+  wizard: WizardDraft | null;
   /** A product whose launch reviews are showing. */
   review2: string | null;
   /** A breakthrough being announced. */
@@ -65,6 +95,11 @@ interface Store {
   /** Room and HQ commands from the shared build mode. */
   send: (cmd: Command) => void;
   undoV2: () => void;
+  /** Open the design wizard, fresh or building on a shipped product. */
+  openWizard: (fromProductId?: string) => void;
+  patchWizard: (patch: Partial<WizardDraft>) => void;
+  selectCampus: (id: string | null) => void;
+  closeWizard: () => void;
   setTab2: (tab: Tab2) => void;
   openProject2: (id: string | null) => void;
   closeReview2: () => void;
@@ -98,6 +133,7 @@ const fresh = (): Partial<Store> => ({
   game: null,
   tab2: 'studio',
   project2: null,
+  wizard: null,
   review2: null,
   breakthrough2: null,
   year2: null,
@@ -118,6 +154,11 @@ export const useStore = create<Store>((set, get) => ({
   notice: null,
   tab2: 'studio',
   project2: null,
+  wizard: null,
+  campus: null,
+  place: null,
+  reveal2: null,
+  showcase: null,
   review2: null,
   breakthrough2: null,
   year2: null,
@@ -151,6 +192,43 @@ export const useStore = create<Store>((set, get) => ({
     set({ undo2: null, notice: `Undid: ${u.label}` });
     post2({ type: 'load', state: u.state });
   },
+  openWizard: (from) => {
+    const g = get().v2;
+    if (!g) return;
+    const base = from ? g.products.find((p) => p.id === from) : undefined;
+    const kinds = v2.KINDS.filter((k) => v2.kindUnlocked(g, k.id));
+    const kind = base?.kind ?? kinds[0]!.id;
+    const marketId = base?.marketId ?? g.markets.map((m) => v2.market(m.id)).find((m) => m.kind === kind)?.id ?? '';
+    const size = base?.size ?? 'S';
+    const count = g.products.length + g.projects.length + 1;
+    set({
+      tab2: 'studio',
+      project2: null,
+      wizard: {
+        step: 0,
+        name: base ? nextName(base.name) : `${g.companyName.split(' ')[0]} ${kind === 'gpu' ? 'G' : kind === 'cpu' ? 'X' : kind[0]!.toUpperCase()}${count}`,
+        refreshOf: base?.id,
+        kind,
+        marketId,
+        size,
+        nodeId: v2.bestNode(g).id,
+        tier: base?.tier ?? 'std',
+        memory: base?.memory ?? 0,
+        cooling: base?.cooling ?? 0,
+        board: base ? [...base.board] : Array(v2.SIZES[size].w * v2.SIZES[size].h).fill(null),
+        team: g.staff.filter((p) => p.task === null).map((p) => p.id),
+      },
+    });
+  },
+  patchWizard: (patch) => {
+    const w = get().wizard;
+    if (w) set({ wizard: { ...w, ...patch } });
+  },
+  closeWizard: () => set({ wizard: null }),
+  selectCampus: (campus) => set({ campus }),
+  selectPlace: (place) => set({ place }),
+  closeReveal2: () => set({ reveal2: null }),
+  setShowcase: (showcase) => set({ showcase }),
   setTab2: (tab2) => set({ tab2, build: null, selectedRoom: null }),
   openProject2: (project2) => set({ project2, tab2: 'studio' }),
   closeReview2: () => set({ review2: null }),
@@ -219,6 +297,9 @@ worker2.onmessage = (e: MessageEvent<FromWorker2>) => {
   if (prev) {
     if (state.years.length > prev.years.length) patch.year2 = state.years.length - 1;
     if (state.products.length > prev.products.length) patch.review2 = state.products[state.products.length - 1]!.id;
+    // First silicon: a chip just came back from the fab.
+    const back = state.projects.find((p) => p.phase === 'ready' && p.kind !== 'model' && prev.projects.find((q) => q.id === p.id)?.phase === 'tapeout');
+    if (back) patch.reveal2 = back.id;
     const bt = state.research.done.find((d) => !prev.research.done.includes(d) && !!v2.TECHS.find((t) => t.id === d)?.breakthrough);
     if (bt) patch.breakthrough2 = bt;
     // Anything new that needs the player stops the clock (prompts never time out).
@@ -265,6 +346,10 @@ const UNDO_LABEL: Partial<Record<v2.CommandV2['type'], string>> = {
   setExecAuto: 'Changed autopilot',
   acquireRival: 'Bought a rival',
   buildDatacenter: 'Started a data center',
+  buildCampus: 'Broke ground on a campus',
+  upgradeCampus: 'Upgraded the campus',
+  setTrainShare: 'Changed the training share',
+  setRdBudget: 'Changed the R&D budget',
   buildFab: 'Started a fab',
   startAgi: 'Started the AGI program',
   setSalary: 'Changed your salary',
@@ -280,6 +365,12 @@ const UNDO_LABEL: Partial<Record<v2.CommandV2['type'], string>> = {
   setPayout: 'Changed the dividend',
   injectCash: 'Invested your own money',
 };
+
+/** The next name in a line: "Omni 2" → "Omni 3", "Omni" → "Omni 2". */
+function nextName(name: string): string {
+  const m = name.match(/^(.*?)(\d+)$/);
+  return m ? `${m[1]}${Number(m[2]) + 1}` : `${name} 2`;
+}
 
 export function boot(): void {
   cleanupLegacySaves();
