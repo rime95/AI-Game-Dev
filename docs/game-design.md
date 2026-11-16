@@ -44,13 +44,17 @@ Simulation: `packages/sim/src/v2`. UI: `packages/app/src/v2`. Every number is te
    - Four magazines review the chip. The launch earns research points, brand, and one new fact about what that market's buyers want.
    - **The press remembers.** Each chip is judged against the market bar or 95% of your best die in that market, whichever is higher. Matching your last chip scores about 6; a big leap scores 9 or more. "Beat your last chip" is the goal all game, and scores don't pile up at 10.
 4. **Sell.**
-   - Buyer pull = brand × 2^(score − 5) × (fair ÷ price)^sensitivity × hype × your reach. You share each market with rivals and small makers.
+   - Buyer pull = brand × 2^((score − 5) ÷ 0.7) × (fair ÷ price)^sensitivity × hype. A clearly better chip wins most buyers. Brands share one scale (about 0.5 for an unknown to 3 for a household name).
+   - **Real volumes:** markets are sized like the real ones (1991 PCs: tens of thousands of chips a day worldwide) and keep growing at their own rates with no ceiling, so a late-game giant can make trillions.
+   - **Reach:** you compete only where you have sales offices (North America at first, 40% of buyers). Elsewhere rivals and small makers split the market. Markets show your world share and your share where you sell.
+   - **Foundry capacity:** the foundry makes only so many of your chips a day (1,500 at the start). Your allotment grows 6% a month while you use it all; you can book more at $2,500 per chip a day; your own fab adds hundreds of thousands. Demand you can't supply goes to rivals.
+   - **Costs:** the chips themselves, plus operations (sales, support, logistics) at 15% of revenue, plus 25% tax on profit. Masks, offices, HQ moves, fabs, campuses and the AGI run are priced at real-world scale.
    - Products age as the market bar rises. Refreshes, re-pricing and retiring are real decisions.
 
 ## Systems
 - **Brand** grows with share and good launches (less the better known you are) and fades about 3.5% a month toward where you started.
 - **People:** candidates with three skills, traits, levels, XP, salaries, morale and burnout. Crunch speeds work up but wears people out. Stars get poach offers (counter-offer or let them go). The HR department adds morale, fewer people quitting and better candidates.
-- **Executives:** Chief Engineer, CMO, CFO and Head of Research. Each has 1–5 stars, an autopilot switch and a "Lately" log, and answers the decision cards in their area. A CMO on autopilot also retires chips a newer one has replaced.
+- **Executives:** Chief Engineer, CMO, CFO and Head of Research. Each has 1–5 stars, an autopilot switch and a "Lately" log, and answers the decision cards in their area. A CMO on autopilot also retires chips a newer one has replaced and never prices below cost +30%. The Head of Research picks normal technologies first (cheapest, or the one that opens the most research at 3+ stars) and leaves breakthroughs until nothing else is left.
 - **Rivals:**
   - Each one announces products on a launch calendar.
   - They follow your lead: each new rival chip aims a little behind your best recent launch in that market (premium and copycat rivals close, price-cutters further back; rattled and desperate rivals try harder). The "never ahead" cap is only a ceiling. A market you keep fresh is a clear lead; one you neglect is where they catch up.

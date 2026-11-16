@@ -262,6 +262,8 @@ export interface MonthBook {
   projects: number;
   marketing: number;
   hiring: number;
+  /** Sales, support, logistics and overhead (a share of revenue; older saves lack it). */
+  ops?: number;
   /** The R&D budget (older saves lack it). */
   research?: number;
   /** Corporate tax on the month's profit (older saves lack it). */
@@ -339,6 +341,8 @@ export interface GameV2 {
   };
   /** The AGI run: compute poured in so far and what it needs (older saves only have the days). */
   agi: { startDay: number; doneDay: number; pfDays?: number; need?: number } | null;
+  /** Chips a day your foundry allotment can make (missing on older saves: set on first use). */
+  foundry?: { capacity: number; demand: number };
   /** Data center campuses (created on first use; older saves convert their data centers). */
   compute?: ComputeState;
   /** Days in a row leading 5+ markets (the market-leader ending). */
@@ -449,6 +453,7 @@ export type CommandV2 =
   | { type: 'repayLoan'; id: string }
   | { type: 'upgradeHr' }
   | { type: 'setRdBudget'; amount: number }
+  | { type: 'bookCapacity'; chips: number }
   | { type: 'buildCampus'; siteId: string }
   | { type: 'upgradeCampus'; campusId: string; part: 'hall' | 'chips' | 'cooling' | 'power' | 'network' | 'size'; option?: number | string }
   | { type: 'setTrainShare'; share: number }

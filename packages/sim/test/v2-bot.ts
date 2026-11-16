@@ -62,7 +62,8 @@ export function runBot(seed: number, days: number, lazy = false, keepPlaying = f
         }
         if (pr.phase === 'ready') {
           const f = v2.projectForecast(s, pr);
-          const price = Math.round(v2.fairPrice(pr.marketId, f.total));
+          const unit = v2.chipCosts(pr.size, pr.nodeId, v2.usedTiles(pr.board), v2.specOf(pr)).unitCost;
+          const price = Math.round(Math.max(v2.fairPrice(pr.marketId, f.total), unit * 1.3));
           s = act(s, { type: 'launch', projectId: pr.id, price, marketing: s.cash > 60_000 ? 1 : 0 });
           const p = s.products[s.products.length - 1]!;
           launches.push({ day: s.day, name: p.name, score: p.score });
@@ -123,8 +124,15 @@ export function runBot(seed: number, days: number, lazy = false, keepPlaying = f
           const q = v2.upgradeQuote(s, c, 'chips', best.id);
           if (chip.pfPerMw > c.chip.pfPerMw * 1.3 && !q.error && s.cash > q.cost * 3) s = act(s, { type: 'upgradeCampus', campusId: c.id, part: 'chips', option: best.id });
         }
-      if (s.hq.stage === 'office' && s.cash > 6_000_000) s = act(s, { type: 'moveHq' });
-      if (s.hq.stage === 'garage' && s.cash > 250_000) {
+      if (s.hq.stage === 'office' && s.cash > 30_000_000) s = act(s, { type: 'moveHq' });
+      // Book foundry capacity when demand outruns it, and open offices when they pay for themselves.
+      const fd = s.foundry;
+      if (fd && fd.demand > fd.capacity * 1.1) {
+        const want = Math.round(Math.min(fd.demand - fd.capacity, (s.cash * 0.3) / v2.T.foundry.pricePerChip));
+        if (want >= 100) s = act(s, { type: 'bookCapacity', chips: want });
+      }
+      for (const r of v2.REGIONS) if (r.id !== 'na' && !s.offices.includes(r.id) && s.cash > v2.officeCost(s, r) * 3 && s.products.length >= 3) s = act(s, { type: 'openOffice', region: r.id });
+      if (s.hq.stage === 'garage' && s.cash > 1_200_000) {
         s = act(s, { type: 'moveHq' });
         if (s.hq.stage !== 'garage') {
           officeDay = s.day;

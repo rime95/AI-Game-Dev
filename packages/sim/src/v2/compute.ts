@@ -31,35 +31,35 @@ export const site = (id: string) => SITES.find((x) => x.id === id)!;
 
 export const COMPUTE = {
   /** IT power per hall (MW), its build cost and time. */
-  hall: { mw: 20, cost: 15_000_000, days: 75 },
+  hall: { mw: 20, cost: 150_000_000, days: 90 },
   /** Opening a campus (land, substation, buildings) by size; each size holds more halls. */
   sizes: [
-    { name: 'Small campus', halls: 2, cost: 10_000_000 },
-    { name: 'Large campus', halls: 4, cost: 35_000_000 },
-    { name: 'Hyperscale campus', halls: 8, cost: 100_000_000 },
+    { name: 'Small campus', halls: 2, cost: 100_000_000 },
+    { name: 'Large campus', halls: 4, cost: 350_000_000 },
+    { name: 'Hyperscale campus', halls: 8, cost: 1_000_000_000 },
   ],
   cooling: [
     { name: 'Air cooling', pue: 1.55, perHall: 0 },
-    { name: 'Liquid cooling', pue: 1.28, perHall: 4_000_000 },
-    { name: 'Immersion cooling', pue: 1.12, perHall: 9_000_000 },
+    { name: 'Liquid cooling', pue: 1.28, perHall: 40_000_000 },
+    { name: 'Immersion cooling', pue: 1.12, perHall: 90_000_000 },
   ],
   power: [
     { name: 'Grid power', price: 1, bonus: 0, perHall: 0, blurb: 'Whatever the local grid charges.' },
-    { name: 'Solar and storage', price: 0.68, bonus: 0, perHall: 8_000_000, blurb: 'Cheaper, greener power (best where it is sunny).' },
-    { name: 'Redundant power', price: 1.1, bonus: 0.03, perHall: 5_000_000, blurb: 'Never goes down: +3% compute.' },
+    { name: 'Solar and storage', price: 0.68, bonus: 0, perHall: 80_000_000, blurb: 'Cheaper, greener power (best where it is sunny).' },
+    { name: 'Redundant power', price: 1.1, bonus: 0.03, perHall: 50_000_000, blurb: 'Never goes down: +3% compute.' },
   ],
   network: [
     { name: 'Standard links', bonus: 0, cost: 0 },
-    { name: 'Dual fibre routes', bonus: 0.08, cost: 6_000_000 },
+    { name: 'Dual fibre routes', bonus: 0.08, cost: 60_000_000 },
   ],
   /** Accelerators per MW (for the price of a refit). */
   chipsPerMw: 300,
   /** Staff and upkeep per hall per month, on top of power. */
-  hallUpkeep: 150_000,
+  hallUpkeep: 1_500_000,
   /** AI-model customers one PF serves per day. */
-  customersPerPf: 0.6,
+  customersPerPf: 24,
   /** Cloud rental: what a MW-equivalent of idle serving capacity earns per day. */
-  cloudPerMwDay: 2_200,
+  cloudPerMwDay: 30_000,
   /** Training needs, in MW-days of today's bought GPUs, by model size. */
   trainMwDays: { S: 600, M: 1500, L: 4000, XL: 10_000 } as Record<string, number>,
   /** The AGI run, in MW-days of today's bought GPUs. */

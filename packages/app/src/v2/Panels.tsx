@@ -4,6 +4,7 @@ import { templateDef, v2 } from '@stm/sim';
 import { useStore } from '../store';
 import { LAYER } from '../ui/layers';
 import { BoxArt } from './art/BoxArt';
+import { StatStrip } from './kit';
 import { Bars, LineChart, OWNER_COLORS, Sparkline } from './charts';
 import { GrowCards } from './Wealth';
 
@@ -225,8 +226,10 @@ export function MarketsPanel({ g }: { g: G }) {
   const send = useStore((s) => s.send2);
   const plans = v2.visiblePlans(g);
   const moodLabel: Record<v2.Mood, string> = { confident: 'Confident', rattled: 'Rattled', desperate: 'Desperate', forSale: 'Looking for a buyer' };
+  const reachNow = v2.reach(g);
   return (
     <>
+      <Supply g={g} />
       <div className="card">
         <h3>Launch calendar</h3>
         {plans.length === 0 && <p className="small muted">No rival launches announced.</p>}
@@ -263,7 +266,9 @@ export function MarketsPanel({ g }: { g: G }) {
                   <tr className="you">
                     <td>You</td>
                     <td>{best.toFixed(1)}</td>
-                    <td>{Math.round((ms.shares.you ?? 0) * 100)}%</td>
+                    <td title="Share of the whole world market (and of the buyers who can get your chips)">
+                      {Math.round((ms.shares.you ?? 0) * 100)}%{reachNow < 0.999 && <span className="muted"> · {Math.round(((ms.shares.you ?? 0) / reachNow) * 100)}% where you sell</span>}
+                    </td>
                   </tr>
                 )}
                 {rivalRows.map(({ r, p, score }) => (
@@ -943,6 +948,37 @@ function RdBudget({ g }: { g: G }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Chip supply: the foundry allotment against what buyers want, and where you can sell. */
+function Supply({ g }: { g: G }) {
+  const send = useStore((s) => s.send2);
+  const fd = g.foundry ?? { capacity: v2.T.foundry.start, demand: 0 };
+  const use = fd.demand / Math.max(1, fd.capacity);
+  const short = fd.demand > fd.capacity * 1.02;
+  const step = Math.max(500, Math.round((fd.capacity * 0.25) / 100) * 100);
+  const cost = step * v2.T.foundry.pricePerChip;
+  const reachNow = v2.reach(g);
+  return (
+    <div className="card">
+      <StatStrip
+        items={[
+          { k: 'Can make', v: `${Math.round(fd.capacity).toLocaleString('en-US')}/day` },
+          { k: 'Buyers want', v: `${Math.round(fd.demand).toLocaleString('en-US')}/day`, bar: Math.min(1, use), tone: short ? 'neg' : undefined },
+          { k: 'You reach', v: `${Math.round(reachNow * 100)}%`, bar: reachNow },
+        ]}
+      />
+      <p className="small muted">
+        {short
+          ? `The foundry can't keep up: ${Math.round(fd.demand - fd.capacity).toLocaleString('en-US')} chips a day of demand go to rivals. Book more wafers, or wait: the allotment grows while you use it all.`
+          : 'The foundry makes everything buyers want. Your allotment grows while you use it fully.'}
+        {reachNow < 0.999 && ` You sell to ${Math.round(reachNow * 100)}% of the world's buyers; sales offices (Company tab) open the rest.`}
+      </p>
+      <button className="btn sm" disabled={g.cash < cost} onClick={() => send({ type: 'bookCapacity', chips: step })}>
+        Book {step.toLocaleString('en-US')} more chips a day · {$(cost)}
+      </button>
     </div>
   );
 }

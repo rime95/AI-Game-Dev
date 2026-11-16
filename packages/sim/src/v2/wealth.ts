@@ -22,9 +22,9 @@ export const hrLevel = (s: GameV2) => HR_LEVELS[s.hr]!;
 /** Home sells in North America; offices open the rest of the world (the market there is real but you can't reach it). */
 export const REGIONS = [
   { id: 'na', name: 'North America', weight: 1, cost: 0, monthly: 0 },
-  { id: 'europe', name: 'Europe', weight: 0.6, cost: 250_000, monthly: 20_000 },
-  { id: 'japan', name: 'Japan', weight: 0.4, cost: 300_000, monthly: 25_000 },
-  { id: 'asia', name: 'Asia-Pacific', weight: 0.5, cost: 300_000, monthly: 25_000 },
+  { id: 'europe', name: 'Europe', weight: 0.6, cost: 2_500_000, monthly: 200_000 },
+  { id: 'japan', name: 'Japan', weight: 0.4, cost: 3_000_000, monthly: 250_000 },
+  { id: 'asia', name: 'Asia-Pacific', weight: 0.5, cost: 3_000_000, monthly: 250_000 },
 ];
 export const WORLD_WEIGHT = REGIONS.reduce((n, r) => n + r.weight, 0);
 /** Share of the world's buyers who can buy from us. */
@@ -45,9 +45,9 @@ export const hrPrice = (s: GameV2, level: number) => {
 };
 
 /** R&D budget: research points per day for a monthly spend (diminishing returns; $10K a month ≈ one researcher). */
-export const rdPointsPerDay = (budget: number) => (budget > 0 ? 0.33 * Math.pow(budget / 10_000, 0.6) : 0);
+export const rdPointsPerDay = (budget: number) => (budget > 0 ? 0.33 * Math.pow(budget / 50_000, 0.6) : 0);
 
-export const IPO = { quarters: 4, revenue: 50_000_000, shares: 100_000_000, fee: 0.05 };
+export const IPO = { quarters: 4, revenue: 500_000_000, shares: 1_000_000_000, fee: 0.05 };
 
 /** Real people, fixed fortunes (they never move, so the list is a fixed target). Approximate, in USD. */
 export const RICH_LIST: { name: string; worth: number }[] = [

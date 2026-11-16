@@ -119,7 +119,9 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
       const ev = evaluateBoard(pr.board, pr.size, pr.nodeId, pr.kind, specOf(pr));
       const est = boardScore(ev, pr.marketId, s.day, expectOf(s, pr.marketId));
       const err = (5 - cmo.stars) * 0.04;
-      const price = Math.round(fairPrice(pr.marketId, est) * (1 + (rand(s) * 2 - 1) * err));
+      const unit = chipCosts(pr.size, pr.nodeId, undefined, specOf(pr)).unitCost;
+      // Never below cost: at least 30% over what a chip costs to make.
+      const price = Math.round(Math.max(fairPrice(pr.marketId, est) * (1 + (rand(s) * 2 - 1) * err), unit * 1.3));
       const push: 0 | 1 | 2 | 3 = s.cash > pr.spent * 4 ? 2 : s.cash > pr.spent * 1.5 ? 1 : 0;
       note(s, cmo, `Launched the ${pr.name} at ${money(price)} with ${T.marketing[push].label.toLowerCase()}.`);
       launch(pr.id, price, push);
@@ -138,7 +140,7 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
         const fair = fairPrice(p.marketId, currentScore(p, s.day));
         const band = 0.12 - cmo.stars * 0.02;
         if (p.price > fair * (1 + band) || p.price < fair * (1 - band)) {
-          const to = Math.round(fair);
+          const to = Math.round(Math.max(fair, p.unitCost * 1.3));
           note(s, cmo, `Repriced the ${p.name} from ${money(p.price)} to ${money(to)}.`);
           p.price = to;
         }
@@ -148,8 +150,10 @@ export function tickExecs(s: GameV2, launch: (projectId: string, price: number, 
   const res = execOf(s, 'research');
   if (res?.auto && !s.research.current) {
     const avail = TECHS.filter((t) => !s.research.done.includes(t.id) && t.requires.every((r) => s.research.done.includes(r)));
-    // Better heads aim for breakthroughs; weaker ones take the cheapest thing.
-    const choice = res.stars >= 3 ? [...avail].sort((a, b) => (b.breakthrough ? 1 : 0) - (a.breakthrough ? 1 : 0) || a.cost - b.cost)[0] : [...avail].sort((a, b) => a.cost - b.cost)[0];
+    // Normal technologies first (cheapest first); breakthroughs only once nothing else is left.
+    // Better heads pick the technology that unlocks the most other research among equals.
+    const opens = (id: string) => TECHS.filter((t) => t.requires.includes(id)).length;
+    const choice = [...avail].sort((a, b) => (a.breakthrough ? 1 : 0) - (b.breakthrough ? 1 : 0) || (res.stars >= 3 ? opens(b.id) - opens(a.id) : 0) || a.cost - b.cost)[0];
     if (choice) {
       s.research.current = choice.id;
       s.research.progress = 0;

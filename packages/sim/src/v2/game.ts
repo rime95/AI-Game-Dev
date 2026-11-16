@@ -10,7 +10,7 @@ import { buildCampus, ensureCompute, growCompute, scaleBonus, tickCloud, tickCom
 import { buyShares, initialMarket, placeOrder, quarterlyMarket, sellShares, weeklyMarket } from './stocks';
 import { goPublic, HR_LEVELS, hrPrice, ipoCheck, loanLimit, loanRate, LOANS, monthlyFinance, officeCost, rdPointsPerDay, REGIONS, salaryCap, weeklyIpo } from './wealth';
 import { BLOCKS, CHAPTERS, kind, KINDS, LINEAGE, market, NODES, OUTLETS, QUOTES, SIZES, T, tech, TECHS, TIERS, type TechDef } from './data';
-import { activeProducts, currentScore, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, takeoverPrice, tickRivals, tickSales } from './markets';
+import { activeProducts, currentScore, foundryOf, initialRivals, monthlyRivals, openMarkets, rivalScore as rivalScoreFor, takeoverPrice, tickRivals, tickSales } from './markets';
 import { capacity, founder, gainXp, hasPerk, makeCandidate, tickStaff, workRate } from './staff';
 import type { Bug, CommandV2, GameV2, Person, Product, Project, ProjectSize, ResultV2, Snapshot, Stat, Tier } from './types';
 import { between, clamp, log, money, monthIndex, monthLabel, newId, pick, spend } from './util';
@@ -19,16 +19,16 @@ const ROOM_COST_SCALE = 0.25;
 const UPKEEP_SCALE = 0.25;
 const STAGE_TERMS: Record<string, { moveCost: number; rentPerMonth: number }> = {
   garage: { moveCost: 0, rentPerMonth: 0 },
-  office: { moveCost: 100_000, rentPerMonth: 4_000 },
-  hqBuilding: { moveCost: 3_000_000, rentPerMonth: 30_000 },
-  hqCampus: { moveCost: 40_000_000, rentPerMonth: 250_000 },
+  office: { moveCost: 500_000, rentPerMonth: 20_000 },
+  hqBuilding: { moveCost: 15_000_000, rentPerMonth: 150_000 },
+  hqCampus: { moveCost: 200_000_000, rentPerMonth: 1_500_000 },
 };
 
 const ARCH_WORK = 18;
 const VERIFY_WORK = 26;
 
 /** Yield: a new process node starts with many bad dies and matures over about two years; your own fab learns faster. */
-export const YIELD = { fresh: 0.72, mature: 0.93, days: 300, perBug: 0.015 };
+export const YIELD = { fresh: 0.78, mature: 0.93, days: 300, perBug: 0.015 };
 export function chipYield(s: GameV2, pr: Pick<Project, 'nodeId' | 'bugs'>): number {
   const n = NODES.find((x) => x.id === pr.nodeId);
   const since = n?.tech ? s.day - (s.research.doneDay[n.tech] ?? 0) : s.day + 360;
@@ -530,7 +530,13 @@ function tickDay(s: GameV2, content: Content): void {
   s.modifiers = s.modifiers.filter((m) => m.until > s.day);
   if (s.day % 30 === 0) {
     const m = s.month;
-    let costs = m.cogs + m.salaries + m.facilities + m.projects + m.marketing + m.hiring + (m.research ?? 0) + m.other;
+    // Sales, support, logistics and overhead grow with revenue.
+    m.ops = m.revenue * T.opsShare;
+    s.cash -= m.ops;
+    let costs = m.cogs + m.salaries + m.facilities + m.projects + m.marketing + m.hiring + m.ops + (m.research ?? 0) + m.other;
+    // The foundry grows your allotment while you use it all (they like steady customers).
+    const fd = foundryOf(s);
+    if (fd.demand > fd.capacity * 0.9) fd.capacity = Math.round(fd.capacity * (1 + T.foundry.growth));
     if (m.revenue - costs > 0) {
       m.tax = (m.revenue - costs) * T.taxRate;
       s.cash -= m.tax;
@@ -875,6 +881,16 @@ function run(s: GameV2, content: Content, cmd: CommandV2): string | null {
       s.month.other += l.left;
       s.loans = s.loans.filter((x) => x !== l);
       log(s, 'Loan paid off early.', 'good');
+      return null;
+    }
+    case 'bookCapacity': {
+      const n = Math.round(cmd.chips);
+      if (!(n > 0)) return 'Book at least one chip a day.';
+      const cost = n * T.foundry.pricePerChip;
+      if (s.cash < cost) return `Booking ${n.toLocaleString('en-US')} more chips a day costs ${money(cost)}.`;
+      spend(s, 'projects', cost);
+      foundryOf(s).capacity += n;
+      log(s, `Booked ${n.toLocaleString('en-US')} more chips a day at the foundry (${money(cost)}).`, 'good');
       return null;
     }
     case 'setRdBudget': {

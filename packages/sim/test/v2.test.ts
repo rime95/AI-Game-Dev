@@ -334,9 +334,9 @@ describe('the late game', () => {
 
   it('your own fab makes masks and chips cheaper', () => {
     let s = withTech(fresh(33), 'ownfab', 'n800', 'n600', 'n350', 'n250', 'n180', 'n130');
-    s.cash = 1e9;
+    s.cash = 2e10;
     s = act(s, { type: 'buildFab' });
-    for (let i = 0; i < 9; i++) s = act(s, { type: 'tick', days: 30 });
+    for (let i = 0; i < 11; i++) s = act(s, { type: 'tick', days: 30 });
     expect(s.facilities.fab).toBe(1);
     expect(v2.maskCostMult(s)).toBeLessThan(1);
     expect(v2.unitCostMult(s)).toBeLessThan(1);
@@ -389,7 +389,7 @@ describe('company finance and the founder (Grounds Up ports)', () => {
 
   it('sales offices let more of the world buy', () => {
     let s = fresh(42);
-    s.cash = 1e6;
+    s.cash = 1e8;
     const before = v2.reach(s);
     s = act(s, { type: 'openOffice', region: 'europe' });
     expect(v2.reach(s)).toBeGreaterThan(before);
@@ -444,7 +444,7 @@ describe('company finance and the founder (Grounds Up ports)', () => {
     s.cash = 1e7;
     s = act(s, { type: 'hireExec', candidateId: s.execPool.find((x) => x.role === 'cfo')!.id });
     expect(v2.ipoCheck(s)).toMatch(/profitable quarters/);
-    profitable(s, 2_000_000);
+    profitable(s, 20_000_000);
     expect(v2.ipoCheck(s)).toBeNull();
     s = act(s, { type: 'ipo', percent: 0.25 });
     expect(s.ipo!.ownership).toBeCloseTo(0.75);
@@ -534,11 +534,11 @@ describe('design: choices that matter', () => {
   it('the R&D budget turns cash into research, with diminishing returns', () => {
     let s = fresh(46);
     s.cash = 5e6;
-    s = act(s, { type: 'setRdBudget', amount: 100_000 });
+    s = act(s, { type: 'setRdBudget', amount: 500_000 });
     const pts = s.research.points;
     s = act(s, { type: 'tick', days: 30 });
     expect(s.research.points - pts).toBeGreaterThan(30);
-    expect(s.cash).toBeLessThan(5e6 - 90_000);
+    expect(s.cash).toBeLessThan(5e6 - 450_000);
     expect(v2.rdPointsPerDay(1_000_000) / v2.rdPointsPerDay(100_000)).toBeLessThan(10);
   });
 

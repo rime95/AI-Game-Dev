@@ -12,11 +12,11 @@ import { log, money, newId } from './util';
 export const FAC = {
   dc: { cost: 40_000_000, days: 90, add: 1500, upkeep: 1_000_000 },
   fab: [
-    { level: 1, cost: 150_000_000, days: 240, unit: 0.7, mask: 0.7, upkeep: 2_000_000 },
-    { level: 2, cost: 600_000_000, days: 300, unit: 0.55, mask: 0.5, upkeep: 6_000_000 },
+    { level: 1, cost: 1_500_000_000, days: 300, unit: 0.7, mask: 0.7, upkeep: 20_000_000, chips: 400_000 },
+    { level: 2, cost: 6_000_000_000, days: 360, unit: 0.55, mask: 0.5, upkeep: 60_000_000, chips: 1_500_000 },
   ],
   /** The AGI run: a program cost, monthly upkeep, and the MW of campuses it needs before it can start. */
-  agi: { cost: 300_000_000, days: 360, mw: 200, upkeep: 10_000_000 },
+  agi: { cost: 3_000_000_000, days: 360, mw: 200, upkeep: 100_000_000 },
   leaderMarkets: 9,
   leaderDays: 1440,
 };
@@ -85,6 +85,8 @@ export function tickFacilities(s: GameV2): void {
   if (fb && s.day >= fb.doneDay) {
     s.facilities.fab = fb.level;
     s.facilities.fabBuild = null;
+    const fd = (s.foundry ??= { capacity: 400, demand: 0 });
+    fd.capacity += FAC.fab[fb.level - 1]!.chips - (fb.level > 1 ? FAC.fab[fb.level - 2]!.chips : 0);
     log(s, `Your level ${fb.level} fab is running: chips and masks cost less from now on.`, 'good');
   }
   const up = facilitiesUpkeep(s) / 30;

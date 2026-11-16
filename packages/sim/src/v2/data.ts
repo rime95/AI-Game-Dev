@@ -10,12 +10,14 @@ export const T = {
   startYear: 1991,
   daysPerMonth: 30,
   monthsPerYear: 12,
-  startCash: 80_000,
+  startCash: 150_000,
   founderSalary: 0,
   /** Brand (customer trust) at the start, 0–100. */
   startBrand: 20,
-  /** A product's pull doubles every this many review points. */
-  scorePerDoubling: 1.0,
+  /** A product's pull doubles every this many review points (the better chip wins clearly). */
+  scorePerDoubling: 0.7,
+  /** Market sizes in the table are per-mille of real volumes: this turns them into chips a day. */
+  marketScale: 40,
   /** Small no-name makers in every market (their total pull). */
   othersPull: 2.2,
   /** Products age: review points lost per year on the shelf, relative to the market bar. */
@@ -42,6 +44,10 @@ export const T = {
   cardGap: [28, 55] as [number, number],
   cardNoRepeatDays: 168,
   bankruptAfterDays: 90,
+  /** Sales, support, logistics and the rest of the company beyond your core team: a share of revenue. */
+  opsShare: 0.15,
+  /** Foundry wafer allotment: a newcomer's chips a day, how it grows while you use it fully, and the price of booking more. */
+  foundry: { start: 1_500, growth: 0.06, pricePerChip: 2_500 },
   /** Corporate tax on each month's profit (losses pay none). */
   taxRate: 0.25,
   /** Marketing push levels: cost as a share of the design spend, and hype gained. */
@@ -244,20 +250,20 @@ export interface NodeDef {
 }
 
 export const NODES: NodeDef[] = [
-  { id: 'n1000', name: '1 µm', heatPerCell: 0.85, speed: 1, maskCost: 18_000, unitCostPerCell: 1.6, fabDays: 45 },
-  { id: 'n800', name: '800 nm', heatPerCell: 0.95, speed: 1.25, maskCost: 30_000, unitCostPerCell: 1.5, fabDays: 45, tech: 'n800' },
-  { id: 'n600', name: '600 nm', heatPerCell: 1.05, speed: 1.55, maskCost: 55_000, unitCostPerCell: 1.45, fabDays: 50, tech: 'n600' },
-  { id: 'n350', name: '350 nm', heatPerCell: 1.2, speed: 2, maskCost: 120_000, unitCostPerCell: 1.4, fabDays: 55, tech: 'n350' },
-  { id: 'n250', name: '250 nm', heatPerCell: 1.35, speed: 2.6, maskCost: 260_000, unitCostPerCell: 1.35, fabDays: 55, tech: 'n250' },
-  { id: 'n180', name: '180 nm', heatPerCell: 1.5, speed: 3.4, maskCost: 600_000, unitCostPerCell: 1.3, fabDays: 60, tech: 'n180' },
-  { id: 'n130', name: '130 nm', heatPerCell: 1.65, speed: 4.4, maskCost: 1_400_000, unitCostPerCell: 1.3, fabDays: 60, tech: 'n130' },
-  { id: 'n90', name: '90 nm', heatPerCell: 1.8, speed: 5.7, maskCost: 3_000_000, unitCostPerCell: 1.3, fabDays: 65, tech: 'n90' },
-  { id: 'n65', name: '65 nm', heatPerCell: 1.95, speed: 7.4, maskCost: 6_000_000, unitCostPerCell: 1.3, fabDays: 70, tech: 'n65' },
-  { id: 'n45', name: '45 nm', heatPerCell: 2.1, speed: 9.6, maskCost: 10_000_000, unitCostPerCell: 1.35, fabDays: 70, tech: 'n45' },
-  { id: 'n28', name: '28 nm', heatPerCell: 2.25, speed: 12.5, maskCost: 18_000_000, unitCostPerCell: 1.4, fabDays: 75, tech: 'n28' },
-  { id: 'n16', name: '16 nm', heatPerCell: 2.4, speed: 16, maskCost: 30_000_000, unitCostPerCell: 1.5, fabDays: 80, tech: 'n16' },
-  { id: 'n7', name: '7 nm', heatPerCell: 2.6, speed: 21, maskCost: 55_000_000, unitCostPerCell: 1.6, fabDays: 85, tech: 'n7' },
-  { id: 'n5', name: '5 nm', heatPerCell: 2.8, speed: 27, maskCost: 90_000_000, unitCostPerCell: 1.75, fabDays: 90, tech: 'n5' },
+  { id: 'n1000', name: '1 µm', heatPerCell: 0.85, speed: 1, maskCost: 36_000, unitCostPerCell: 1.6, fabDays: 45 },
+  { id: 'n800', name: '800 nm', heatPerCell: 0.95, speed: 1.25, maskCost: 60_000, unitCostPerCell: 1.5, fabDays: 45, tech: 'n800' },
+  { id: 'n600', name: '600 nm', heatPerCell: 1.05, speed: 1.55, maskCost: 110_000, unitCostPerCell: 1.45, fabDays: 50, tech: 'n600' },
+  { id: 'n350', name: '350 nm', heatPerCell: 1.2, speed: 2, maskCost: 240_000, unitCostPerCell: 1.4, fabDays: 55, tech: 'n350' },
+  { id: 'n250', name: '250 nm', heatPerCell: 1.35, speed: 2.6, maskCost: 520_000, unitCostPerCell: 1.35, fabDays: 55, tech: 'n250' },
+  { id: 'n180', name: '180 nm', heatPerCell: 1.5, speed: 3.4, maskCost: 1_200_000, unitCostPerCell: 1.3, fabDays: 60, tech: 'n180' },
+  { id: 'n130', name: '130 nm', heatPerCell: 1.65, speed: 4.4, maskCost: 2_800_000, unitCostPerCell: 1.3, fabDays: 60, tech: 'n130' },
+  { id: 'n90', name: '90 nm', heatPerCell: 1.8, speed: 5.7, maskCost: 6_000_000, unitCostPerCell: 1.3, fabDays: 65, tech: 'n90' },
+  { id: 'n65', name: '65 nm', heatPerCell: 1.95, speed: 7.4, maskCost: 12_000_000, unitCostPerCell: 1.3, fabDays: 70, tech: 'n65' },
+  { id: 'n45', name: '45 nm', heatPerCell: 2.1, speed: 9.6, maskCost: 20_000_000, unitCostPerCell: 1.35, fabDays: 70, tech: 'n45' },
+  { id: 'n28', name: '28 nm', heatPerCell: 2.25, speed: 12.5, maskCost: 36_000_000, unitCostPerCell: 1.4, fabDays: 75, tech: 'n28' },
+  { id: 'n16', name: '16 nm', heatPerCell: 2.4, speed: 16, maskCost: 60_000_000, unitCostPerCell: 1.5, fabDays: 80, tech: 'n16' },
+  { id: 'n7', name: '7 nm', heatPerCell: 2.6, speed: 21, maskCost: 110_000_000, unitCostPerCell: 1.6, fabDays: 85, tech: 'n7' },
+  { id: 'n5', name: '5 nm', heatPerCell: 2.8, speed: 27, maskCost: 180_000_000, unitCostPerCell: 1.75, fabDays: 90, tech: 'n5' },
 ];
 export const node = (id: string) => NODES.find((n) => n.id === id)!;
 
@@ -356,7 +362,7 @@ export interface RivalDef {
 }
 
 export const RIVALS: RivalDef[] = [
-  { id: 'intel', name: 'Intel', ceo: 'Andrew Grove', style: 'giant', brand: 3.2, potential: 6.4, cash: 3e9, markets: ['business', 'homepc', 'workstation', 'servers'], cadence: [300, 420], quotes: ['Only the paranoid survive.', 'Every PC should have our chip inside.', 'We will out-build anyone.'] },
+  { id: 'intel', name: 'Intel', ceo: 'Andrew Grove', style: 'giant', brand: 2.4, potential: 6.4, cash: 3e9, markets: ['business', 'homepc', 'workstation', 'servers'], cadence: [300, 420], quotes: ['Only the paranoid survive.', 'Every PC should have our chip inside.', 'We will out-build anyone.'] },
   { id: 'amd', name: 'AMD', ceo: 'Jerry Sanders', style: 'priceCutter', brand: 1.6, potential: 6.1, cash: 6e8, markets: ['homepc', 'budget', 'business'], cadence: [220, 330], quotes: ['Real men have fabs.', 'Same speed, better price. Every time.', 'We are not done fighting.'] },
   { id: 'cyrix', name: 'Cyrix', ceo: 'Jerry Rogers', style: 'copycat', brand: 0.9, potential: 5.8, cash: 9e7, markets: ['budget', 'homepc'], cadence: [200, 300], quotes: ['Compatible, cheaper, quicker.', 'We read every spec sheet twice.'] },
   { id: 's3', name: 'S3', ceo: 'Terry Holdt', style: 'priceCutter', brand: 1.5, potential: 5.9, cash: 2e8, markets: ['office2d', 'gamers'], cadence: [180, 280], quotes: ['A graphics chip in every box.', 'Volume is a strategy.'] },

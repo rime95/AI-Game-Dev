@@ -16,7 +16,7 @@ export function isMarketOpen(s: GameV2, m: MarketDef): boolean {
 export function openMarkets(s: GameV2): void {
   for (const m of MARKETS) {
     if (!isMarketOpen(s, m) || s.markets.some((x) => x.id === m.id)) continue;
-    s.markets.push({ id: m.id, size: m.startSize, openedDay: s.day, basePrice: m.basePrice, shares: {} });
+    s.markets.push({ id: m.id, size: m.startSize * T.marketScale * WORLD_WEIGHT, openedDay: s.day, basePrice: m.basePrice, shares: {} });
     if (s.day > 0) log(s, `A new market opened: ${m.name}.`, 'good');
   }
 }
@@ -26,7 +26,7 @@ export function marketSize(s: GameV2, id: string, day = s.day): number {
   if (!ms) return 0;
   const m = market(id);
   // The whole world's buyers; you reach only the regions where you have offices.
-  return m.startSize * WORLD_WEIGHT * Math.pow(1 + m.growth, (day - ms.openedDay) / 360);
+  return m.startSize * T.marketScale * WORLD_WEIGHT * Math.pow(1 + m.growth, (day - ms.openedDay) / 360);
 }
 
 /** Price buyers think is fair for a product of this score. */
@@ -64,11 +64,19 @@ export function rivalScore(s: GameV2, rp: RivalProduct, day = s.day): number {
 const pull = (score: number, price: number, fair: number, sens: number, brand: number, hype: number) =>
   brand * Math.pow(2, (score - 5) / T.scorePerDoubling) * Math.pow(fair / Math.max(1, price), sens) * (1 + hype);
 
-export const ourBrandFactor = (s: GameV2) => (0.2 + s.brand / 40) * reach(s);
+/** How strongly buyers are drawn to our name (0.5 unknown … 3 at brand 100). Rival brands use the same scale. */
+export const ourBrandFactor = (s: GameV2) => 0.5 + s.brand / 40;
 
 export function hypeNow(p: Product, day: number): number {
   return p.hype * Math.exp(-(day - p.launchDay) / 40);
 }
+
+/** The foundry allotment (created on first use). Your own fab adds a lot of capacity. */
+export function foundryOf(s: GameV2): NonNullable<GameV2['foundry']> {
+  return (s.foundry ??= { capacity: T.foundry.start, demand: 0 });
+}
+/** Chips a day you can make: the foundry allotment plus your own fab. */
+export const chipCapacity = (s: GameV2) => foundryOf(s).capacity;
 
 /** Daily sales in every open market. Returns revenue and cost of goods. */
 export function tickSales(s: GameV2): { revenue: number; cogs: number } {
@@ -79,6 +87,7 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
   const drivers = s.research.done.includes('drivers');
   // AI-model customers can only be served up to data center capacity: settle those after the loop.
   const models: { p: Product; units: number }[] = [];
+  const chips: { p: Product; units: number; ms: GameV2['markets'][number] }[] = [];
   for (const ms of s.markets) {
     const m = market(ms.id);
     ms.size = marketSize(s, ms.id);
@@ -95,10 +104,14 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
       entries.push({ owner: r.id, pull: pull(sc, rp.price, fairPrice(ms.id, sc), m.priceSensitivity, r.brand, 0) });
     }
     entries.push({ owner: 'others', pull: T.othersPull });
+    // Where we have no sales office, buyers can't get our chips: the rivals and small makers split
+    // that part. Where we sell, everyone competes. Shares are of the whole world market.
+    const r = reach(s);
     const total = entries.reduce((n, e) => n + e.pull, 0);
+    const totalAway = total - entries.filter((e) => e.owner === 'you').reduce((n, e) => n + e.pull, 0);
     const shares: Record<string, number> = {};
     for (const e of entries) {
-      const share = e.pull / total;
+      const share = e.owner === 'you' ? (r * e.pull) / total : (r * e.pull) / total + (totalAway > 0 ? ((1 - r) * e.pull) / totalAway : 0);
       shares[e.owner] = (shares[e.owner] ?? 0) + share;
       if (!e.product) continue;
       const units = ms.size * share;
@@ -106,16 +119,29 @@ export function tickSales(s: GameV2): { revenue: number; cogs: number } {
         models.push({ p: e.product, units });
         continue;
       }
-      const rev = units * e.product.price;
-      const cost = units * e.product.unitCost;
-      e.product.units += units;
-      e.product.revenue += rev;
-      e.product.profit += rev - cost;
-      e.product.rate = units;
-      revenue += rev;
-      cogs += cost;
+      chips.push({ p: e.product, units, ms });
     }
     ms.shares = shares;
+  }
+  // Chips: the foundry makes only so many a day. Buyers we can't supply go elsewhere.
+  const fd = foundryOf(s);
+  fd.demand = chips.reduce((n, x) => n + x.units, 0);
+  const made = fd.demand > fd.capacity ? fd.capacity / fd.demand : 1;
+  for (const { p, units: want, ms } of chips) {
+    const units = want * made;
+    const rev = units * p.price;
+    const cost = units * p.unitCost;
+    p.units += units;
+    p.revenue += rev;
+    p.profit += rev - cost;
+    p.rate = units;
+    revenue += rev;
+    cogs += cost;
+    if (made < 1 && ms.size > 0) {
+      const lost = (want - units) / ms.size;
+      ms.shares.you = (ms.shares.you ?? 0) - lost;
+      ms.shares.others = (ms.shares.others ?? 0) + lost;
+    }
   }
   const ratio = servingRatio(s, models.reduce((n, x) => n + x.units, 0));
   for (const { p, units: want } of models) {
@@ -276,7 +302,7 @@ export function monthlyRivals(s: GameV2): void {
     // Rivals feel our success: out-selling them wears their brand down (and the reverse, slowly).
     // ...and each rival's name slowly recovers toward what it was, so beaten rivals can come back.
     const def = RIVALS.find((d) => d.id === r.id)!;
-    r.brand = clamp(r.brand * (1 + (0.15 * (theirs - ours)) / n) + (def.brand - r.brand) * 0.06, 0.4, 5);
+    r.brand = clamp(r.brand * (1 + (0.15 * (theirs - ours)) / n) + (def.brand - r.brand) * 0.06, 0.4, 3);
     r.mood = moodFor(r.mood, r.strength);
     const truce = r.truceUntil > s.day;
     // A desperate rival starts a price war across every market it shares with us.
@@ -344,6 +370,8 @@ export function rivalRevenue(s: GameV2, r: Rival): number {
 
 /** What it costs to buy a rival outright: a multiple of its sales, cheaper the more it is struggling. */
 export function takeoverPrice(s: GameV2, r: Rival): number {
-  const base = Math.max(2_000_000, rivalRevenue(s, r) * 2.5 + r.brand * 400_000);
+  // Never less than what the company is worth on its own (its cash and plants), more when it sells a lot.
+  const def = RIVALS.find((d) => d.id === r.id);
+  const base = Math.max(def?.cash ?? 2_000_000, rivalRevenue(s, r) * 2.5 + r.brand * 40_000_000);
   return Math.round((base * RIVALRY.priceMult[r.mood]) / 10_000) * 10_000;
 }
